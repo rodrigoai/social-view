@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model MainAccount {
+  id        String   @id @default(cuid())
+  name      String   @default("My Business")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  googleAdsConfig       GoogleAdsConfig?
+  googleAnalyticsConfig GoogleAnalyticsConfig?
+}
+
+model GoogleAdsConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String   @unique
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  refreshToken  String?
+  accessToken   String?
+  expiresAt     Float?
+  customerId    String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model GoogleAnalyticsConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String   @unique
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  propertyId    String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

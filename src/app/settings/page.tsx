@@ -1,0 +1,195 @@
+"use client";
+
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/Card';
+import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+
+import { useAccount } from '@/context/AccountContext';
+
+export default function Settings() {
+  const { accounts, refreshAccounts } = useAccount();
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  
+  const searchParams = useSearchParams();
+  const success = searchParams.get('success');
+  const error = searchParams.get('error');
+
+  const createAccount = async () => {
+    const name = window.prompt('Enter account name:', 'My Business Account');
+    if (!name) return;
+
+    const res = await fetch('/api/accounts', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
+    if (res.ok) {
+      await refreshAccounts();
+    }
+  };
+
+  const deleteAccount = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this account? All linked integrations will be removed.')) return;
+
+    const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      await refreshAccounts();
+    }
+  };
+
+  const unbindGoogleAds = async (id: string) => {
+    if (!window.confirm('Disconnect Google Ads from this account?')) return;
+
+    const res = await fetch(`/api/accounts/${id}/google-ads`, { method: 'DELETE' });
+    if (res.ok) {
+      await refreshAccounts();
+    }
+  };
+
+  const startEditing = (id: string, name: string) => {
+    setEditingId(id);
+    setEditName(name);
+  };
+
+  const saveName = async (id: string) => {
+    if (!editName.trim()) return;
+
+    const res = await fetch(`/api/accounts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: editName })
+    });
+    
+    if (res.ok) {
+      await refreshAccounts();
+      setEditingId(null);
+    }
+  };
+
+  const linkGoogleAds = (mainAccountId: string) => {
+    window.location.href = `/api/auth/google?mainAccountId=${mainAccountId}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
+        <p className="text-muted mt-1">Manage your accounts and integrations.</p>
+      </div>
+
+      {success === 'google_linked' && (
+        <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5" />
+          <p className="font-medium">Google Ads account successfully linked!</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl">
+          <p className="font-medium">Integration failed. Please try again.</p>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-foreground">Main Accounts</h2>
+        <button 
+          onClick={createAccount}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+        >
+          <Plus className="w-4 h-4" /> Add Account
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {accounts.map(acc => (
+          <Card key={acc.id} className="hover:border-blue-200 dark:hover:border-blue-800 group">
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
+              <div className="flex-1">
+                {editingId === acc.id ? (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="text-lg font-bold text-foreground border-b-2 border-blue-600 outline-none bg-transparent py-1 px-0"
+                      autoFocus
+                      onKeyDown={(e) => e.key === 'Enter' && saveName(acc.id)}
+                    />
+                    <button onClick={() => saveName(acc.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                      <Check className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-foreground">{acc.name}</h3>
+                    <button 
+                      onClick={() => startEditing(acc.id, acc.name)}
+                      className="p-1 text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <p className="text-sm text-muted font-mono mt-1">ID: {acc.id}</p>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-3">
+                {acc.googleAdsConfig ? (
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 pl-4 pr-2 py-1.5 rounded-lg text-sm font-medium border border-emerald-200 dark:border-emerald-800">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Google Ads
+                    <button 
+                      onClick={() => unbindGoogleAds(acc.id)}
+                      className="ml-2 p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded text-emerald-600"
+                      title="Disconnect Google Ads"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => linkGoogleAds(acc.id)}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-card border border-border-custom hover:bg-accent-custom hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-800 text-foreground rounded-lg text-sm font-medium transition-all shadow-sm"
+                  >
+                    <LinkIcon className="w-4 h-4" /> Link Google Ads
+                  </button>
+                )}
+                
+                <button 
+                  onClick={() => deleteAccount(acc.id)}
+                  className="p-2 text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors ml-2"
+                  title="Delete Account"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </Card>
+        ))}
+        {accounts.length === 0 && (
+          <div className="text-center p-12 border-2 border-dashed border-border-custom rounded-2xl bg-card">
+            <p className="text-muted mb-4">No accounts created yet.</p>
+            <button 
+              onClick={createAccount}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Create First Account
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

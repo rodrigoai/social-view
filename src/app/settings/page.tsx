@@ -145,31 +145,53 @@ export default function Settings() {
                 <p className="text-sm text-muted font-mono mt-1">ID: {acc.id}</p>
               </div>
               
-              <div className="flex flex-wrap items-center gap-3">
-                {acc.googleAdsConfig ? (
-                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 pl-4 pr-2 py-1.5 rounded-lg text-sm font-medium border border-emerald-200 dark:border-emerald-800">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Google Ads
-                    <button 
-                      onClick={() => unbindGoogleAds(acc.id)}
-                      className="ml-2 p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded text-emerald-600"
-                      title="Disconnect Google Ads"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+              <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+                {acc.googleCredential ? (
+                  <div className="flex flex-col gap-2 w-full">
+                    {/* Google Ads Section */}
+                    <div className="flex items-center justify-between md:justify-end gap-3 bg-card border border-border-custom p-3 rounded-xl w-full">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium">Ads: {acc.googleAdsConfigs?.length > 0 ? `${acc.googleAdsConfigs.length} connected` : 'Not configured'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => window.location.href = `/settings/google-ads/select?mainAccountId=${acc.id}`}
+                          className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg transition-colors"
+                        >
+                          Configure
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Google Analytics Section */}
+                    <div className="flex items-center justify-between md:justify-end gap-3 bg-card border border-border-custom p-3 rounded-xl w-full">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium">Analytics: {acc.googleAnalyticsConfigs?.length > 0 ? `${acc.googleAnalyticsConfigs.length} connected` : 'Not configured'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => window.location.href = `/settings/google-analytics/select?mainAccountId=${acc.id}`}
+                          className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg transition-colors"
+                        >
+                          Configure
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <button 
                     onClick={() => linkGoogleAds(acc.id)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-card border border-border-custom hover:bg-accent-custom hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-800 text-foreground rounded-lg text-sm font-medium transition-all shadow-sm"
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-card border border-border-custom hover:bg-accent-custom hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-800 text-foreground rounded-lg text-sm font-medium transition-all shadow-sm w-full md:w-auto"
                   >
-                    <LinkIcon className="w-4 h-4" /> Link Google Ads
+                    <LinkIcon className="w-4 h-4" /> Link Google Account
                   </button>
                 )}
                 
                 <button 
                   onClick={() => deleteAccount(acc.id)}
-                  className="p-2 text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors ml-2"
+                  className="p-2 text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors md:self-end mt-2"
                   title="Delete Account"
                 >
                   <Trash2 className="w-5 h-5" />

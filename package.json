@@ -10,6 +10,8 @@
     "test": "jest"
   },
   "dependencies": {
+    "@google-analytics/admin": "^9.0.1",
+    "@google-analytics/data": "^5.2.1",
     "google-ads-api": "^23.0.0",
     "google-auth-library": "^10.6.2",
     "lucide-react": "^1.8.0",

@@ -16,11 +16,12 @@ model MainAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  googleAdsConfig       GoogleAdsConfig?
-  googleAnalyticsConfig GoogleAnalyticsConfig?
+  googleCredential      GoogleCredential?
+  googleAdsConfigs      GoogleAdsConfig[]
+  googleAnalyticsConfigs GoogleAnalyticsConfig[]
 }
 
-model GoogleAdsConfig {
+model GoogleCredential {
   id            String   @id @default(cuid())
   mainAccountId String   @unique
   mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
@@ -28,19 +29,35 @@ model GoogleAdsConfig {
   refreshToken  String?
   accessToken   String?
   expiresAt     Float?
-  customerId    String?
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
-model GoogleAnalyticsConfig {
+model GoogleAdsConfig {
   id            String   @id @default(cuid())
-  mainAccountId String   @unique
+  mainAccountId String
   mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
   
-  propertyId    String?
+  customerId    String
+  customerName  String?
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@unique([mainAccountId, customerId])
+}
+
+model GoogleAnalyticsConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  propertyId    String
+  propertyName  String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([mainAccountId, propertyId])
 }

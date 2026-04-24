@@ -15,13 +15,18 @@ export async function GET(request: Request) {
     const client = getGoogleOAuthClient();
     const { tokens } = await client.getToken(code);
     
-    await prisma.googleAdsConfig.upsert({
+    const updateData: any = {
+      accessToken: tokens.access_token,
+      expiresAt: tokens.expiry_date,
+    };
+    
+    if (tokens.refresh_token) {
+      updateData.refreshToken = tokens.refresh_token;
+    }
+    
+    await prisma.googleCredential.upsert({
       where: { mainAccountId },
-      update: {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt: tokens.expiry_date,
-      },
+      update: updateData,
       create: {
         mainAccountId,
         accessToken: tokens.access_token,
@@ -30,7 +35,8 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.redirect(new URL(`/settings/google-ads/select?mainAccountId=${mainAccountId}`, request.url));
+
+    return NextResponse.redirect(new URL(`/settings?success=google_linked`, request.url));
   } catch (error) {
     console.error('Error in Google OAuth callback', error);
     return NextResponse.redirect(new URL('/settings?error=google_link_failed', request.url));

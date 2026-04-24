@@ -3,15 +3,18 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
 import { FilterPanel } from '@/components/FilterPanel';
-import { DollarSign, MousePointerClick, TrendingUp, AlertCircle } from 'lucide-react';
+import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount } from '@/context/AccountContext';
 
 export default function Dashboard() {
   const { selectedAccountId, isLoading: accountsLoading } = useAccount();
   const [data, setData] = useState<any>(null);
+  const [gaData, setGaData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [gaError, setGaError] = useState<any>(null);
+
 
   const [filters, setFilters] = useState({ 
     period: '7d', 
@@ -26,11 +29,13 @@ export default function Dashboard() {
       if (!selectedAccountId) {
         setLoading(false);
         setData(null);
+        setGaData(null);
         return;
       }
 
       setLoading(true);
       setError(null);
+      setGaError(null);
       
       try {
         const queryParams: any = {
@@ -46,7 +51,11 @@ export default function Dashboard() {
         
         const query = new URLSearchParams(queryParams);
         
-        const adsRes = await fetch(`/api/ads/campaigns?${query.toString()}`);
+        const [adsRes, gaRes] = await Promise.all([
+          fetch(`/api/ads/campaigns?${query.toString()}`),
+          fetch(`/api/analytics/dashboard?${query.toString()}`)
+        ]);
+
         if (!adsRes.ok) {
           const errorText = await adsRes.text();
           console.error('Ads API Error:', errorText);
@@ -55,6 +64,19 @@ export default function Dashboard() {
 
         const adsData = await adsRes.json();
         setData(adsData);
+
+        if (gaRes.ok) {
+          const gaDataJson = await gaRes.json();
+          setGaData(gaDataJson);
+          setGaError(null);
+        } else {
+          const errorJson = await gaRes.json().catch(() => ({}));
+          console.error('Analytics API Error:', errorJson);
+          setGaError(errorJson);
+          setGaData(null);
+        }
+
+
       } catch (err: any) {
         console.error('Dashboard Load Error:', err);
         setError(err.message);
@@ -99,6 +121,17 @@ export default function Dashboard() {
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(value);
+  };
+
+  const formatDuration = (seconds: number) => {
+    if (!seconds) return '0s';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  };
+
+  const formatPercent = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 }).format(value);
   };
 
   const cpa = data?.summary?.totalConversions > 0 
@@ -152,13 +185,50 @@ export default function Dashboard() {
         currentEndDate={filters.endDate}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card title="Total Cost" value={formatCurrency(data?.summary?.totalCost || 0)} icon={<DollarSign className="w-6 h-6" />} />
-        <Card title="Total Conversions" value={formatNumber(data?.summary?.totalConversions || 0)} icon={<MousePointerClick className="w-6 h-6" />} />
-        <Card title="Cost Per Conversion" value={formatCurrency(cpa)} icon={<TrendingUp className="w-6 h-6" />} />
-      </div>
+      {gaError && gaError.code === 'AUTH_REQUIRED' && (
+        <div className="mb-10 p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <AlertCircle className="w-8 h-8 text-amber-500" />
+            <div>
+              <h3 className="text-lg font-bold text-amber-900">Analytics Session Expired</h3>
+              <p className="text-amber-700">Please reconnect your Google account to see your analytics data.</p>
+            </div>
+          </div>
+          <Link 
+            href={`/api/auth/google?mainAccountId=${selectedAccountId}`} 
+            className="px-6 py-2.5 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-all shadow-sm"
+          >
+            Reconnect Account
+          </Link>
+        </div>
+      )}
 
-      <h2 className="text-xl font-bold text-foreground mb-4">Active Campaigns</h2>
+      {gaData && gaData.properties && gaData.properties.length > 0 && (
+
+        <div className="mb-10 space-y-10">
+          {gaData.properties.map((prop: any) => (
+            <div key={prop.propertyId}>
+              <h2 className="text-xl font-bold text-foreground mb-4">Analytics: {prop.propertyName}</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card title="Active Users" value={formatNumber(prop.stats.activeUsers)} icon={<Users className="w-6 h-6" />} />
+                <Card title="Sessions" value={formatNumber(prop.stats.sessions)} icon={<Activity className="w-6 h-6" />} />
+                <Card title="Bounce Rate" value={formatPercent(prop.stats.bounceRate)} icon={<MousePointer2 className="w-6 h-6" />} />
+                <Card title="Avg. Session Duration" value={formatDuration(prop.stats.averageSessionDuration)} icon={<Timer className="w-6 h-6" />} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-10">
+        <h2 className="text-xl font-bold text-foreground mb-4">Google Ads</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card title="Total Cost" value={formatCurrency(data?.summary?.totalCost || 0)} icon={<DollarSign className="w-6 h-6" />} />
+          <Card title="Total Conversions" value={formatNumber(data?.summary?.totalConversions || 0)} icon={<MousePointerClick className="w-6 h-6" />} />
+          <Card title="Cost Per Conversion" value={formatCurrency(cpa)} icon={<TrendingUp className="w-6 h-6" />} />
+        </div>
+
+        <h3 className="text-lg font-bold text-foreground mb-4">Active Campaigns</h3>
       <div className="grid grid-cols-1 gap-4">
         {data?.campaigns?.map((campaign: any) => (
           <Card key={campaign.id} className="hover:scale-[1.01] transition-transform">
@@ -180,6 +250,7 @@ export default function Dashboard() {
         {data?.campaigns?.length === 0 && (
           <p className="text-muted">No campaigns found for the selected period.</p>
         )}
+      </div>
       </div>
     </div>
   );

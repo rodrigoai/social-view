@@ -7,8 +7,11 @@ import { getCustomer } from '@/lib/googleAds';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: {
-    googleAdsConfig: {
+    googleCredential: {
       findUnique: jest.fn(),
+    },
+    googleAdsConfig: {
+      findMany: jest.fn(),
     }
   }
 }));
@@ -16,6 +19,12 @@ jest.mock('@/lib/prisma', () => ({
 jest.mock('@/lib/googleAds', () => ({
   getCustomer: jest.fn()
 }));
+
+jest.mock('@/lib/googleAuth', () => ({
+  getAuthorizedClient: jest.fn(),
+  getGoogleOAuthClient: jest.fn()
+}));
+
 
 describe('Campaign Filters API', () => {
   const mockReport = jest.fn();
@@ -28,11 +37,16 @@ describe('Campaign Filters API', () => {
   });
 
   const setupMockConfig = () => {
-    (prisma.googleAdsConfig.findUnique as jest.Mock).mockResolvedValue({
-      accessToken: 'valid_token',
-      customerId: '123-456-7890'
+    const { getAuthorizedClient } = require('@/lib/googleAuth');
+    (getAuthorizedClient as jest.Mock).mockResolvedValue({
+      getAccessToken: jest.fn().mockResolvedValue({ token: 'valid_token' }),
+      credentials: { refresh_token: 'refresh' }
     });
+    (prisma.googleAdsConfig.findMany as jest.Mock).mockResolvedValue([{
+      customerId: '123-456-7890'
+    }]);
   };
+
 
   it('handles custom date range correctly', async () => {
     setupMockConfig();

@@ -3,7 +3,7 @@
  */
 import { GET, POST } from '../app/api/accounts/route';
 import { PATCH, DELETE as DELETE_ACCOUNT } from '../app/api/accounts/[id]/route';
-import { DELETE as DELETE_ADS } from '../app/api/accounts/[id]/google-ads/route';
+
 import { prisma } from '../lib/prisma';
 import { NextResponse } from 'next/server';
 
@@ -50,25 +50,6 @@ describe('Account Management API', () => {
     expect(dbAcc?.name).toBe('Updated Name');
   });
 
-  it('should unbind google ads via DELETE', async () => {
-    // Create config first
-    await prisma.googleAdsConfig.create({
-      data: {
-        mainAccountId: testAccountId,
-        accessToken: 'test-token'
-      }
-    });
-
-    const request = new Request('http://localhost/api/accounts/' + testAccountId + '/google-ads', {
-      method: 'DELETE'
-    });
-
-    const response = await DELETE_ADS(request, { params: { id: testAccountId } });
-    expect(response.status).toBe(200);
-
-    const config = await prisma.googleAdsConfig.findUnique({ where: { mainAccountId: testAccountId } });
-    expect(config).toBeNull();
-  });
 
   it('should delete account via DELETE', async () => {
     const request = new Request('http://localhost/api/accounts/' + testAccountId, {

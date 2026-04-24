@@ -16,14 +16,23 @@ jest.mock('@/lib/googleAds', () => ({
   }))
 }));
 
+jest.mock('@/lib/googleAuth', () => ({
+  getAuthorizedClient: jest.fn(),
+  getGoogleOAuthClient: jest.fn()
+}));
+
+
 jest.mock('@/lib/prisma', () => ({
   prisma: {
     mainAccount: {
       findMany: jest.fn(),
       create: jest.fn(),
     },
-    googleAdsConfig: {
+    googleCredential: {
       findUnique: jest.fn(),
+    },
+    googleAdsConfig: {
+      findMany: jest.fn(),
     }
   }
 }));
@@ -73,21 +82,28 @@ describe('API Routes', () => {
     });
 
     it('GET /api/ads/campaigns returns 401 if unauthenticated', async () => {
-      (prisma.googleAdsConfig.findUnique as jest.Mock).mockResolvedValue(null);
+      const { getAuthorizedClient } = require('@/lib/googleAuth');
+      (getAuthorizedClient as jest.Mock).mockRejectedValue(new Error('NOT_CONFIGURED'));
       
       const req = new Request('http://localhost/api/ads/campaigns?mainAccountId=123');
       const response = await getCampaigns(req);
       const json = await response.json();
       
       expect(response.status).toBe(401);
-      expect(json.error).toBe('Google Ads not configured or authenticated');
+      expect(json.error).toBe('Google Ads authentication failed');
     });
 
+
     it('GET /api/ads/campaigns returns mock campaigns on success', async () => {
-      (prisma.googleAdsConfig.findUnique as jest.Mock).mockResolvedValue({ 
-        accessToken: 'valid_token',
-        customerId: '123-456-7890'
+      const { getAuthorizedClient } = require('@/lib/googleAuth');
+      (getAuthorizedClient as jest.Mock).mockResolvedValue({
+        getAccessToken: jest.fn().mockResolvedValue({ token: 'valid_token' }),
+        credentials: { refresh_token: 'refresh' }
       });
+      (prisma.googleAdsConfig.findMany as jest.Mock).mockResolvedValue([{ 
+        customerId: '123-456-7890'
+      }]);
+
       
       const req = new Request('http://localhost/api/ads/campaigns?mainAccountId=123');
       const response = await getCampaigns(req);

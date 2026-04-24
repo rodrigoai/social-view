@@ -9,9 +9,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing mainAccountId or customerId' }, { status: 400 });
     }
 
-    await prisma.googleAdsConfig.update({
-      where: { mainAccountId },
-      data: { customerId }
+    await prisma.googleAdsConfig.upsert({
+      where: { 
+        mainAccountId_customerId: {
+          mainAccountId,
+          customerId
+        }
+      },
+      update: {},
+      create: {
+        mainAccountId,
+        customerId
+      }
     });
 
     return NextResponse.json({ success: true });

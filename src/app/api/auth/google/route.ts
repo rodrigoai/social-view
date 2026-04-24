@@ -12,7 +12,10 @@ export async function GET(request: Request) {
   const client = getGoogleOAuthClient();
   const authUrl = client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/adwords'],
+    scope: [
+      'https://www.googleapis.com/auth/adwords',
+      'https://www.googleapis.com/auth/analytics.readonly'
+    ],
     state: mainAccountId,
     prompt: 'consent',
   });

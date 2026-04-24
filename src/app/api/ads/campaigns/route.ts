@@ -21,19 +21,34 @@ export async function GET(request: Request) {
   };
 
   try {
-    const config = await prisma.googleAdsConfig.findUnique({
+    const { getAuthorizedClient } = await import('@/lib/googleAuth');
+    let oauth2Client;
+    
+    try {
+      oauth2Client = await getAuthorizedClient(mainAccountId);
+    } catch (authError: any) {
+      if (['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'].includes(authError.message)) {
+        return NextResponse.json({ 
+          error: 'Google Ads authentication failed', 
+          code: 'AUTH_REQUIRED',
+          details: authError.message 
+        }, { status: 401 });
+      }
+      throw authError;
+    }
+
+    const adsConfigs = await prisma.googleAdsConfig.findMany({
       where: { mainAccountId }
     });
 
-    if (!config || !config.accessToken) {
-      return NextResponse.json({ error: 'Google Ads not configured or authenticated' }, { status: 401 });
-    }
-
-    if (!config.customerId) {
+    if (adsConfigs.length === 0 || !adsConfigs[0].customerId) {
       return NextResponse.json({ error: 'No Google Ads Customer ID selected' }, { status: 400 });
     }
 
-    const customer = getCustomer(config.accessToken!, config.customerId, config.refreshToken || undefined);
+    const tokens = await oauth2Client.getAccessToken();
+    const customerId = adsConfigs[0].customerId;
+    const customer = getCustomer(tokens.token!, customerId, oauth2Client.credentials.refresh_token || undefined);
+
     
     const constraints: any = {};
     if (campaignFilter && campaignFilter !== 'all') {

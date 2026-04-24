@@ -6,8 +6,9 @@ export async function GET() {
   try {
     const accounts = await prisma.mainAccount.findMany({
       include: {
-        googleAdsConfig: true,
-        googleAnalyticsConfig: true,
+        googleCredential: true,
+        googleAdsConfigs: true,
+        googleAnalyticsConfigs: true,
       }
     });
     return NextResponse.json({ accounts });

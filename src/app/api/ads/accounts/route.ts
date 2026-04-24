@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const config = await prisma.googleAdsConfig.findUnique({
+    const config = await prisma.googleCredential.findUnique({
       where: { mainAccountId }
     });
 
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
           const newAccessToken = credentials.access_token!;
           
           // Update database with new token
-          await prisma.googleAdsConfig.update({
+          await prisma.googleCredential.update({
             where: { mainAccountId },
             data: { 
               accessToken: newAccessToken,

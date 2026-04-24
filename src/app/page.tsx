@@ -204,21 +204,61 @@ export default function Dashboard() {
       )}
 
       {gaData && gaData.properties && gaData.properties.length > 0 && (
-
-        <div className="mb-10 space-y-10">
+        <div className="mb-10 space-y-6">
+          <h2 className="text-xl font-bold text-foreground mb-4">Google Analytics</h2>
           {gaData.properties.map((prop: any) => (
-            <div key={prop.propertyId}>
-              <h2 className="text-xl font-bold text-foreground mb-4">Analytics: {prop.propertyName}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card title="Active Users" value={formatNumber(prop.stats.activeUsers)} icon={<Users className="w-6 h-6" />} />
-                <Card title="Sessions" value={formatNumber(prop.stats.sessions)} icon={<Activity className="w-6 h-6" />} />
-                <Card title="Bounce Rate" value={formatPercent(prop.stats.bounceRate)} icon={<MousePointer2 className="w-6 h-6" />} />
-                <Card title="Avg. Session Duration" value={formatDuration(prop.stats.averageSessionDuration)} icon={<Timer className="w-6 h-6" />} />
+            <Card key={prop.propertyId} className="hover:scale-[1.005] transition-transform">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">{prop.propertyName}</h3>
+                  <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {prop.propertyId.replace('properties/', '')}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-muted flex items-center gap-1.5 mb-1 uppercase tracking-wider opacity-60">
+                      <Users className="w-3.5 h-3.5" /> Active Users
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.activeUsers)}</span>
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-muted flex items-center gap-1.5 mb-1 uppercase tracking-wider opacity-60">
+                      <Activity className="w-3.5 h-3.5" /> Sessions
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.sessions)}</span>
+                  </div>
+
+                  {prop.stats.trackedEventName && (
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                        <TrendingUp className="w-3.5 h-3.5" /> {prop.stats.trackedEventName}
+                      </span>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.trackedEventCount)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-muted flex items-center gap-1.5 mb-1 uppercase tracking-wider opacity-60">
+                      <MousePointer2 className="w-3.5 h-3.5" /> Bounce Rate
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{formatPercent(prop.stats.bounceRate)}</span>
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-muted flex items-center gap-1.5 mb-1 uppercase tracking-wider opacity-60">
+                      <Timer className="w-3.5 h-3.5" /> Avg. Session
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{formatDuration(prop.stats.averageSessionDuration)}</span>
+                  </div>
+                </div>
+
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
+
 
       <div className="mb-10">
         <h2 className="text-xl font-bold text-foreground mb-4">Google Ads</h2>

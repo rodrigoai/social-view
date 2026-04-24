@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/Card';
-import { CheckCircle2, AlertCircle, ArrowRight, Activity, ShieldCheck, CheckSquare, Square } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ArrowRight, Activity, ShieldCheck, CheckSquare, Square, TrendingUp } from 'lucide-react';
+
 
 export default function GoogleAnalyticsSelect() {
   const router = useRouter();
@@ -44,8 +45,14 @@ export default function GoogleAnalyticsSelect() {
     if (selectedProperties.find(p => p.id === property.id)) {
       setSelectedProperties(selectedProperties.filter(p => p.id !== property.id));
     } else {
-      setSelectedProperties([...selectedProperties, property]);
+      setSelectedProperties([...selectedProperties, { ...property, trackedEventName: '' }]);
     }
+  };
+
+  const updateTrackedEvent = (id: string, eventName: string) => {
+    setSelectedProperties(selectedProperties.map(p => 
+      p.id === id ? { ...p, trackedEventName: eventName } : p
+    ));
   };
 
   const saveSelection = async () => {
@@ -54,7 +61,14 @@ export default function GoogleAnalyticsSelect() {
       const res = await fetch('/api/analytics/properties/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mainAccountId, properties: selectedProperties })
+        body: JSON.stringify({ 
+          mainAccountId, 
+          properties: selectedProperties.map(p => ({
+            id: p.id,
+            name: p.name,
+            trackedEventName: p.trackedEventName
+          })) 
+        })
       });
       
       if (res.ok) {
@@ -108,40 +122,71 @@ export default function GoogleAnalyticsSelect() {
           <Activity className="w-8 h-8" />
         </div>
         <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Select Google Analytics Properties</h1>
-        <p className="text-gray-500 mt-2 text-lg">Select the properties you want to track for this account.</p>
+        <p className="text-gray-500 mt-2 text-lg">Select the properties and optionally a specific event to track.</p>
       </div>
 
-      <div className="grid gap-4 mb-8">
+      <div className="grid gap-6 mb-8">
         {properties.map((property) => {
-          const isSelected = !!selectedProperties.find(p => p.id === property.id);
+          const selectedProp = selectedProperties.find(p => p.id === property.id);
+          const isSelected = !!selectedProp;
+          
           return (
-            <button
-              key={property.id}
-              onClick={() => toggleProperty(property)}
-              disabled={saving}
-              className={`group relative text-left p-6 bg-card border-2 rounded-2xl transition-all duration-200 hover:shadow-md ${
-                isSelected 
-                  ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/10' 
-                  : 'border-border-custom hover:border-emerald-200 dark:hover:border-emerald-800'
-              }`}
+            <div 
+              key={property.id} 
+              className={`p-1 rounded-3xl transition-all ${isSelected ? 'bg-emerald-600/5' : ''}`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-300' : 'bg-accent-custom text-muted group-hover:bg-emerald-100 group-hover:text-emerald-600'}`}>
-                    <Activity className="w-6 h-6" />
+              <button
+                onClick={() => toggleProperty(property)}
+                disabled={saving}
+                className={`w-full text-left p-6 bg-card border-2 rounded-2xl transition-all duration-200 hover:shadow-md ${
+                  isSelected 
+                    ? 'border-emerald-600 shadow-emerald-600/5 shadow-lg' 
+                    : 'border-border-custom hover:border-emerald-200 dark:hover:border-emerald-800'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-800 dark:text-emerald-300' : 'bg-accent-custom text-muted group-hover:bg-emerald-100 group-hover:text-emerald-600'}`}>
+                      <Activity className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-foreground text-lg">{property.name}</h3>
+                      <p className="text-muted font-mono text-sm">ID: {property.id}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-foreground text-lg">{property.name}</h3>
-                    <p className="text-muted font-mono text-sm">ID: {property.id}</p>
+                  <div className={`flex items-center gap-2 ${isSelected ? 'text-emerald-600' : 'text-muted opacity-50 group-hover:opacity-100 group-hover:text-emerald-500'} transition-all`}>
+                    {isSelected ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 ${isSelected ? 'text-emerald-600' : 'text-muted opacity-50 group-hover:opacity-100 group-hover:text-emerald-500'} transition-all`}>
-                  {isSelected ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6" />}
+              </button>
+
+              {isSelected && (
+                <div className="px-6 py-4 animate-in slide-in-from-top-2 duration-300">
+                  <div className="bg-emerald-100/30 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-600/10">
+                    <label className="block text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-2">
+                      Track Specific Event (Optional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-600" />
+                      <input 
+                        type="text"
+                        placeholder="e.g. contact_form_submit, purchase, etc."
+                        className="flex-grow bg-transparent border-b border-emerald-600/30 focus:border-emerald-600 outline-none py-1 text-foreground placeholder:opacity-50"
+                        value={selectedProp.trackedEventName || ''}
+                        onChange={(e) => updateTrackedEvent(property.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted mt-2">
+                      Enter the exact event name from GA4 to show an event counter card in the dashboard.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </button>
+              )}
+            </div>
           );
         })}
+
 
         {properties.length === 0 && (
           <div className="text-center p-12 border-2 border-dashed border-border-custom rounded-3xl bg-card">

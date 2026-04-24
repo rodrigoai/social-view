@@ -55,9 +55,11 @@ model GoogleAnalyticsConfig {
   
   propertyId    String
   propertyName  String?
+  trackedEventName String?
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@unique([mainAccountId, propertyId])
 }
+

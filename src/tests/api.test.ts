@@ -94,7 +94,25 @@ describe('API Routes', () => {
     });
 
 
+    it('GET /api/ads/campaigns returns empty state if no customerId selected', async () => {
+      const { getAuthorizedClient } = require('@/lib/googleAuth');
+      (getAuthorizedClient as jest.Mock).mockResolvedValue({
+        getAccessToken: jest.fn().mockResolvedValue({ token: 'valid_token' }),
+        credentials: { refresh_token: 'refresh' }
+      });
+      (prisma.googleAdsConfig.findMany as jest.Mock).mockResolvedValue([]);
+
+      const req = new Request('http://localhost/api/ads/campaigns?mainAccountId=123');
+      const response = await getCampaigns(req);
+      const json = await response.json();
+      
+      expect(response.status).toBe(200);
+      expect(json.campaigns).toEqual([]);
+      expect(json.summary.totalCost).toBe(0);
+    });
+
     it('GET /api/ads/campaigns returns mock campaigns on success', async () => {
+
       const { getAuthorizedClient } = require('@/lib/googleAuth');
       (getAuthorizedClient as jest.Mock).mockResolvedValue({
         getAccessToken: jest.fn().mockResolvedValue({ token: 'valid_token' }),

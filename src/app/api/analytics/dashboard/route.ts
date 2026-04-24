@@ -79,19 +79,46 @@ export async function GET(request: Request) {
         screenPageViews: 0,
         bounceRate: 0,
         averageSessionDuration: 0,
+        trackedEventCount: 0,
+        trackedEventName: config.trackedEventName,
       };
 
       if (response && response.rows && response.rows.length > 0) {
         const row = response.rows[0];
         const metricValues = row.metricValues || [];
         
-        propertyStats = {
-          activeUsers: parseInt(metricValues[0]?.value || '0', 10),
-          sessions: parseInt(metricValues[1]?.value || '0', 10),
-          screenPageViews: parseInt(metricValues[2]?.value || '0', 10),
-          bounceRate: parseFloat(metricValues[3]?.value || '0'),
-          averageSessionDuration: parseFloat(metricValues[4]?.value || '0'),
-        };
+        propertyStats.activeUsers = parseInt(metricValues[0]?.value || '0', 10);
+        propertyStats.sessions = parseInt(metricValues[1]?.value || '0', 10);
+        propertyStats.screenPageViews = parseInt(metricValues[2]?.value || '0', 10);
+        propertyStats.bounceRate = parseFloat(metricValues[3]?.value || '0');
+        propertyStats.averageSessionDuration = parseFloat(metricValues[4]?.value || '0');
+      }
+
+      // Fetch specific event count if configured
+      if (config.trackedEventName) {
+        try {
+          const [eventResponse] = await analyticsDataClient.runReport({
+            property: `properties/${propertyId}`,
+            dateRanges: [dateRange],
+            dimensions: [{ name: 'eventName' }],
+            metrics: [{ name: 'eventCount' }],
+            dimensionFilter: {
+              filter: {
+                fieldName: 'eventName',
+                stringFilter: {
+                  value: config.trackedEventName,
+                  matchType: 'EXACT'
+                }
+              }
+            }
+          });
+
+          if (eventResponse && eventResponse.rows && eventResponse.rows.length > 0) {
+            propertyStats.trackedEventCount = parseInt(eventResponse.rows[0].metricValues?.[0]?.value || '0', 10);
+          }
+        } catch (e) {
+          console.error(`Failed to fetch event count for ${config.trackedEventName}:`, e);
+        }
       }
 
       propertiesResults.push({
@@ -100,6 +127,7 @@ export async function GET(request: Request) {
         stats: propertyStats
       });
     }
+
 
     return NextResponse.json({ 
       properties: propertiesResults

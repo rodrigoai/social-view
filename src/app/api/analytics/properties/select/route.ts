@@ -17,13 +17,15 @@ export async function POST(request: Request) {
     // Then, insert the newly selected properties
     if (properties.length > 0) {
       await prisma.googleAnalyticsConfig.createMany({
-        data: properties.map((prop: { id: string, name: string }) => ({
+        data: properties.map((prop: { id: string, name: string, trackedEventName?: string }) => ({
           mainAccountId,
           propertyId: prop.id,
           propertyName: prop.name,
+          trackedEventName: prop.trackedEventName || null
         }))
       });
     }
+
 
     return NextResponse.json({ success: true });
   } catch (error) {

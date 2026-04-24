@@ -42,8 +42,15 @@ export async function GET(request: Request) {
     });
 
     if (adsConfigs.length === 0 || !adsConfigs[0].customerId) {
-      return NextResponse.json({ error: 'No Google Ads Customer ID selected' }, { status: 400 });
+      return NextResponse.json({ 
+        campaigns: [],
+        summary: {
+          totalCost: 0,
+          totalConversions: 0
+        }
+      });
     }
+
 
     const tokens = await oauth2Client.getAccessToken();
     const customerId = adsConfigs[0].customerId;

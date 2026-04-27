@@ -50,6 +50,49 @@ describe('Account Management API', () => {
     expect(dbAcc?.name).toBe('Updated Name');
   });
 
+  it('should save a googleBusinessUrl via PATCH', async () => {
+    const url = 'https://business.google.com/n/12345';
+    const request = new Request('http://localhost/api/accounts/' + testAccountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googleBusinessUrl: url })
+    });
+
+    const response = await PATCH(request, { params: { id: testAccountId } });
+    const data = await response.json();
+
+    expect(data.account.googleBusinessUrl).toBe(url);
+    const dbAcc = await prisma.mainAccount.findUnique({ where: { id: testAccountId } });
+    expect(dbAcc?.googleBusinessUrl).toBe(url);
+  });
+
+  it('should clear googleBusinessUrl when null is passed', async () => {
+    const request = new Request('http://localhost/api/accounts/' + testAccountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googleBusinessUrl: null })
+    });
+
+    const response = await PATCH(request, { params: { id: testAccountId } });
+    const data = await response.json();
+
+    expect(data.account.googleBusinessUrl).toBeNull();
+  });
+
+  it('should clear googleBusinessUrl when empty string is passed', async () => {
+    // First set a URL
+    await prisma.mainAccount.update({ where: { id: testAccountId }, data: { googleBusinessUrl: 'https://business.google.com/' } });
+
+    const request = new Request('http://localhost/api/accounts/' + testAccountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googleBusinessUrl: '' })
+    });
+
+    const response = await PATCH(request, { params: { id: testAccountId } });
+    const data = await response.json();
+    expect(data.account.googleBusinessUrl).toBeNull();
+  });
 
   it('should delete account via DELETE', async () => {
     const request = new Request('http://localhost/api/accounts/' + testAccountId, {
@@ -63,3 +106,4 @@ describe('Account Management API', () => {
     expect(dbAcc).toBeNull();
   });
 });
+

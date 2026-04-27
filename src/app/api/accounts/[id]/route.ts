@@ -7,15 +7,20 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    const { name } = await request.json();
+    const body = await request.json();
+    const data: any = {};
+    if (body.name !== undefined) data.name = body.name;
+    if (body.googleBusinessUrl !== undefined) data.googleBusinessUrl = body.googleBusinessUrl || null;
+
     const account = await prisma.mainAccount.update({
       where: { id },
-      data: { name }
+      data
     });
     return NextResponse.json({ account });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update account' }, { status: 500 });
   }
+
 }
 
 export async function DELETE(

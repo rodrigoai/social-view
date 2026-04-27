@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
-import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check, Globe } from 'lucide-react';
+import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check, Globe, MapPin, ExternalLink } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 
@@ -13,6 +13,8 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
+  const [editBusinessUrl, setEditBusinessUrl] = useState('');
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,6 +81,18 @@ export default function Settings() {
     if (res.ok) {
       await refreshAccounts();
       setEditingId(null);
+    }
+  };
+
+  const saveBusinessUrl = async (id: string) => {
+    const res = await fetch(`/api/accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ googleBusinessUrl: editBusinessUrl.trim() || null })
+    });
+    if (res.ok) {
+      await refreshAccounts();
+      setEditingBusinessId(null);
     }
   };
 
@@ -233,6 +247,59 @@ export default function Settings() {
                     <LinkIcon className="w-4 h-4" /> Link Google Account
                   </button>
                 )}
+
+                {/* Google Business Profile — always visible */}
+                <div className="bg-card border border-border-custom rounded-xl w-full overflow-hidden">
+                  {editingBusinessId === acc.id ? (
+                    <div className="flex items-center gap-2 p-3">
+                      <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      <input
+                        type="url"
+                        value={editBusinessUrl}
+                        onChange={e => setEditBusinessUrl(e.target.value)}
+                        placeholder="https://business.google.com/..."
+                        className="flex-grow text-sm bg-transparent border-b border-orange-400 outline-none py-0.5 text-foreground placeholder:opacity-40"
+                        autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveBusinessUrl(acc.id);
+                          if (e.key === 'Escape') setEditingBusinessId(null);
+                        }}
+                      />
+                      <button onClick={() => saveBusinessUrl(acc.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setEditingBusinessId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3 p-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                        {acc.googleBusinessUrl ? (
+                          <a
+                            href={acc.googleBusinessUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 truncate"
+                          >
+                            Business Profile
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="text-sm font-medium text-muted">Business Profile: <span className="text-xs bg-muted/20 px-1.5 py-0.5 rounded-full">Not linked</span></span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => { setEditingBusinessId(acc.id); setEditBusinessUrl(acc.googleBusinessUrl || ''); }}
+                        className="px-3 py-1.5 text-xs font-medium bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 rounded-lg transition-colors flex-shrink-0"
+                      >
+                        {acc.googleBusinessUrl ? 'Edit' : 'Add Link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 
                 <button 
                   onClick={() => deleteAccount(acc.id)}

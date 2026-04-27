@@ -13,8 +13,10 @@ datasource db {
 model MainAccount {
   id        String   @id @default(cuid())
   name      String   @default("My Business")
+  googleBusinessUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
 
   googleCredential      GoogleCredential?
   googleAdsConfigs      GoogleAdsConfig[]

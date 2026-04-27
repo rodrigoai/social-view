@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
 import { FilterPanel } from '@/components/FilterPanel';
-import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search } from 'lucide-react';
+import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search, MapPin, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount } from '@/context/AccountContext';
 
 export default function Dashboard() {
-  const { selectedAccountId, isLoading: accountsLoading } = useAccount();
+  const { selectedAccountId, selectedAccount, isLoading: accountsLoading } = useAccount();
   const [data, setData] = useState<any>(null);
   const [gaData, setGaData] = useState<any>(null);
   const [scData, setScData] = useState<any>(null);
@@ -210,12 +210,55 @@ export default function Dashboard() {
     </svg>
   );
 
+  const GoogleBusinessLogo = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#EA4335"/>
+      <path d="M12 7C9.24 7 7 9.24 7 12C7 14.76 9.24 17 12 17C14.76 17 17 14.76 17 12H12V10H19V12C19 16.42 15.42 20 12 20C8.13 20 5 16.87 5 13C5 9.13 8.13 6 12 6C13.73 6 15.31 6.6 16.55 7.61L15.13 9.03C14.26 8.39 13.18 8 12 8V7Z" fill="white"/>
+    </svg>
+  );
+
   return (
     <div className="animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <p className="text-muted mt-1">Overview of your marketing performance.</p>
       </div>
+
+      {/* Google Business Card */}
+      <Card className={`mb-8 border ${
+        selectedAccount?.googleBusinessUrl
+          ? 'border-orange-200 dark:border-orange-800/40 bg-gradient-to-br from-white to-orange-50/30 dark:from-background dark:to-orange-950/5'
+          : 'border-border-custom'
+      }`}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <GoogleBusinessLogo />
+            <div>
+              <h2 className="text-base font-bold text-foreground">Google Business Profile</h2>
+              {selectedAccount?.googleBusinessUrl ? (
+                <a
+                  href={selectedAccount.googleBusinessUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 mt-0.5"
+                >
+                  View Profile <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <p className="text-sm text-muted mt-0.5">
+                  Not linked —{' '}
+                  <Link href="/settings" className="text-orange-500 hover:underline">add a link in Settings</Link>
+                </p>
+              )}
+            </div>
+          </div>
+          {selectedAccount?.googleBusinessUrl && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 flex-shrink-0">
+              Linked
+            </span>
+          )}
+        </div>
+      </Card>
 
       <FilterPanel 
         onFilterChange={handleFilterChange} 

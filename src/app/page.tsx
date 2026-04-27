@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
 import { FilterPanel } from '@/components/FilterPanel';
-import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2 } from 'lucide-react';
+import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount } from '@/context/AccountContext';
 
@@ -11,9 +11,11 @@ export default function Dashboard() {
   const { selectedAccountId, isLoading: accountsLoading } = useAccount();
   const [data, setData] = useState<any>(null);
   const [gaData, setGaData] = useState<any>(null);
+  const [scData, setScData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gaError, setGaError] = useState<any>(null);
+  const [scError, setScError] = useState<any>(null);
 
 
   const [filters, setFilters] = useState({ 
@@ -36,6 +38,7 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       setGaError(null);
+      setScError(null);
       
       try {
         const queryParams: any = {
@@ -51,9 +54,10 @@ export default function Dashboard() {
         
         const query = new URLSearchParams(queryParams);
         
-        const [adsRes, gaRes] = await Promise.all([
+        const [adsRes, gaRes, scRes] = await Promise.all([
           fetch(`/api/ads/campaigns?${query.toString()}`),
-          fetch(`/api/analytics/dashboard?${query.toString()}`)
+          fetch(`/api/analytics/dashboard?${query.toString()}`),
+          fetch(`/api/search-console/dashboard?${query.toString()}`)
         ]);
 
         if (!adsRes.ok) {
@@ -74,6 +78,19 @@ export default function Dashboard() {
           console.error('Analytics API Error:', errorJson);
           setGaError(errorJson);
           setGaData(null);
+        }
+
+        if (scRes.ok) {
+          const scDataJson = await scRes.json();
+          setScData(scDataJson);
+          setScError(null);
+        } else {
+          const errorJson = await scRes.json().catch(() => ({}));
+          if (errorJson.code !== 'AUTH_REQUIRED') {
+            console.error('Search Console API Error:', errorJson);
+          }
+          setScError(errorJson);
+          setScData(null);
         }
 
 
@@ -182,6 +199,14 @@ export default function Dashboard() {
       <path d="M12 3L2 21H22L12 3Z" fill="#4285F4"/>
       <path d="M12 3L17 12H7L12 3Z" fill="#FBBC05"/>
       <path d="M12 3L14.5 7.5H9.5L12 3Z" fill="#34A853"/>
+    </svg>
+  );
+
+  const SearchConsoleLogo = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="18" height="18" rx="3" fill="#34A853"/>
+      <circle cx="11" cy="11" r="4" stroke="white" strokeWidth="2" fill="none"/>
+      <path d="M14 14L17 17" stroke="white" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   );
 
@@ -314,6 +339,63 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {scData && scData.sites && scData.sites.length > 0 && (
+        <div className="mb-12 space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <SearchConsoleLogo />
+            <h2 className="text-xl font-bold text-foreground">Google Search Console</h2>
+          </div>
+
+          {scData.sites.map((site: any) => (
+            <Card key={site.siteUrl} className="hover:scale-[1.005] transition-transform border-violet-500/10 dark:border-violet-500/20 bg-gradient-to-br from-white to-violet-50/30 dark:from-background dark:to-violet-950/5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-foreground truncate">{site.siteUrl}</h3>
+                    {site.error && (
+                      <p className="text-xs text-red-500 mt-0.5">Data unavailable</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                      <MousePointerClick className="w-3.5 h-3.5" /> Clicks
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{new Intl.NumberFormat('pt-BR').format(site.stats.clicks)}</span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                      <Search className="w-3.5 h-3.5" /> Impressions
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{new Intl.NumberFormat('pt-BR').format(site.stats.impressions)}</span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                      <TrendingUp className="w-3.5 h-3.5" /> CTR
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{formatPercent(site.stats.ctr)}</span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                      <Activity className="w-3.5 h-3.5" /> Avg. Position
+                    </span>
+                    <span className="text-xl font-bold text-foreground">{site.stats.position > 0 ? site.stats.position.toFixed(1) : '—'}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

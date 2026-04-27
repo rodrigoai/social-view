@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
-import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check, Globe } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 
@@ -108,6 +108,20 @@ export default function Settings() {
         </div>
       )}
 
+      {success === 'google_analytics_linked' && (
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5" />
+          <p className="font-medium">Google Analytics properties successfully linked!</p>
+        </div>
+      )}
+
+      {success === 'search_console_linked' && (
+        <div className="mb-6 p-4 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-xl flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5" />
+          <p className="font-medium">Search Console sites successfully linked!</p>
+        </div>
+      )}
+
       {error && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl">
           <p className="font-medium">Integration failed. Please try again.</p>
@@ -189,6 +203,22 @@ export default function Settings() {
                         <button 
                           onClick={() => window.location.href = `/settings/google-analytics/select?mainAccountId=${acc.id}`}
                           className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg transition-colors"
+                        >
+                          Configure
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Google Search Console Section */}
+                    <div className="flex items-center justify-between md:justify-end gap-3 bg-card border border-border-custom p-3 rounded-xl w-full">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-violet-600" />
+                        <span className="text-sm font-medium">Search Console: {acc.googleSearchConsoleConfigs?.length > 0 ? `${acc.googleSearchConsoleConfigs.length} site(s)` : 'Not configured'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => window.location.href = `/settings/google-search-console/select?mainAccountId=${acc.id}`}
+                          className="px-3 py-1.5 text-xs font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-400 rounded-lg transition-colors"
                         >
                           Configure
                         </button>

@@ -19,7 +19,9 @@ model MainAccount {
   googleCredential      GoogleCredential?
   googleAdsConfigs      GoogleAdsConfig[]
   googleAnalyticsConfigs GoogleAnalyticsConfig[]
+  googleSearchConsoleConfigs GoogleSearchConsoleConfig[]
 }
+
 
 model GoogleCredential {
   id            String   @id @default(cuid())
@@ -62,4 +64,18 @@ model GoogleAnalyticsConfig {
 
   @@unique([mainAccountId, propertyId])
 }
+
+model GoogleSearchConsoleConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  siteUrl       String
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([mainAccountId, siteUrl])
+}
+
 

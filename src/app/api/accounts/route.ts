@@ -9,6 +9,7 @@ export async function GET() {
         googleCredential: true,
         googleAdsConfigs: true,
         googleAnalyticsConfigs: true,
+        googleSearchConsoleConfigs: true,
       }
     });
     return NextResponse.json({ accounts });

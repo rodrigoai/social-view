@@ -2,86 +2,160 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
-import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check, Globe, MapPin, ExternalLink } from 'lucide-react';
+import {
+  CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
+  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle
+} from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-
-
 import { useAccount } from '@/context/AccountContext';
 
+type Account = {
+  id: string;
+  name: string;
+  googleBusinessUrl?: string | null;
+  googleCredential?: any;
+  googleAdsConfigs?: any[];
+  googleAnalyticsConfigs?: any[];
+  googleSearchConsoleConfigs?: any[];
+};
+
+// ─── Integration row ──────────────────────────────────────────────────────────
+function IntegrationRow({
+  icon, label, status, actionLabel, onAction, href, className = ''
+}: {
+  icon: React.ReactNode;
+  label: string;
+  status: React.ReactNode;
+  actionLabel: string;
+  onAction?: () => void;
+  href?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center justify-between gap-3 py-3 border-b border-border-custom last:border-0 ${className}`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex-shrink-0">{icon}</div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          <div className="text-xs text-muted mt-0.5">{status}</div>
+        </div>
+      </div>
+      <button
+        onClick={onAction || (href ? () => { window.location.href = href; } : undefined)}
+        className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-custom hover:bg-border-custom text-foreground transition-colors whitespace-nowrap"
+      >
+        {actionLabel}
+      </button>
+    </div>
+  );
+}
+
+// ─── Account list item ────────────────────────────────────────────────────────
+function AccountListItem({
+  account, isSelected, onClick
+}: {
+  account: Account;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const connectedCount = [
+    account.googleCredential,
+    (account.googleAdsConfigs?.length ?? 0) > 0,
+    (account.googleAnalyticsConfigs?.length ?? 0) > 0,
+    (account.googleSearchConsoleConfigs?.length ?? 0) > 0,
+    account.googleBusinessUrl
+  ].filter(Boolean).length;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between gap-2 group ${
+        isSelected
+          ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+          : 'hover:bg-accent-custom border border-transparent'
+      }`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold ${
+          isSelected ? 'bg-blue-600 text-white' : 'bg-accent-custom text-muted group-hover:bg-border-custom'
+        }`}>
+          {account.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-foreground'}`}>
+            {account.name}
+          </p>
+          <p className="text-[11px] text-muted">
+            {connectedCount} service{connectedCount !== 1 ? 's' : ''} connected
+          </p>
+        </div>
+      </div>
+      <ChevronRight className={`w-4 h-4 flex-shrink-0 transition-colors ${isSelected ? 'text-blue-500' : 'text-muted opacity-0 group-hover:opacity-100'}`} />
+    </button>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 export default function Settings() {
   const { accounts, refreshAccounts } = useAccount();
-  const [loading, setLoading] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
   const [editBusinessUrl, setEditBusinessUrl] = useState('');
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const success = searchParams.get('success');
   const error = searchParams.get('error');
 
+  // Auto-select first account, clear URL params
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedId) {
+      setSelectedId(accounts[0].id);
+    }
+  }, [accounts, selectedId]);
+
   useEffect(() => {
     if (success || error) {
       refreshAccounts();
-      // Clear the query params after a short delay to allow the message to be seen
-      const timer = setTimeout(() => {
-        router.replace('/settings', { scroll: false });
-      }, 3000);
+      const timer = setTimeout(() => router.replace('/settings', { scroll: false }), 3000);
       return () => clearTimeout(timer);
     }
   }, [success, error, refreshAccounts, router]);
 
+  const selectedAccount = accounts.find(a => a.id === selectedId) as Account | undefined;
 
-
+  // ── CRUD ──────────────────────────────────────────────────────────────────
   const createAccount = async () => {
     const name = window.prompt('Enter account name:', 'My Business Account');
     if (!name) return;
-
-    const res = await fetch('/api/accounts', {
-      method: 'POST',
-      body: JSON.stringify({ name })
-    });
+    const res = await fetch('/api/accounts', { method: 'POST', body: JSON.stringify({ name }) });
     if (res.ok) {
+      const { account } = await res.json();
       await refreshAccounts();
+      setSelectedId(account.id);
     }
   };
 
   const deleteAccount = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this account? All linked integrations will be removed.')) return;
-
+    if (!window.confirm('Delete this account? All linked integrations will be removed.')) return;
     const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
     if (res.ok) {
       await refreshAccounts();
+      setSelectedId(accounts.find(a => a.id !== id)?.id ?? null);
     }
-  };
-
-  const unbindGoogleAds = async (id: string) => {
-    if (!window.confirm('Disconnect Google Ads from this account?')) return;
-
-    const res = await fetch(`/api/accounts/${id}/google-ads`, { method: 'DELETE' });
-    if (res.ok) {
-      await refreshAccounts();
-    }
-  };
-
-  const startEditing = (id: string, name: string) => {
-    setEditingId(id);
-    setEditName(name);
   };
 
   const saveName = async (id: string) => {
     if (!editName.trim()) return;
-
     const res = await fetch(`/api/accounts/${id}`, {
       method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: editName })
     });
-    
-    if (res.ok) {
-      await refreshAccounts();
-      setEditingId(null);
-    }
+    if (res.ok) { await refreshAccounts(); setEditingNameId(null); }
   };
 
   const saveBusinessUrl = async (id: string) => {
@@ -90,240 +164,258 @@ export default function Settings() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ googleBusinessUrl: editBusinessUrl.trim() || null })
     });
-    if (res.ok) {
-      await refreshAccounts();
-      setEditingBusinessId(null);
-    }
+    if (res.ok) { await refreshAccounts(); setEditingBusinessId(null); }
   };
 
-  const linkGoogleAds = (mainAccountId: string) => {
+  const linkGoogle = (mainAccountId: string) => {
     window.location.href = `/api/auth/google?mainAccountId=${mainAccountId}`;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="animate-in fade-in duration-500">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
-        <p className="text-muted mt-1">Manage your accounts and integrations.</p>
-      </div>
-
-      {success === 'google_linked' && (
-        <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5" />
-          <p className="font-medium">Google Ads account successfully linked!</p>
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
+          <p className="text-muted mt-1">Manage your accounts and integrations.</p>
         </div>
-      )}
-
-      {success === 'google_analytics_linked' && (
-        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5" />
-          <p className="font-medium">Google Analytics properties successfully linked!</p>
-        </div>
-      )}
-
-      {success === 'search_console_linked' && (
-        <div className="mb-6 p-4 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-xl flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5" />
-          <p className="font-medium">Search Console sites successfully linked!</p>
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl">
-          <p className="font-medium">Integration failed. Please try again.</p>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-foreground">Main Accounts</h2>
-        <button 
+        <button
           onClick={createAccount}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" /> Add Account
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {accounts.map(acc => (
-          <Card key={acc.id} className="hover:border-blue-200 dark:hover:border-blue-800 group">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
-              <div className="flex-1">
-                {editingId === acc.id ? (
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="text-lg font-bold text-foreground border-b-2 border-blue-600 outline-none bg-transparent py-1 px-0"
-                      autoFocus
-                      onKeyDown={(e) => e.key === 'Enter' && saveName(acc.id)}
-                    />
-                    <button onClick={() => saveName(acc.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
-                      <Check className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-foreground">{acc.name}</h3>
-                    <button 
-                      onClick={() => startEditing(acc.id, acc.name)}
-                      className="p-1 text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <p className="text-sm text-muted font-mono mt-1">ID: {acc.id}</p>
-              </div>
-              
-              <div className="flex flex-col items-end gap-3 w-full md:w-auto">
-                {acc.googleCredential ? (
-                  <div className="flex flex-col gap-2 w-full">
-                    {/* Google Ads Section */}
-                    <div className="flex items-center justify-between md:justify-end gap-3 bg-card border border-border-custom p-3 rounded-xl w-full">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm font-medium">Ads: {acc.googleAdsConfigs?.length > 0 ? `${acc.googleAdsConfigs.length} connected` : 'Not configured'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => window.location.href = `/settings/google-ads/select?mainAccountId=${acc.id}`}
-                          className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg transition-colors"
-                        >
-                          Configure
-                        </button>
-                      </div>
-                    </div>
+      {/* Toast banners */}
+      {success === 'google_linked' && <Banner color="emerald" message="Google Ads account successfully linked!" />}
+      {success === 'google_analytics_linked' && <Banner color="amber" message="Google Analytics properties successfully linked!" />}
+      {success === 'search_console_linked' && <Banner color="violet" message="Search Console sites successfully linked!" />}
+      {error && <Banner color="red" message="Integration failed. Please try again." />}
 
-                    {/* Google Analytics Section */}
-                    <div className="flex items-center justify-between md:justify-end gap-3 bg-card border border-border-custom p-3 rounded-xl w-full">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm font-medium">Analytics: {acc.googleAnalyticsConfigs?.length > 0 ? `${acc.googleAnalyticsConfigs.length} connected` : 'Not configured'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => window.location.href = `/settings/google-analytics/select?mainAccountId=${acc.id}`}
-                          className="px-3 py-1.5 text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg transition-colors"
-                        >
-                          Configure
-                        </button>
-                      </div>
-                    </div>
+      {accounts.length === 0 ? (
+        <div className="text-center py-24 border-2 border-dashed border-border-custom rounded-2xl bg-card">
+          <Building2 className="w-12 h-12 text-muted mx-auto mb-4 opacity-40" />
+          <p className="text-muted mb-4">No accounts yet.</p>
+          <button
+            onClick={createAccount}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Create First Account
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-6 items-start">
 
-                    {/* Google Search Console Section */}
-                    <div className="flex items-center justify-between md:justify-end gap-3 bg-card border border-border-custom p-3 rounded-xl w-full">
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-violet-600" />
-                        <span className="text-sm font-medium">Search Console: {acc.googleSearchConsoleConfigs?.length > 0 ? `${acc.googleSearchConsoleConfigs.length} site(s)` : 'Not configured'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={() => window.location.href = `/settings/google-search-console/select?mainAccountId=${acc.id}`}
-                          className="px-3 py-1.5 text-xs font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 dark:bg-violet-900/30 dark:text-violet-400 rounded-lg transition-colors"
-                        >
-                          Configure
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => linkGoogleAds(acc.id)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 bg-card border border-border-custom hover:bg-accent-custom hover:text-blue-600 hover:border-blue-300 dark:hover:border-blue-800 text-foreground rounded-lg text-sm font-medium transition-all shadow-sm w-full md:w-auto"
-                  >
-                    <LinkIcon className="w-4 h-4" /> Link Google Account
-                  </button>
-                )}
-
-                {/* Google Business Profile — always visible */}
-                <div className="bg-card border border-border-custom rounded-xl w-full overflow-hidden">
-                  {editingBusinessId === acc.id ? (
-                    <div className="flex items-center gap-2 p-3">
-                      <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                      <input
-                        type="url"
-                        value={editBusinessUrl}
-                        onChange={e => setEditBusinessUrl(e.target.value)}
-                        placeholder="https://business.google.com/..."
-                        className="flex-grow text-sm bg-transparent border-b border-orange-400 outline-none py-0.5 text-foreground placeholder:opacity-40"
-                        autoFocus
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') saveBusinessUrl(acc.id);
-                          if (e.key === 'Escape') setEditingBusinessId(null);
-                        }}
-                      />
-                      <button onClick={() => saveBusinessUrl(acc.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setEditingBusinessId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-3 p-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                        {acc.googleBusinessUrl ? (
-                          <a
-                            href={acc.googleBusinessUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 truncate"
-                          >
-                            Business Profile
-                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                          </a>
-                        ) : (
-                          <span className="text-sm font-medium text-muted">Business Profile: <span className="text-xs bg-muted/20 px-1.5 py-0.5 rounded-full">Not linked</span></span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => { setEditingBusinessId(acc.id); setEditBusinessUrl(acc.googleBusinessUrl || ''); }}
-                        className="px-3 py-1.5 text-xs font-medium bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 rounded-lg transition-colors flex-shrink-0"
-                      >
-                        {acc.googleBusinessUrl ? 'Edit' : 'Add Link'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                
-                <button 
-                  onClick={() => deleteAccount(acc.id)}
-                  className="p-2 text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors md:self-end mt-2"
-                  title="Delete Account"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
+          {/* ── Left: account list ─────────────────────────────────── */}
+          <div className="w-72 flex-shrink-0 bg-card border border-border-custom rounded-2xl p-2 sticky top-6 max-h-[calc(100vh-140px)] overflow-y-auto">
+            <div className="space-y-1">
+              {accounts.map(acc => (
+                <AccountListItem
+                  key={acc.id}
+                  account={acc as Account}
+                  isSelected={acc.id === selectedId}
+                  onClick={() => setSelectedId(acc.id)}
+                />
+              ))}
             </div>
-          </Card>
-        ))}
-        {accounts.length === 0 && (
-          <div className="text-center p-12 border-2 border-dashed border-border-custom rounded-2xl bg-card">
-            <p className="text-muted mb-4">No accounts created yet.</p>
-            <button 
-              onClick={createAccount}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Create First Account
-            </button>
           </div>
-        )}
-      </div>
+
+          {/* ── Right: detail panel ────────────────────────────────── */}
+          {selectedAccount ? (
+            <div className="flex-1 min-w-0 space-y-4">
+
+              {/* Account name card */}
+              <Card>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      {selectedAccount.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      {editingNameId === selectedAccount.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            className="text-lg font-bold text-foreground border-b-2 border-blue-600 outline-none bg-transparent py-0.5"
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveName(selectedAccount.id);
+                              if (e.key === 'Escape') setEditingNameId(null);
+                            }}
+                          />
+                          <button onClick={() => saveName(selectedAccount.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setEditingNameId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-lg font-bold text-foreground truncate">{selectedAccount.name}</h2>
+                          <button
+                            onClick={() => { setEditingNameId(selectedAccount.id); setEditName(selectedAccount.name); }}
+                            className="p-1 text-muted hover:text-blue-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted font-mono">{selectedAccount.id}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {editingNameId !== selectedAccount.id && (
+                      <button
+                        onClick={() => { setEditingNameId(selectedAccount.id); setEditName(selectedAccount.name); }}
+                        className="p-2 text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Rename"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteAccount(selectedAccount.id)}
+                      className="p-2 text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete account"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Integrations card */}
+              <Card>
+                <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-1">Google Integrations</h3>
+
+                {selectedAccount.googleCredential ? (
+                  <>
+                    <IntegrationRow
+                      icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
+                      label="Google Ads"
+                      status={selectedAccount.googleAdsConfigs?.length > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAdsConfigs.length} account(s) connected</span>
+                        : 'Not configured'}
+                      actionLabel="Configure"
+                      href={`/settings/google-ads/select?mainAccountId=${selectedAccount.id}`}
+                    />
+                    <IntegrationRow
+                      icon={<div className="w-6 h-6 rounded bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-amber-600" /></div>}
+                      label="Google Analytics"
+                      status={selectedAccount.googleAnalyticsConfigs?.length > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAnalyticsConfigs.length} propert(ies) connected</span>
+                        : 'Not configured'}
+                      actionLabel="Configure"
+                      href={`/settings/google-analytics/select?mainAccountId=${selectedAccount.id}`}
+                    />
+                    <IntegrationRow
+                      icon={<div className="w-6 h-6 rounded bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><Globe className="w-3.5 h-3.5 text-violet-600" /></div>}
+                      label="Search Console"
+                      status={selectedAccount.googleSearchConsoleConfigs?.length > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleSearchConsoleConfigs.length} site(s) connected</span>
+                        : 'Not configured'}
+                      actionLabel="Configure"
+                      href={`/settings/google-search-console/select?mainAccountId=${selectedAccount.id}`}
+                    />
+                  </>
+                ) : (
+                  <div className="py-4 flex flex-col items-start gap-3">
+                    <div className="flex items-center gap-2 text-muted text-sm">
+                      <AlertCircle className="w-4 h-4 text-amber-500" />
+                      No Google account linked yet. Link one to enable all integrations.
+                    </div>
+                    <button
+                      onClick={() => linkGoogle(selectedAccount.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      <LinkIcon className="w-4 h-4" /> Link Google Account
+                    </button>
+                  </div>
+                )}
+              </Card>
+
+              {/* Google Business card */}
+              <Card>
+                <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-1">Google Business Profile</h3>
+
+                {editingBusinessId === selectedAccount.id ? (
+                  <div className="flex items-center gap-2 py-3">
+                    <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                    <input
+                      type="url"
+                      value={editBusinessUrl}
+                      onChange={e => setEditBusinessUrl(e.target.value)}
+                      placeholder="https://business.google.com/..."
+                      className="flex-grow text-sm bg-transparent border-b border-orange-400 outline-none py-0.5 text-foreground placeholder:opacity-40"
+                      autoFocus
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveBusinessUrl(selectedAccount.id);
+                        if (e.key === 'Escape') setEditingBusinessId(null);
+                      }}
+                    />
+                    <button onClick={() => saveBusinessUrl(selectedAccount.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setEditingBusinessId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                      {selectedAccount.googleBusinessUrl ? (
+                        <a
+                          href={selectedAccount.googleBusinessUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 truncate"
+                        >
+                          View Business Profile <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted">Not linked</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setEditingBusinessId(selectedAccount.id); setEditBusinessUrl(selectedAccount.googleBusinessUrl || ''); }}
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 transition-colors"
+                    >
+                      {selectedAccount.googleBusinessUrl ? 'Edit' : 'Add Link'}
+                    </button>
+                  </div>
+                )}
+              </Card>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted py-24">
+              Select an account to view its integrations.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Small helper ─────────────────────────────────────────────────────────────
+function Banner({ color, message }: { color: string; message: string }) {
+  const colors: Record<string, string> = {
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
+    amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+    violet: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
+    red: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',
+  };
+  return (
+    <div className={`mb-6 p-4 border rounded-xl flex items-center gap-3 ${colors[color]}`}>
+      <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+      <p className="font-medium">{message}</p>
     </div>
   );
 }

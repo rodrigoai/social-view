@@ -71,8 +71,8 @@ export default function GoogleAdsSelect() {
   if (error) {
     return (
       <div className="max-w-xl mx-auto mt-12">
-        <div className="bg-red-50 border border-red-100 text-red-700 p-8 rounded-2xl">
-          <div className="flex items-center gap-3 mb-4 text-red-600">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-400 p-8 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4 text-red-600 dark:text-red-400">
             <AlertCircle className="w-8 h-8" />
             <h1 className="text-2xl font-bold">Configuration Required</h1>
           </div>
@@ -80,7 +80,7 @@ export default function GoogleAdsSelect() {
           {error.error === 'DEVELOPER_TOKEN_MISSING' ? (
             <div className="space-y-4">
               <p className="text-lg">To fetch your accounts, you need a **Google Ads Developer Token**.</p>
-              <div className="bg-white p-4 rounded-xl border border-red-200 font-mono text-sm">
+              <div className="bg-white dark:bg-background p-4 rounded-xl border border-red-200 dark:border-red-800 font-mono text-sm text-foreground">
                 GOOGLE_ADS_DEVELOPER_TOKEN="your_token_here"
               </div>
               <p className="text-sm opacity-80 italic">Add this to your `.env` file and restart the server.</p>
@@ -96,7 +96,7 @@ export default function GoogleAdsSelect() {
               <p className="mb-4">{error.message || 'An unexpected error occurred while fetching accounts.'}</p>
               <button 
                 onClick={() => router.push('/settings')}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold"
+                className="px-6 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
               >
                 Return to Settings
               </button>
@@ -104,17 +104,18 @@ export default function GoogleAdsSelect() {
           )}
         </div>
       </div>
+
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl mb-4">
           <ShieldCheck className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Select Google Ads Account</h1>
-        <p className="text-gray-500 mt-2 text-lg">We found {customers.length} accounts accessible with your login.</p>
+        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Select Google Ads Account</h1>
+        <p className="text-muted mt-2 text-lg">We found {customers.length} accounts accessible with your login.</p>
       </div>
 
       <div className="grid gap-4">
@@ -123,29 +124,29 @@ export default function GoogleAdsSelect() {
             key={customer.id}
             onClick={() => selectAccount(customer.id)}
             disabled={!!selecting}
-            className={`group relative text-left p-6 bg-white border-2 rounded-2xl transition-all duration-200 hover:shadow-md ${
+            className={`group relative text-left p-6 bg-card border-2 rounded-2xl transition-all duration-200 hover:shadow-md ${
               selecting === customer.id 
-                ? 'border-blue-600 bg-blue-50' 
-                : 'border-gray-100 hover:border-blue-200'
+                ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20' 
+                : 'border-border-custom hover:border-blue-200 dark:hover:border-blue-800'
             }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-50 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-600 rounded-xl flex items-center justify-center transition-colors">
+                <div className="w-12 h-12 bg-accent-custom text-muted group-hover:bg-blue-100 group-hover:text-blue-600 dark:group-hover:bg-blue-900/30 rounded-xl flex items-center justify-center transition-colors">
                   <Building2 className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg">{customer.name}</h3>
-                  <p className="text-gray-500 font-mono text-sm">ID: {customer.id}</p>
+                  <h3 className="font-bold text-foreground text-lg">{customer.name}</h3>
+                  <p className="text-muted font-mono text-sm">ID: {customer.id}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
                 <span>Select</span>
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
             {selecting === customer.id && (
-              <div className="absolute inset-0 bg-white/60 rounded-2xl flex items-center justify-center">
+              <div className="absolute inset-0 bg-card/60 rounded-2xl flex items-center justify-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
               </div>
             )}
@@ -153,11 +154,11 @@ export default function GoogleAdsSelect() {
         ))}
 
         {customers.length === 0 && (
-          <div className="text-center p-12 border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50">
-            <p className="text-gray-500">No Google Ads accounts were found for this login.</p>
+          <div className="text-center p-12 border-2 border-dashed border-border-custom rounded-3xl bg-card">
+            <p className="text-muted">No Google Ads accounts were found for this login.</p>
             <button 
               onClick={() => router.push('/settings')}
-              className="mt-4 text-blue-600 font-bold hover:underline"
+              className="mt-4 text-blue-600 dark:text-blue-400 font-bold hover:underline"
             >
               Try a different login
             </button>
@@ -165,5 +166,6 @@ export default function GoogleAdsSelect() {
         )}
       </div>
     </div>
+
   );
 }

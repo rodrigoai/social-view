@@ -25,7 +25,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [selectedAccountId, setSelectedAccountIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = React.useCallback(async () => {
     try {
       const res = await fetch('/api/accounts');
       const data = await res.json();
@@ -50,7 +50,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
 
   useEffect(() => {
     fetchAccounts();

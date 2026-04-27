@@ -118,11 +118,11 @@ export default function GoogleAnalyticsSelect() {
   return (
     <div className="max-w-2xl mx-auto py-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-2xl mb-4">
           <Activity className="w-8 h-8" />
         </div>
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">Select Google Analytics Properties</h1>
-        <p className="text-gray-500 mt-2 text-lg">Select the properties and optionally a specific event to track.</p>
+        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Select Google Analytics Properties</h1>
+        <p className="text-muted mt-2 text-lg">Select the properties and optionally a specific event to track.</p>
       </div>
 
       <div className="grid gap-6 mb-8">
@@ -187,7 +187,6 @@ export default function GoogleAnalyticsSelect() {
           );
         })}
 
-
         {properties.length === 0 && (
           <div className="text-center p-12 border-2 border-dashed border-border-custom rounded-3xl bg-card">
             <p className="text-muted">No Google Analytics properties were found for this login.</p>
@@ -230,5 +229,6 @@ export default function GoogleAnalyticsSelect() {
         </div>
       )}
     </div>
+
   );
 }

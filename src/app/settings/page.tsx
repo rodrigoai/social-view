@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
 import { CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+
 
 import { useAccount } from '@/context/AccountContext';
 
@@ -13,9 +14,23 @@ export default function Settings() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   
+  const router = useRouter();
   const searchParams = useSearchParams();
   const success = searchParams.get('success');
   const error = searchParams.get('error');
+
+  useEffect(() => {
+    if (success || error) {
+      refreshAccounts();
+      // Clear the query params after a short delay to allow the message to be seen
+      const timer = setTimeout(() => {
+        router.replace('/settings', { scroll: false });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, error, refreshAccounts, router]);
+
+
 
   const createAccount = async () => {
     const name = window.prompt('Enter account name:', 'My Business Account');

@@ -41,6 +41,15 @@ const { getAuthorizedClient } = require('@/lib/googleAuth');
 
 // Helper: fake auth client
 const mockAuthClient = { credentials: { access_token: 'test_token' } };
+let consoleErrorSpy: jest.SpyInstance;
+
+beforeAll(() => {
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  consoleErrorSpy.mockRestore();
+});
 
 describe('Search Console - Sites API (GET)', () => {
   beforeEach(() => {

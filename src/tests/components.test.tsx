@@ -5,7 +5,10 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { AccountProvider } from '@/context/AccountContext';
+
+jest.mock('@/components/AccountSwitcher', () => ({
+  AccountSwitcher: () => <div data-testid="account-switcher" />,
+}));
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -70,11 +73,9 @@ describe('UI Components', () => {
   describe('Navbar & Sidebar Components', () => {
     const renderWithProviders = (ui: React.ReactElement) => 
       render(
-        <AccountProvider>
-          <ThemeProvider>
-            {ui}
-          </ThemeProvider>
-        </AccountProvider>
+        <ThemeProvider>
+          {ui}
+        </ThemeProvider>
       );
 
     it('renders Navbar correctly', () => {

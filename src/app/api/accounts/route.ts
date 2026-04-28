@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export async function GET() {
-  console.log('GET /api/accounts hit');
   try {
     const accounts = await prisma.mainAccount.findMany({
       include: {

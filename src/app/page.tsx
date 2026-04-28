@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
 import { FilterPanel } from '@/components/FilterPanel';
+import { KpiModal, KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search, MapPin, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useAccount } from '@/context/AccountContext';
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [gaError, setGaError] = useState<any>(null);
   const [scError, setScError] = useState<any>(null);
+  const [openKpi, setOpenKpi] = useState<KpiKey | null>(null);
 
 
   const [filters, setFilters] = useState({ 
@@ -304,39 +306,39 @@ export default function Dashboard() {
                 
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="activeUsers" onOpen={setOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
                       <Users className="w-3.5 h-3.5" /> Active Users
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.activeUsers)}</span>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="sessions" onOpen={setOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
                       <Activity className="w-3.5 h-3.5" /> Sessions
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.sessions)}</span>
                   </div>
 
                   {prop.stats.trackedEventName && (
                     <div className="flex flex-col">
-                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                      <KpiLabel kpiKey="trackedEvent" onOpen={setOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
                         <TrendingUp className="w-3.5 h-3.5" /> {prop.stats.trackedEventName}
-                      </span>
+                      </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.trackedEventCount)}</span>
                     </div>
                   )}
                   
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="bounceRate" onOpen={setOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
                       <MousePointer2 className="w-3.5 h-3.5" /> Bounce Rate
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatPercent(prop.stats.bounceRate)}</span>
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="avgSession" onOpen={setOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
                       <Timer className="w-3.5 h-3.5" /> Avg. Session
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatDuration(prop.stats.averageSessionDuration)}</span>
                   </div>
                 </div>
@@ -353,9 +355,24 @@ export default function Dashboard() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card title="Total Cost" value={formatCurrency(data?.summary?.totalCost || 0)} icon={<DollarSign className="w-6 h-6" />} />
-          <Card title="Total Conversions" value={formatNumber(data?.summary?.totalConversions || 0)} icon={<MousePointerClick className="w-6 h-6" />} />
-          <Card title="Cost Per Conversion" value={formatCurrency(cpa)} icon={<TrendingUp className="w-6 h-6" />} iconClassName="text-blue-600" />
+          <Card>
+            <KpiLabel kpiKey="totalCost" onOpen={setOpenKpi} className="text-xs font-medium text-muted mb-2 uppercase tracking-wider">
+              <DollarSign className="w-3.5 h-3.5" /> Total Cost
+            </KpiLabel>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(data?.summary?.totalCost || 0)}</p>
+          </Card>
+          <Card>
+            <KpiLabel kpiKey="totalConversions" onOpen={setOpenKpi} className="text-xs font-medium text-muted mb-2 uppercase tracking-wider">
+              <MousePointerClick className="w-3.5 h-3.5" /> Total Conversions
+            </KpiLabel>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalConversions || 0)}</p>
+          </Card>
+          <Card>
+            <KpiLabel kpiKey="costPerConversion" onOpen={setOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+              <TrendingUp className="w-3.5 h-3.5" /> Cost Per Conversion
+            </KpiLabel>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(cpa)}</p>
+          </Card>
         </div>
 
         <h3 className="text-lg font-bold text-foreground mb-4">Active Campaigns</h3>
@@ -372,7 +389,9 @@ export default function Dashboard() {
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-xl font-bold text-foreground">{formatCurrency(campaign.cost)}</p>
-                  <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-1 bg-emerald-50 dark:bg-emerald-900/20 inline-block px-2 py-0.5 rounded-full">{formatNumber(campaign.conversions)} conversions</p>
+                  <KpiLabel kpiKey="campaignConversions" onOpen={setOpenKpi} className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-1 bg-emerald-50 dark:bg-emerald-900/20 inline-flex px-2 py-0.5 rounded-full">
+                    {formatNumber(campaign.conversions)} conversions
+                  </KpiLabel>
                 </div>
               </div>
             </Card>
@@ -407,30 +426,30 @@ export default function Dashboard() {
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="clicks" onOpen={setOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
                       <MousePointerClick className="w-3.5 h-3.5" /> Clicks
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{new Intl.NumberFormat('pt-BR').format(site.stats.clicks)}</span>
                   </div>
 
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="impressions" onOpen={setOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
                       <Search className="w-3.5 h-3.5" /> Impressions
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{new Intl.NumberFormat('pt-BR').format(site.stats.impressions)}</span>
                   </div>
 
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="ctr" onOpen={setOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
                       <TrendingUp className="w-3.5 h-3.5" /> CTR
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatPercent(site.stats.ctr)}</span>
                   </div>
 
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center gap-1.5 mb-1 uppercase tracking-wider">
+                    <KpiLabel kpiKey="avgPosition" onOpen={setOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
                       <Activity className="w-3.5 h-3.5" /> Avg. Position
-                    </span>
+                    </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{site.stats.position > 0 ? site.stats.position.toFixed(1) : '—'}</span>
                   </div>
                 </div>
@@ -439,6 +458,8 @@ export default function Dashboard() {
           ))}
         </div>
       )}
+
+      <KpiModal kpiKey={openKpi} onClose={() => setOpenKpi(null)} />
     </div>
   );
 }

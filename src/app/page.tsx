@@ -355,19 +355,19 @@ export default function Dashboard() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <KpiLabel kpiKey="totalCost" onOpen={setOpenKpi} className="text-xs font-medium text-muted mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="totalCost" onOpen={setOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
               <DollarSign className="w-3.5 h-3.5" /> Total Cost
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(data?.summary?.totalCost || 0)}</p>
           </Card>
-          <Card>
-            <KpiLabel kpiKey="totalConversions" onOpen={setOpenKpi} className="text-xs font-medium text-muted mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="totalConversions" onOpen={setOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
               <MousePointerClick className="w-3.5 h-3.5" /> Total Conversions
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalConversions || 0)}</p>
           </Card>
-          <Card>
+          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
             <KpiLabel kpiKey="costPerConversion" onOpen={setOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
               <TrendingUp className="w-3.5 h-3.5" /> Cost Per Conversion
             </KpiLabel>
@@ -378,20 +378,40 @@ export default function Dashboard() {
         <h3 className="text-lg font-bold text-foreground mb-4">Active Campaigns</h3>
         <div className="grid grid-cols-1 gap-4">
           {data?.campaigns?.map((campaign: any) => (
-            <Card key={campaign.id} className="hover:scale-[1.01] transition-transform">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-foreground">{campaign.name}</h3>
-                    {getStatusBadge(campaign.status)}
+            <Card
+              key={campaign.id}
+              className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-muted font-mono text-xs">ID: {campaign.id}</p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h3 className="text-base font-bold text-foreground truncate">{campaign.name}</h3>
+                      {getStatusBadge(campaign.status)}
+                    </div>
+                    <p className="text-xs text-muted font-mono mt-0.5 opacity-70">ID: {campaign.id}</p>
+                  </div>
                 </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-xl font-bold text-foreground">{formatCurrency(campaign.cost)}</p>
-                  <KpiLabel kpiKey="campaignConversions" onOpen={setOpenKpi} className="text-sm font-medium text-emerald-600 dark:text-emerald-400 mt-1 bg-emerald-50 dark:bg-emerald-900/20 inline-flex px-2 py-0.5 rounded-full">
-                    {formatNumber(campaign.conversions)} conversions
-                  </KpiLabel>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                  <div className="flex flex-col">
+                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5" /> Cost
+                    </div>
+                    <span className="text-xl font-bold text-foreground">{formatCurrency(campaign.cost)}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <KpiLabel
+                      kpiKey="campaignConversions"
+                      onOpen={setOpenKpi}
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider"
+                    >
+                      <MousePointerClick className="w-3.5 h-3.5" /> Conversions
+                    </KpiLabel>
+                    <span className="text-xl font-bold text-foreground">{formatNumber(campaign.conversions)}</span>
+                  </div>
                 </div>
               </div>
             </Card>

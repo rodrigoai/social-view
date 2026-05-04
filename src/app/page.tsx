@@ -15,10 +15,10 @@ export default function Dashboard() {
   const [scData, setScData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [adsError, setAdsError] = useState<any>(null);
   const [gaError, setGaError] = useState<any>(null);
   const [scError, setScError] = useState<any>(null);
   const [openKpi, setOpenKpi] = useState<KpiKey | null>(null);
-
 
   const [filters, setFilters] = useState({ 
     period: '7d', 
@@ -34,11 +34,13 @@ export default function Dashboard() {
         setLoading(false);
         setData(null);
         setGaData(null);
+        setScData(null);
         return;
       }
 
       setLoading(true);
       setError(null);
+      setAdsError(null);
       setGaError(null);
       setScError(null);
       
@@ -62,15 +64,23 @@ export default function Dashboard() {
           fetch(`/api/search-console/dashboard?${query.toString()}`)
         ]);
 
-        if (!adsRes.ok) {
-          const errorText = await adsRes.text();
-          console.error('Ads API Error:', errorText);
-          throw new Error(`Ads API returned ${adsRes.status}`);
+        // Handle Ads
+        if (adsRes.ok) {
+          const adsData = await adsRes.json();
+          setData(adsData);
+          setAdsError(null);
+        } else {
+          const errorJson = await adsRes.json().catch(() => ({}));
+          console.error('Ads API Error:', errorJson);
+          setAdsError(errorJson);
+          setData(null);
+          // If it's a generic 500 or other non-auth error, we still want to show something
+          if (errorJson.code !== 'AUTH_REQUIRED') {
+            setError(errorJson.message || 'Failed to load Ads data');
+          }
         }
 
-        const adsData = await adsRes.json();
-        setData(adsData);
-
+        // Handle Analytics
         if (gaRes.ok) {
           const gaDataJson = await gaRes.json();
           setGaData(gaDataJson);
@@ -82,6 +92,7 @@ export default function Dashboard() {
           setGaData(null);
         }
 
+        // Handle Search Console
         if (scRes.ok) {
           const scDataJson = await scRes.json();
           setScData(scDataJson);
@@ -94,7 +105,6 @@ export default function Dashboard() {
           setScError(errorJson);
           setScData(null);
         }
-
 
       } catch (err: any) {
         console.error('Dashboard Load Error:', err);
@@ -271,20 +281,30 @@ export default function Dashboard() {
         currentEndDate={filters.endDate}
       />
 
-      {gaError && gaError.code === 'AUTH_REQUIRED' && (
-        <div className="mb-10 p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-4">
+      {/* Authentication Required Banner */}
+      {(adsError?.code === 'AUTH_REQUIRED' || gaError?.code === 'AUTH_REQUIRED' || scError?.code === 'AUTH_REQUIRED') && (
+        <div className="mb-10 p-6 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-4 shadow-sm animate-in slide-in-from-top-4 duration-500">
           <div className="flex items-center gap-4">
-            <AlertCircle className="w-8 h-8 text-amber-500" />
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-7 h-7 text-amber-600" />
+            </div>
             <div>
-              <h3 className="text-lg font-bold text-amber-900">Analytics Session Expired</h3>
-              <p className="text-amber-700">Please reconnect your Google account to see your analytics data.</p>
+              <h3 className="text-lg font-bold text-amber-900">Ação Necessária: Sessão Expirada</h3>
+              <p className="text-amber-700 text-sm md:text-base">
+                Algumas conexões com o Google expiraram. Reconecte sua conta para restaurar o acesso aos dados de{' '}
+                {[
+                  adsError?.code === 'AUTH_REQUIRED' && 'Google Ads',
+                  gaError?.code === 'AUTH_REQUIRED' && 'Google Analytics',
+                  scError?.code === 'AUTH_REQUIRED' && 'Search Console'
+                ].filter(Boolean).join(', ')}.
+              </p>
             </div>
           </div>
           <Link 
             href={`/api/auth/google?mainAccountId=${selectedAccountId}`} 
-            className="px-6 py-2.5 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-all shadow-sm"
+            className="px-6 py-2.5 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-all shadow-md hover:shadow-lg flex-shrink-0 whitespace-nowrap"
           >
-            Reconnect Account
+            Reconectar Conta
           </Link>
         </div>
       )}

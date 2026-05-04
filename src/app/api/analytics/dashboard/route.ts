@@ -14,127 +14,121 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { getAuthorizedClient } = await import('@/lib/googleAuth');
-    let oauth2Client;
-    
-    try {
-      oauth2Client = await getAuthorizedClient(mainAccountId);
-    } catch (authError: any) {
-      if (['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'].includes(authError.message)) {
+    const { withGoogleAuth } = await import('@/lib/googleAuth');
+
+    return await withGoogleAuth(mainAccountId, async (oauth2Client) => {
+      const gaConfigs = await prisma.googleAnalyticsConfig.findMany({
+        where: { mainAccountId }
+      });
+
+      if (gaConfigs.length === 0) {
         return NextResponse.json({ 
-          error: 'Google Account authentication failed', 
-          code: 'AUTH_REQUIRED',
-          details: authError.message 
-        }, { status: 401 });
+          properties: []
+        });
       }
-      throw authError;
-    }
 
-    const gaConfigs = await prisma.googleAnalyticsConfig.findMany({
-      where: { mainAccountId }
-    });
-
-    if (gaConfigs.length === 0) {
-      return NextResponse.json({ 
-        properties: []
+      const analyticsDataClient = new BetaAnalyticsDataClient({
+        authClient: oauth2Client
       });
-    }
 
-    const analyticsDataClient = new BetaAnalyticsDataClient({
-      authClient: oauth2Client
-    });
+      let dateRange = { startDate: '7daysAgo', endDate: 'today' };
 
+      if (period === 'custom' && startDate && endDate) {
+        dateRange = { startDate, endDate };
+      } else if (period === '30d') {
+        dateRange = { startDate: '30daysAgo', endDate: 'today' };
+      } else if (period === '90d') {
+        dateRange = { startDate: '90daysAgo', endDate: 'today' };
+      }
 
-    let dateRange = { startDate: '7daysAgo', endDate: 'today' };
-
-    if (period === 'custom' && startDate && endDate) {
-      dateRange = { startDate, endDate };
-    } else if (period === '30d') {
-      dateRange = { startDate: '30daysAgo', endDate: 'today' };
-    } else if (period === '90d') {
-      dateRange = { startDate: '90daysAgo', endDate: 'today' };
-    }
-
-    const propertiesResults = [];
-    
-    for (const config of gaConfigs) {
-      // Extract numeric property ID. Some might be "properties/12345"
-      const propertyId = config.propertyId.replace('properties/', '');
+      const propertiesResults = [];
       
-      const [response] = await analyticsDataClient.runReport({
-        property: `properties/${propertyId}`,
-        dateRanges: [dateRange],
-        metrics: [
-          { name: 'activeUsers' },
-          { name: 'sessions' },
-          { name: 'screenPageViews' },
-          { name: 'bounceRate' },
-          { name: 'averageSessionDuration' }
-        ],
-      });
-
-      let propertyStats = {
-        activeUsers: 0,
-        sessions: 0,
-        screenPageViews: 0,
-        bounceRate: 0,
-        averageSessionDuration: 0,
-        trackedEventCount: 0,
-        trackedEventName: config.trackedEventName,
-      };
-
-      if (response && response.rows && response.rows.length > 0) {
-        const row = response.rows[0];
-        const metricValues = row.metricValues || [];
+      for (const config of gaConfigs) {
+        const propertyId = config.propertyId.replace('properties/', '');
         
-        propertyStats.activeUsers = parseInt(metricValues[0]?.value || '0', 10);
-        propertyStats.sessions = parseInt(metricValues[1]?.value || '0', 10);
-        propertyStats.screenPageViews = parseInt(metricValues[2]?.value || '0', 10);
-        propertyStats.bounceRate = parseFloat(metricValues[3]?.value || '0');
-        propertyStats.averageSessionDuration = parseFloat(metricValues[4]?.value || '0');
-      }
+        const [response] = await analyticsDataClient.runReport({
+          property: `properties/${propertyId}`,
+          dateRanges: [dateRange],
+          metrics: [
+            { name: 'activeUsers' },
+            { name: 'sessions' },
+            { name: 'screenPageViews' },
+            { name: 'bounceRate' },
+            { name: 'averageSessionDuration' }
+          ],
+        });
 
-      // Fetch specific event count if configured
-      if (config.trackedEventName) {
-        try {
-          const [eventResponse] = await analyticsDataClient.runReport({
-            property: `properties/${propertyId}`,
-            dateRanges: [dateRange],
-            dimensions: [{ name: 'eventName' }],
-            metrics: [{ name: 'eventCount' }],
-            dimensionFilter: {
-              filter: {
-                fieldName: 'eventName',
-                stringFilter: {
-                  value: config.trackedEventName,
-                  matchType: 'EXACT'
+        let propertyStats = {
+          activeUsers: 0,
+          sessions: 0,
+          screenPageViews: 0,
+          bounceRate: 0,
+          averageSessionDuration: 0,
+          trackedEventCount: 0,
+          trackedEventName: config.trackedEventName,
+        };
+
+        if (response && response.rows && response.rows.length > 0) {
+          const row = response.rows[0];
+          const metricValues = row.metricValues || [];
+          
+          propertyStats.activeUsers = parseInt(metricValues[0]?.value || '0', 10);
+          propertyStats.sessions = parseInt(metricValues[1]?.value || '0', 10);
+          propertyStats.screenPageViews = parseInt(metricValues[2]?.value || '0', 10);
+          propertyStats.bounceRate = parseFloat(metricValues[3]?.value || '0');
+          propertyStats.averageSessionDuration = parseFloat(metricValues[4]?.value || '0');
+        }
+
+        // Fetch specific event count if configured
+        if (config.trackedEventName) {
+          try {
+            const [eventResponse] = await analyticsDataClient.runReport({
+              property: `properties/${propertyId}`,
+              dateRanges: [dateRange],
+              dimensions: [{ name: 'eventName' }],
+              metrics: [{ name: 'eventCount' }],
+              dimensionFilter: {
+                filter: {
+                  fieldName: 'eventName',
+                  stringFilter: {
+                    value: config.trackedEventName,
+                    matchType: 'EXACT'
+                  }
                 }
               }
-            }
-          });
+            });
 
-          if (eventResponse && eventResponse.rows && eventResponse.rows.length > 0) {
-            propertyStats.trackedEventCount = parseInt(eventResponse.rows[0].metricValues?.[0]?.value || '0', 10);
+            if (eventResponse && eventResponse.rows && eventResponse.rows.length > 0) {
+              propertyStats.trackedEventCount = parseInt(eventResponse.rows[0].metricValues?.[0]?.value || '0', 10);
+            }
+          } catch (e) {
+            console.error(`Failed to fetch event count for ${config.trackedEventName}:`, e);
           }
-        } catch (e) {
-          console.error(`Failed to fetch event count for ${config.trackedEventName}:`, e);
         }
+
+        propertiesResults.push({
+          propertyId: config.propertyId,
+          propertyName: config.propertyName || 'Unknown Property',
+          stats: propertyStats
+        });
       }
 
-      propertiesResults.push({
-        propertyId: config.propertyId,
-        propertyName: config.propertyName || 'Unknown Property',
-        stats: propertyStats
+      return NextResponse.json({ 
+        properties: propertiesResults
       });
-    }
-
-
-    return NextResponse.json({ 
-      properties: propertiesResults
     });
-
   } catch (error: any) {
     console.error('Failed to fetch Google Analytics dashboard data:', error);
+    
+    const authErrors = ['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'];
+    if (authErrors.includes(error.message) || error.code === 401 || (error.response && error.response.status === 401)) {
+      return NextResponse.json({ 
+        error: 'Google Analytics authentication failed', 
+        code: 'AUTH_REQUIRED',
+        details: error.message 
+      }, { status: 401 });
+    }
+
     return NextResponse.json({ 
       error: 'Failed to fetch analytics data', 
       details: error.message,

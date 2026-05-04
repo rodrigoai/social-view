@@ -11,49 +11,45 @@ export async function GET(request: Request) {
   }
 
   try {
-    const config = await prisma.googleCredential.findUnique({
-      where: { mainAccountId }
-    });
+    const { withGoogleAuth } = await import('@/lib/googleAuth');
 
-    if (!config || !config.accessToken) {
-      return NextResponse.json({ error: 'Google Account not configured or authenticated' }, { status: 401 });
-    }
-
-    const { getGoogleOAuthClient } = await import('@/lib/googleAuth');
-    const oauth2Client = getGoogleOAuthClient();
-    
-    oauth2Client.setCredentials({
-      access_token: config.accessToken,
-      refresh_token: config.refreshToken,
-    });
-
-    const analyticsAdminClient = new AnalyticsAdminServiceClient({
-      authClient: oauth2Client
-    });
-    
-    // The correct method is listAccountSummaries
-    const [accountSummaries] = await analyticsAdminClient.listAccountSummaries();
-    
-    const properties: any[] = [];
-    
-    if (accountSummaries) {
-      for (const account of accountSummaries) {
-        if (account.propertySummaries) {
-          for (const prop of account.propertySummaries) {
-            properties.push({
-              id: prop.property,
-              name: `${account.displayName} > ${prop.displayName}`,
-              parentAccount: account.displayName
-            });
+    return await withGoogleAuth(mainAccountId, async (oauth2Client) => {
+      const analyticsAdminClient = new AnalyticsAdminServiceClient({
+        authClient: oauth2Client
+      });
+      
+      const [accountSummaries] = await analyticsAdminClient.listAccountSummaries();
+      
+      const properties: any[] = [];
+      
+      if (accountSummaries) {
+        for (const account of accountSummaries) {
+          if (account.propertySummaries) {
+            for (const prop of account.propertySummaries) {
+              properties.push({
+                id: prop.property,
+                name: `${account.displayName} > ${prop.displayName}`,
+                parentAccount: account.displayName
+              });
+            }
           }
         }
       }
-    }
 
-    return NextResponse.json({ properties });
-
+      return NextResponse.json({ properties });
+    });
   } catch (error: any) {
     console.error('Failed to fetch Google Analytics properties:', error);
+    
+    const authErrors = ['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'];
+    if (authErrors.includes(error.message) || error.code === 401 || (error.response && error.response.status === 401)) {
+      return NextResponse.json({ 
+        error: 'Google Analytics authentication failed', 
+        code: 'AUTH_REQUIRED',
+        details: error.message 
+      }, { status: 401 });
+    }
+
     return NextResponse.json({ 
       error: 'Failed to fetch properties', 
       details: error.message,

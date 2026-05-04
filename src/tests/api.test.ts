@@ -18,7 +18,12 @@ jest.mock('@/lib/googleAds', () => ({
 
 jest.mock('@/lib/googleAuth', () => ({
   getAuthorizedClient: jest.fn(),
-  getGoogleOAuthClient: jest.fn()
+  getGoogleOAuthClient: jest.fn(),
+  withGoogleAuth: jest.fn().mockImplementation(async (accountId, operation) => {
+    const { getAuthorizedClient } = require('@/lib/googleAuth');
+    const client = await getAuthorizedClient(accountId);
+    return operation(client);
+  })
 }));
 
 

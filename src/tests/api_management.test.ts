@@ -18,21 +18,25 @@ jest.mock('next/server', () => ({
   }
 }));
 
+// Mock prisma
+jest.mock('../lib/prisma', () => ({
+  prisma: {
+    mainAccount: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    }
+  }
+}));
+
 describe('Account Management API', () => {
-  let testAccountId: string;
+  let testAccountId = 'test-id';
 
-  beforeAll(async () => {
-    // Cleanup and create a test account
-    await prisma.mainAccount.deleteMany();
-    const acc = await prisma.mainAccount.create({
-      data: { name: 'Test Account' }
-    });
-    testAccountId = acc.id;
-  });
-
-  afterAll(async () => {
-    await prisma.mainAccount.deleteMany();
-    await prisma.$disconnect();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should update account name via PATCH', async () => {
@@ -41,13 +45,17 @@ describe('Account Management API', () => {
       body: JSON.stringify({ name: 'Updated Name' })
     });
 
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, name: 'Updated Name' });
+    (prisma.mainAccount.findUnique as jest.Mock).mockResolvedValue({ id: testAccountId, name: 'Updated Name' });
+
     const response = await PATCH(request, { params: { id: testAccountId } });
     const data = await response.json();
 
     expect(data.account.name).toBe('Updated Name');
-    
-    const dbAcc = await prisma.mainAccount.findUnique({ where: { id: testAccountId } });
-    expect(dbAcc?.name).toBe('Updated Name');
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { name: 'Updated Name' }
+    });
   });
 
   it('should save a googleBusinessUrl via PATCH', async () => {
@@ -58,12 +66,16 @@ describe('Account Management API', () => {
       body: JSON.stringify({ googleBusinessUrl: url })
     });
 
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, googleBusinessUrl: url });
+
     const response = await PATCH(request, { params: { id: testAccountId } });
     const data = await response.json();
 
     expect(data.account.googleBusinessUrl).toBe(url);
-    const dbAcc = await prisma.mainAccount.findUnique({ where: { id: testAccountId } });
-    expect(dbAcc?.googleBusinessUrl).toBe(url);
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { googleBusinessUrl: url }
+    });
   });
 
   it('should clear googleBusinessUrl when null is passed', async () => {
@@ -73,15 +85,20 @@ describe('Account Management API', () => {
       body: JSON.stringify({ googleBusinessUrl: null })
     });
 
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, googleBusinessUrl: null });
+
     const response = await PATCH(request, { params: { id: testAccountId } });
     const data = await response.json();
 
     expect(data.account.googleBusinessUrl).toBeNull();
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { googleBusinessUrl: null }
+    });
   });
 
   it('should clear googleBusinessUrl when empty string is passed', async () => {
-    // First set a URL
-    await prisma.mainAccount.update({ where: { id: testAccountId }, data: { googleBusinessUrl: 'https://business.google.com/' } });
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, googleBusinessUrl: null });
 
     const request = new Request('http://localhost/api/accounts/' + testAccountId, {
       method: 'PATCH',
@@ -92,6 +109,10 @@ describe('Account Management API', () => {
     const response = await PATCH(request, { params: { id: testAccountId } });
     const data = await response.json();
     expect(data.account.googleBusinessUrl).toBeNull();
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { googleBusinessUrl: null }
+    });
   });
 
   it('should delete account via DELETE', async () => {
@@ -99,11 +120,12 @@ describe('Account Management API', () => {
       method: 'DELETE'
     });
 
+    (prisma.mainAccount.delete as jest.Mock).mockResolvedValue({ id: testAccountId });
+
     const response = await DELETE_ACCOUNT(request, { params: { id: testAccountId } });
     expect(response.status).toBe(200);
 
-    const dbAcc = await prisma.mainAccount.findUnique({ where: { id: testAccountId } });
-    expect(dbAcc).toBeNull();
+    expect(prisma.mainAccount.delete).toHaveBeenCalledWith({ where: { id: testAccountId } });
   });
 });
 

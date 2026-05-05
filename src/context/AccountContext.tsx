@@ -18,7 +18,7 @@ interface AccountContextType {
   accounts: Account[];
   selectedAccountId: string | null;
   selectedAccount: Account | null;
-  setSelectedAccountId: (id: string) => void;
+  setSelectedAccountId: (id: string | null) => void;
   isLoading: boolean;
   refreshAccounts: () => Promise<void>;
 }
@@ -62,9 +62,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     fetchAccounts();
   }, []);
 
-  const setSelectedAccountId = (id: string) => {
+  const setSelectedAccountId = (id: string | null) => {
     setSelectedAccountIdState(id);
-    localStorage.setItem('selectedAccountId', id);
+    if (id) {
+      localStorage.setItem('selectedAccountId', id);
+    } else {
+      localStorage.removeItem('selectedAccountId');
+    }
   };
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId) || null;

@@ -10,6 +10,12 @@ export default function Dashboard() {
   const { selectedAccountId, selectedAccount, isLoading: accountsLoading } = useAccount();
   const [openKpi, setOpenKpi] = useState<KpiKey | null>(null);
   const [activeTab, setActiveTab] = useState<'google' | 'meta'>('google');
+  const [filters, setFilters] = useState({ 
+    period: '7d', 
+    campaign: 'all',
+    startDate: '',
+    endDate: ''
+  });
 
   if (accountsLoading) {
     return (
@@ -64,11 +70,15 @@ export default function Dashboard() {
           selectedAccountId={selectedAccountId} 
           selectedAccount={selectedAccount} 
           onOpenKpi={setOpenKpi} 
+          filters={filters}
+          onFilterChange={setFilters}
         />
       ) : (
         <MetaDashboardView 
           selectedAccountId={selectedAccountId} 
           onOpenKpi={setOpenKpi} 
+          filters={filters}
+          onFilterChange={setFilters}
         />
       )}
 

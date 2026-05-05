@@ -25,7 +25,7 @@ type Account = {
 
 // ─── Integration row ──────────────────────────────────────────────────────────
 function IntegrationRow({
-  icon, label, status, actionLabel, onAction, href, className = ''
+  icon, label, status, actionLabel, onAction, href, onClear, className = ''
 }: {
   icon: React.ReactNode;
   label: string;
@@ -33,6 +33,7 @@ function IntegrationRow({
   actionLabel: string;
   onAction?: () => void;
   href?: string;
+  onClear?: () => void;
   className?: string;
 }) {
   return (
@@ -44,12 +45,23 @@ function IntegrationRow({
           <div className="text-xs text-muted mt-0.5">{status}</div>
         </div>
       </div>
-      <button
-        onClick={onAction || (href ? () => { window.location.href = href; } : undefined)}
-        className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-custom hover:bg-border-custom text-foreground transition-colors whitespace-nowrap"
-      >
-        {actionLabel}
-      </button>
+      <div className="flex items-center gap-2">
+        {onClear && (
+          <button
+            onClick={onClear}
+            className="flex-shrink-0 p-1.5 text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            title="Clear selection"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <button
+          onClick={onAction || (href ? () => { window.location.href = href; } : undefined)}
+          className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-custom hover:bg-border-custom text-foreground transition-colors whitespace-nowrap"
+        >
+          {actionLabel}
+        </button>
+      </div>
     </div>
   );
 }
@@ -105,8 +117,7 @@ function AccountListItem({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Settings() {
-  const { accounts, refreshAccounts } = useAccount();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { accounts, refreshAccounts, selectedAccountId, setSelectedAccountId } = useAccount();
 
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -118,13 +129,6 @@ export default function Settings() {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
 
-  // Auto-select first account, clear URL params
-  useEffect(() => {
-    if (accounts.length > 0 && !selectedId) {
-      setSelectedId(accounts[0].id);
-    }
-  }, [accounts, selectedId]);
-
   useEffect(() => {
     if (success || error) {
       refreshAccounts();
@@ -133,7 +137,7 @@ export default function Settings() {
     }
   }, [success, error, refreshAccounts, router]);
 
-  const selectedAccount = accounts.find(a => a.id === selectedId) as Account | undefined;
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId) as Account | undefined;
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
   const createAccount = async () => {
@@ -143,7 +147,7 @@ export default function Settings() {
     if (res.ok) {
       const { account } = await res.json();
       await refreshAccounts();
-      setSelectedId(account.id);
+      setSelectedAccountId(account.id);
     }
   };
 
@@ -152,7 +156,7 @@ export default function Settings() {
     const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
     if (res.ok) {
       await refreshAccounts();
-      setSelectedId(accounts.find(a => a.id !== id)?.id ?? null);
+      setSelectedAccountId(accounts.find(a => a.id !== id)?.id ?? null);
     }
   };
 
@@ -181,6 +185,28 @@ export default function Settings() {
 
   const linkMeta = (mainAccountId: string) => {
     window.location.href = `/api/auth/meta?mainAccountId=${mainAccountId}`;
+  };
+
+  const disconnectGoogle = async (mainAccountId: string) => {
+    if (!window.confirm('Disconnect Google account? This will remove all Google Ads, Analytics, and Search Console configurations for this account.')) return;
+    const res = await fetch(`/api/auth/google/disconnect?mainAccountId=${mainAccountId}`, { method: 'POST' });
+    if (res.ok) await refreshAccounts();
+  };
+
+  const disconnectMeta = async (mainAccountId: string) => {
+    if (!window.confirm('Disconnect Meta account? This will remove all Meta Ads, Facebook Pages, and Instagram configurations for this account.')) return;
+    const res = await fetch(`/api/auth/meta/disconnect?mainAccountId=${mainAccountId}`, { method: 'POST' });
+    if (res.ok) await refreshAccounts();
+  };
+
+  const clearIntegration = async (type: string, mainAccountId: string) => {
+    if (!window.confirm(`Clear ${type} selection?`)) return;
+    const res = await fetch('/api/integrations/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, mainAccountId })
+    });
+    if (res.ok) await refreshAccounts();
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -228,8 +254,8 @@ export default function Settings() {
                 <AccountListItem
                   key={acc.id}
                   account={acc as Account}
-                  isSelected={acc.id === selectedId}
-                  onClick={() => setSelectedId(acc.id)}
+                  isSelected={acc.id === selectedAccountId}
+                  onClick={() => setSelectedAccountId(acc.id)}
                 />
               ))}
             </div>
@@ -317,6 +343,7 @@ export default function Settings() {
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-ads/select?mainAccountId=${selectedAccount.id}`}
+                      onClear={selectedAccount.googleAdsConfigs?.length > 0 ? () => clearIntegration('google-ads', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-amber-600" /></div>}
@@ -326,6 +353,7 @@ export default function Settings() {
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-analytics/select?mainAccountId=${selectedAccount.id}`}
+                      onClear={selectedAccount.googleAnalyticsConfigs?.length > 0 ? () => clearIntegration('google-analytics', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><Globe className="w-3.5 h-3.5 text-violet-600" /></div>}
@@ -335,7 +363,16 @@ export default function Settings() {
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-search-console/select?mainAccountId=${selectedAccount.id}`}
+                      onClear={selectedAccount.googleSearchConsoleConfigs?.length > 0 ? () => clearIntegration('google-search-console', selectedAccount.id) : undefined}
                     />
+                    <div className="mt-4 pt-4">
+                      <button
+                        onClick={() => disconnectGoogle(selectedAccount.id)}
+                        className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Disconnect Google Account
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <div className="py-4 flex flex-col items-start gap-3">
@@ -420,6 +457,7 @@ export default function Settings() {
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/meta-ads/select?mainAccountId=${selectedAccount.id}`}
+                      onClear={selectedAccount.metaAdsConfigs?.length > 0 ? () => clearIntegration('meta-ads', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
@@ -429,6 +467,7 @@ export default function Settings() {
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/facebook-pages/select?mainAccountId=${selectedAccount.id}`}
+                      onClear={selectedAccount.facebookPageConfigs?.length > 0 ? () => clearIntegration('facebook-pages', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-pink-600" /></div>}
@@ -438,7 +477,16 @@ export default function Settings() {
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/instagram/select?mainAccountId=${selectedAccount.id}`}
+                      onClear={selectedAccount.instagramPageConfigs?.length > 0 ? () => clearIntegration('instagram', selectedAccount.id) : undefined}
                     />
+                    <div className="mt-4 pt-4">
+                      <button
+                        onClick={() => disconnectMeta(selectedAccount.id)}
+                        className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Disconnect Meta Account
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <div className="py-4 flex flex-col items-start gap-3">

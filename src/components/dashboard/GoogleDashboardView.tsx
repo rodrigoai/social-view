@@ -11,10 +11,14 @@ export function GoogleDashboardView({
   selectedAccountId,
   selectedAccount,
   onOpenKpi,
+  filters,
+  onFilterChange
 }: {
   selectedAccountId: string;
   selectedAccount: any;
   onOpenKpi: (key: KpiKey) => void;
+  filters: any;
+  onFilterChange: (filters: any) => void;
 }) {
   const [data, setData] = useState<any>(null);
   const [gaData, setGaData] = useState<any>(null);
@@ -25,12 +29,9 @@ export function GoogleDashboardView({
   const [gaError, setGaError] = useState<any>(null);
   const [scError, setScError] = useState<any>(null);
 
-  const [filters, setFilters] = useState({ 
-    period: '7d', 
-    campaign: 'all',
-    startDate: '',
-    endDate: ''
-  });
+  const handleFilterChange = (newFilters: any) => {
+    onFilterChange(newFilters);
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -69,7 +70,9 @@ export function GoogleDashboardView({
           setAdsError(null);
         } else {
           const errorJson = await adsRes.json().catch(() => ({}));
-          console.error('Ads API Error:', errorJson);
+          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
+            console.error('Ads API Error:', errorJson);
+          }
           setAdsError(errorJson);
           setData(null);
           if (errorJson.code !== 'AUTH_REQUIRED') {
@@ -84,7 +87,9 @@ export function GoogleDashboardView({
           setGaError(null);
         } else {
           const errorJson = await gaRes.json().catch(() => ({}));
-          console.error('Analytics API Error:', errorJson);
+          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
+            console.error('Analytics API Error:', errorJson);
+          }
           setGaError(errorJson);
           setGaData(null);
         }
@@ -114,9 +119,7 @@ export function GoogleDashboardView({
     loadData();
   }, [selectedAccountId, filters]);
 
-  const handleFilterChange = (newFilters: any) => {
-    setFilters(newFilters);
-  };
+
 
   if (loading) {
     return (

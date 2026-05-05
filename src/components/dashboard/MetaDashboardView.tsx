@@ -10,9 +10,13 @@ import Link from 'next/link';
 export function MetaDashboardView({
   selectedAccountId,
   onOpenKpi,
+  filters,
+  onFilterChange
 }: {
   selectedAccountId: string;
   onOpenKpi: (key: KpiKey) => void;
+  filters: any;
+  onFilterChange: (filters: any) => void;
 }) {
   const [data, setData] = useState<any>(null);
   const [fbData, setFbData] = useState<any>(null);
@@ -23,12 +27,9 @@ export function MetaDashboardView({
   const [fbError, setFbError] = useState<any>(null);
   const [igError, setIgError] = useState<any>(null);
 
-  const [filters, setFilters] = useState({ 
-    period: '7d', 
-    campaign: 'all',
-    startDate: '',
-    endDate: ''
-  });
+  const handleFilterChange = (newFilters: any) => {
+    onFilterChange(newFilters);
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -67,7 +68,9 @@ export function MetaDashboardView({
           setAdsError(null);
         } else {
           const errorJson = await adsRes.json().catch(() => ({}));
-          console.error('Meta Ads API Error:', errorJson);
+          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
+            console.error('Meta Ads API Error:', errorJson);
+          }
           setAdsError(errorJson);
           setData(null);
           if (errorJson.code !== 'AUTH_REQUIRED') {
@@ -82,7 +85,9 @@ export function MetaDashboardView({
           setFbError(null);
         } else {
           const errorJson = await fbRes.json().catch(() => ({}));
-          console.error('Facebook Pages API Error:', errorJson);
+          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
+            console.error('Facebook Pages API Error:', errorJson);
+          }
           setFbError(errorJson);
           setFbData(null);
         }
@@ -94,7 +99,9 @@ export function MetaDashboardView({
           setIgError(null);
         } else {
           const errorJson = await igRes.json().catch(() => ({}));
-          console.error('Instagram API Error:', errorJson);
+          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
+            console.error('Instagram API Error:', errorJson);
+          }
           setIgError(errorJson);
           setIgData(null);
         }
@@ -110,9 +117,7 @@ export function MetaDashboardView({
     loadData();
   }, [selectedAccountId, filters]);
 
-  const handleFilterChange = (newFilters: any) => {
-    setFilters(newFilters);
-  };
+
 
   if (loading) {
     return (

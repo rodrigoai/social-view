@@ -43,6 +43,15 @@ describe('Automatic Token Refresh', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    (console.error as jest.Mock).mockRestore();
+    (console.warn as jest.Mock).mockRestore();
+    (console.log as jest.Mock).mockRestore();
   });
 
   it('should refresh token and retry on 401 Unauthorized', async () => {

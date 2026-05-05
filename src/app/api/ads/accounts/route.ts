@@ -46,15 +46,12 @@ export async function GET(request: Request) {
       const customerPromises = namesArray.map(async (rn: string) => {
         try {
           const customerId = rn.split('/')[1];
-          const customerClient = new GoogleAdsApi({
-            client_id: process.env.GOOGLE_CLIENT_ID || '',
-            client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
-            developer_token: developerToken,
-          }).Customer({
-            customer_id: customerId,
-            access_token: tokens.token!,
-            refresh_token: oauth2Client.credentials.refresh_token || undefined
-          });
+          const { getCustomer } = await import('@/lib/googleAds');
+          const customerClient = getCustomer(
+            tokens.token!, 
+            customerId, 
+            oauth2Client.credentials.refresh_token as string
+          );
 
           const details = await customerClient.report({
             entity: 'customer',
@@ -68,12 +65,12 @@ export async function GET(request: Request) {
 
           if (details && details.length > 0) {
             const customerData = details[0].customer;
-            const isEnabled = customerData.status === 'ENABLED' || customerData.status === 2;
+            const isEnabled = customerData && (customerData.status === 'ENABLED' || customerData.status === 2);
             
             if (isEnabled) {
               return {
                 id: customerId,
-                name: customerData.descriptive_name || customerData.resource_name || 'Unnamed Account',
+                name: customerData?.descriptive_name || customerData?.resource_name || 'Unnamed Account',
                 resourceName: rn
               };
             }

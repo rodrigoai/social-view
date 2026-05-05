@@ -171,7 +171,6 @@ export function GoogleDashboardView({
     const statusMap: Record<string | number, { label: string; color: string }> = {
       'ELIGIBLE': { label: 'Qualificada', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
       2: { label: 'Qualificada', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-      '2': { label: 'Qualificada', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
       
       'LEARNING': { label: 'Em Aprendizado', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
       10: { label: 'Em Aprendizado', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
@@ -182,8 +181,6 @@ export function GoogleDashboardView({
       'LIMITED': { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
       8: { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
       9: { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
-      '8': { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
-      '9': { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
       
       'MISCONFIGURED': { label: 'Incorreta', color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },
       7: { label: 'Incorreta', color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },

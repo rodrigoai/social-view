@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/Card';
 import { AlertCircle, ArrowRight, Building2, ShieldCheck } from 'lucide-react';
 
-export default function InstagramSelect() {
+import { Suspense } from 'react';
+
+function InstagramSelectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainAccountId = searchParams.get('mainAccountId');
@@ -148,5 +150,17 @@ export default function InstagramSelect() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function InstagramSelect() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
+      </div>
+    }>
+      <InstagramSelectContent />
+    </Suspense>
   );
 }

@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, AlertCircle, ArrowRight, Globe, ShieldCheck, CheckSquare, Square } from 'lucide-react';
 
-export default function GoogleSearchConsoleSelect() {
+import { Suspense } from 'react';
+
+function GoogleSearchConsoleSelectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainAccountId = searchParams.get('mainAccountId');
@@ -208,5 +210,17 @@ export default function GoogleSearchConsoleSelect() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GoogleSearchConsoleSelect() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600"></div>
+      </div>
+    }>
+      <GoogleSearchConsoleSelectContent />
+    </Suspense>
   );
 }

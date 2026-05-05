@@ -31,7 +31,7 @@ export async function getAuthorizedClient(mainAccountId: string) {
   if (isExpired && credential.refreshToken) {
     console.log(`[googleAuth] Token expired for ${mainAccountId}, attempting refresh...`);
     try {
-      const { tokens } = await client.refreshAccessToken();
+      const { credentials: tokens } = await client.refreshAccessToken();
       console.log(`[googleAuth] Token refreshed successfully for ${mainAccountId}`);
       
       // Update database with new tokens
@@ -81,7 +81,7 @@ export async function refreshTokens(mainAccountId: string) {
 
   console.log(`[googleAuth] Forcing token refresh for ${mainAccountId}...`);
   try {
-    const { tokens } = await client.refreshAccessToken();
+    const { credentials: tokens } = await client.refreshAccessToken();
     
     await prisma.googleCredential.update({
       where: { mainAccountId },

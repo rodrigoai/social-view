@@ -9,8 +9,7 @@ export function getGoogleAdsClient(accessToken: string, refreshToken?: string) {
 
   return client.Customer({
     customer_id: '',
-    refresh_token: refreshToken,
-    access_token: accessToken,
+    refresh_token: refreshToken as string,
   });
 }
 
@@ -23,7 +22,6 @@ export function getCustomer(accessToken: string, customerId: string, refreshToke
 
   return client.Customer({
     customer_id: customerId.replace(/-/g, ''),
-    refresh_token: refreshToken,
-    access_token: accessToken,
+    refresh_token: refreshToken as string,
   });
 }

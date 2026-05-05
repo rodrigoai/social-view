@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/Card';
 import { AlertCircle, ArrowRight, Building2, ShieldCheck } from 'lucide-react';
 
-export default function MetaAdsSelect() {
+import { Suspense } from 'react';
+
+function MetaAdsSelectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainAccountId = searchParams.get('mainAccountId');
@@ -148,5 +150,17 @@ export default function MetaAdsSelect() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MetaAdsSelect() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <MetaAdsSelectContent />
+    </Suspense>
   );
 }

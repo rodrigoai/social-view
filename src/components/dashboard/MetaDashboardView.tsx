@@ -4,8 +4,68 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
 import { FilterPanel } from '@/components/FilterPanel';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
-import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Eye, Heart, MessageCircle } from 'lucide-react';
+import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Eye, Heart, MessageCircle, Share2, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+
+function TopContentList({ items, type }: { items: any[], type: 'ig' | 'fb' }) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="mt-8">
+      <h4 className="text-sm font-bold text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+        <TrendingUp className="w-4 h-4" /> Top Conteúdo (Engajamento)
+      </h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {items.map((item) => (
+          <div key={item.id} className="group relative bg-white dark:bg-card border border-border-custom rounded-xl overflow-hidden hover:shadow-lg transition-all">
+            <div className="aspect-square relative overflow-hidden bg-muted">
+              {item.thumbnail ? (
+                <img 
+                  src={item.thumbnail} 
+                  alt={item.caption || item.message || ''} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted">
+                  {type === 'ig' ? <Activity className="w-8 h-8 opacity-20" /> : <Users className="w-8 h-8 opacity-20" />}
+                </div>
+              )}
+              <a 
+                href={item.permalink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              >
+                <ExternalLink className="w-6 h-6 text-white" />
+              </a>
+            </div>
+            <div className="p-3">
+              <p className="text-xs text-foreground line-clamp-2 mb-3 h-8 leading-relaxed">
+                {item.caption || item.message || <span className="italic opacity-50">Sem legenda</span>}
+              </p>
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter text-muted">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-0.5 text-pink-600 dark:text-pink-400">
+                    <Heart className="w-3 h-3" /> {item.likes}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400">
+                    <MessageCircle className="w-3 h-3" /> {item.comments}
+                  </span>
+                  {item.shares !== undefined && (
+                    <span className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                      <Share2 className="w-3 h-3" /> {item.shares}
+                    </span>
+                  )}
+                </div>
+                <span className="text-foreground/60">{new Date(item.timestamp || item.createdTime).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function MetaDashboardView({
   selectedAccountId,
@@ -300,37 +360,48 @@ export function MetaDashboardView({
           </div>
           
           {igData.accounts.map((acc: any) => (
-            <Card key={acc.igAccountId} className="hover:scale-[1.005] transition-transform border-pink-500/10 dark:border-pink-500/20 bg-gradient-to-br from-white to-pink-50/30 dark:from-background dark:to-pink-950/5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">@{acc.igAccountName}</h3>
-                  <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {acc.igAccountId}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="metaReach" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
-                      <Users className="w-3.5 h-3.5" /> Reach
-                    </KpiLabel>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.reach)}</span>
+            <div key={acc.igAccountId} className="space-y-4">
+              <Card className="hover:scale-[1.005] transition-transform border-pink-500/10 dark:border-pink-500/20 bg-gradient-to-br from-white to-pink-50/30 dark:from-background dark:to-pink-950/5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">@{acc.igAccountName}</h3>
+                    <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {acc.igAccountId}</p>
                   </div>
                   
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
-                      <Eye className="w-3.5 h-3.5" /> Impressões
-                    </KpiLabel>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.impressions)}</span>
-                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
+                    <div className="flex flex-col">
+                      <div className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> Seguidores
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(acc.followers)}</span>
+                    </div>
 
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="metaProfileViews" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
-                      <MousePointerClick className="w-3.5 h-3.5" /> Visitas ao Perfil
-                    </KpiLabel>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.profileViews)}</span>
+                    <div className="flex flex-col">
+                      <KpiLabel kpiKey="metaReach" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
+                        <Users className="w-3.5 h-3.5" /> Reach
+                      </KpiLabel>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.reach)}</span>
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
+                        <Eye className="w-3.5 h-3.5" /> Impressões
+                      </KpiLabel>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.impressions)}</span>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <KpiLabel kpiKey="metaProfileViews" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
+                        <MousePointerClick className="w-3.5 h-3.5" /> Visitas ao Perfil
+                      </KpiLabel>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.profileViews)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+              
+              <TopContentList items={acc.topMedia} type="ig" />
+            </div>
           ))}
         </div>
       )}
@@ -344,30 +415,41 @@ export function MetaDashboardView({
           </div>
           
           {fbData.pages.map((page: any) => (
-            <Card key={page.pageId} className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">{page.pageName}</h3>
-                  <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {page.pageId}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
-                      <Eye className="w-3.5 h-3.5" /> Impressões
-                    </KpiLabel>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(page.stats.impressions)}</span>
+            <div key={page.pageId} className="space-y-4">
+              <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">{page.pageName}</h3>
+                    <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {page.pageId}</p>
                   </div>
                   
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="metaEngagement" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
-                      <Heart className="w-3.5 h-3.5" /> Engajamento
-                    </KpiLabel>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(page.stats.engagement)}</span>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
+                    <div className="flex flex-col">
+                      <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> Seguidores
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(page.followers || page.fans)}</span>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
+                        <Eye className="w-3.5 h-3.5" /> Impressões
+                      </KpiLabel>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(page.stats.impressions)}</span>
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      <KpiLabel kpiKey="metaEngagement" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
+                        <Heart className="w-3.5 h-3.5" /> Engajamento
+                      </KpiLabel>
+                      <span className="text-xl font-bold text-foreground">{formatNumber(page.stats.engagement)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+
+              <TopContentList items={page.topPosts} type="fb" />
+            </div>
           ))}
         </div>
       )}

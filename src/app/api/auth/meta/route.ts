@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const { appId, redirectUri } = getMetaAuthConfig(url.origin);
     const scope = [
       'ads_read',
+      'read_insights',
       'pages_show_list',
       'pages_read_engagement',
       'instagram_basic',

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Card } from '@/components/Card';
 import {
   CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
@@ -115,8 +115,7 @@ function AccountListItem({
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-export default function Settings() {
+function SettingsContent() {
   const { accounts, refreshAccounts, selectedAccountId, setSelectedAccountId } = useAccount();
 
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -129,6 +128,8 @@ export default function Settings() {
   const success = searchParams.get('success');
   const error = searchParams.get('error');
 
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId) as Account | undefined;
+
   useEffect(() => {
     if (success || error) {
       refreshAccounts();
@@ -137,9 +138,6 @@ export default function Settings() {
     }
   }, [success, error, refreshAccounts, router]);
 
-  const selectedAccount = accounts.find(a => a.id === selectedAccountId) as Account | undefined;
-
-  // ── CRUD ──────────────────────────────────────────────────────────────────
   const createAccount = async () => {
     const name = window.prompt('Enter account name:', 'My Business Account');
     if (!name) return;
@@ -153,10 +151,10 @@ export default function Settings() {
 
   const deleteAccount = async (id: string) => {
     if (!window.confirm('Delete this account? All linked integrations will be removed.')) return;
-    const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/accounts?id=${id}`, { method: 'DELETE' });
     if (res.ok) {
       await refreshAccounts();
-      setSelectedAccountId(accounts.find(a => a.id !== id)?.id ?? null);
+      setSelectedAccountId('');
     }
   };
 
@@ -338,32 +336,32 @@ export default function Settings() {
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
                       label="Google Ads"
-                      status={selectedAccount.googleAdsConfigs?.length > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAdsConfigs.length} account(s) connected</span>
+                      status={(selectedAccount.googleAdsConfigs?.length ?? 0) > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAdsConfigs?.length} account(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-ads/select?mainAccountId=${selectedAccount.id}`}
-                      onClear={selectedAccount.googleAdsConfigs?.length > 0 ? () => clearIntegration('google-ads', selectedAccount.id) : undefined}
+                      onClear={(selectedAccount.googleAdsConfigs?.length ?? 0) > 0 ? () => clearIntegration('google-ads', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-amber-600" /></div>}
                       label="Google Analytics"
-                      status={selectedAccount.googleAnalyticsConfigs?.length > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAnalyticsConfigs.length} propert(ies) connected</span>
+                      status={(selectedAccount.googleAnalyticsConfigs?.length ?? 0) > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAnalyticsConfigs?.length} propert(ies) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-analytics/select?mainAccountId=${selectedAccount.id}`}
-                      onClear={selectedAccount.googleAnalyticsConfigs?.length > 0 ? () => clearIntegration('google-analytics', selectedAccount.id) : undefined}
+                      onClear={(selectedAccount.googleAnalyticsConfigs?.length ?? 0) > 0 ? () => clearIntegration('google-analytics', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><Globe className="w-3.5 h-3.5 text-violet-600" /></div>}
                       label="Search Console"
-                      status={selectedAccount.googleSearchConsoleConfigs?.length > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleSearchConsoleConfigs.length} site(s) connected</span>
+                      status={(selectedAccount.googleSearchConsoleConfigs?.length ?? 0) > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleSearchConsoleConfigs?.length} site(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-search-console/select?mainAccountId=${selectedAccount.id}`}
-                      onClear={selectedAccount.googleSearchConsoleConfigs?.length > 0 ? () => clearIntegration('google-search-console', selectedAccount.id) : undefined}
+                      onClear={(selectedAccount.googleSearchConsoleConfigs?.length ?? 0) > 0 ? () => clearIntegration('google-search-console', selectedAccount.id) : undefined}
                     />
                     <div className="mt-4 pt-4">
                       <button
@@ -452,32 +450,32 @@ export default function Settings() {
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
                       label="Meta Ads"
-                      status={selectedAccount.metaAdsConfigs?.length > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.metaAdsConfigs.length} account(s) connected</span>
+                      status={(selectedAccount.metaAdsConfigs?.length ?? 0) > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.metaAdsConfigs?.length} account(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/meta-ads/select?mainAccountId=${selectedAccount.id}`}
-                      onClear={selectedAccount.metaAdsConfigs?.length > 0 ? () => clearIntegration('meta-ads', selectedAccount.id) : undefined}
+                      onClear={(selectedAccount.metaAdsConfigs?.length ?? 0) > 0 ? () => clearIntegration('meta-ads', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
                       label="Facebook Pages"
-                      status={selectedAccount.facebookPageConfigs?.length > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.facebookPageConfigs.length} page(s) connected</span>
+                      status={(selectedAccount.facebookPageConfigs?.length ?? 0) > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.facebookPageConfigs?.length} page(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/facebook-pages/select?mainAccountId=${selectedAccount.id}`}
-                      onClear={selectedAccount.facebookPageConfigs?.length > 0 ? () => clearIntegration('facebook-pages', selectedAccount.id) : undefined}
+                      onClear={(selectedAccount.facebookPageConfigs?.length ?? 0) > 0 ? () => clearIntegration('facebook-pages', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
                       icon={<div className="w-6 h-6 rounded bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-pink-600" /></div>}
                       label="Instagram Pages"
-                      status={selectedAccount.instagramPageConfigs?.length > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.instagramPageConfigs.length} account(s) connected</span>
+                      status={(selectedAccount.instagramPageConfigs?.length ?? 0) > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.instagramPageConfigs?.length} account(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/instagram/select?mainAccountId=${selectedAccount.id}`}
-                      onClear={selectedAccount.instagramPageConfigs?.length > 0 ? () => clearIntegration('instagram', selectedAccount.id) : undefined}
+                      onClear={(selectedAccount.instagramPageConfigs?.length ?? 0) > 0 ? () => clearIntegration('instagram', selectedAccount.id) : undefined}
                     />
                     <div className="mt-4 pt-4">
                       <button
@@ -529,5 +527,17 @@ function Banner({ color, message }: { color: string; message: string }) {
       <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
       <p className="font-medium">{message}</p>
     </div>
+  );
+}
+
+export default function Settings() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }

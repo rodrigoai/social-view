@@ -72,7 +72,7 @@ describe('Automatic Token Refresh', () => {
     
     // We need to mock the implementation of the instance methods
     mockOAuthInstance.refreshAccessToken.mockResolvedValue({
-      tokens: {
+      credentials: {
         access_token: mockNewAccessToken,
         expiry_date: Date.now() + 3600000,
       }

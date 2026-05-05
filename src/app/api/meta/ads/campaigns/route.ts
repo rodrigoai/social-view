@@ -1,0 +1,121 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import bizSdk from 'facebook-nodejs-business-sdk';
+
+const AdAccount = bizSdk.AdAccount;
+
+function getDateRange(period: string, startDate?: string, endDate?: string) {
+  if (period === 'custom' && startDate && endDate) {
+    return { since: startDate, until: endDate };
+  }
+
+  const end = new Date();
+  const start = new Date();
+  if (period === '30d') start.setDate(start.getDate() - 30);
+  else if (period === '90d') start.setDate(start.getDate() - 90);
+  else start.setDate(start.getDate() - 7); // Default to 7d
+
+  return {
+    since: start.toISOString().split('T')[0],
+    until: end.toISOString().split('T')[0]
+  };
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const mainAccountId = url.searchParams.get('mainAccountId');
+  const period = url.searchParams.get('period') || '7d';
+  const startDate = url.searchParams.get('startDate') || undefined;
+  const endDate = url.searchParams.get('endDate') || undefined;
+  const campaignFilter = url.searchParams.get('campaign') || 'all';
+
+  if (!mainAccountId) {
+    return NextResponse.json({ error: 'Missing mainAccountId' }, { status: 400 });
+  }
+
+  try {
+    const cred = await prisma.metaCredential.findUnique({ where: { mainAccountId } });
+    if (!cred || !cred.longLivedToken) {
+      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta account not linked' }, { status: 401 });
+    }
+
+    const configs = await prisma.metaAdsConfig.findMany({ where: { mainAccountId } });
+    if (!configs || configs.length === 0) {
+      return NextResponse.json({ summary: { totalCost: 0, totalConversions: 0, totalReach: 0, totalImpressions: 0 }, campaigns: [] });
+    }
+
+    const timeRange = getDateRange(period, startDate, endDate);
+    
+    // Initialize SDK
+    bizSdk.FacebookAdsApi.init(cred.longLivedToken);
+
+    let totalCost = 0;
+    let totalConversions = 0; // Leads
+    let totalReach = 0;
+    let totalImpressions = 0;
+    const allCampaigns = [];
+
+    // Fetch insights for each connected ad account
+    for (const config of configs) {
+      const accountId = config.adAccountId.startsWith('act_') ? config.adAccountId : `act_${config.adAccountId}`;
+      const account = new AdAccount(accountId);
+
+      const fields = ['campaign_id', 'campaign_name', 'spend', 'reach', 'impressions', 'actions'];
+      const params = {
+        time_range: timeRange,
+        level: 'campaign'
+      };
+
+      try {
+        const insights = await account.getInsights(fields, params);
+        
+        for (const insight of insights) {
+          const name = insight.campaign_name;
+          if (campaignFilter !== 'all' && name !== campaignFilter) continue;
+
+          const spend = parseFloat(insight.spend || '0');
+          const reach = parseInt(insight.reach || '0');
+          const impressions = parseInt(insight.impressions || '0');
+          
+          let leads = 0;
+          if (insight.actions) {
+            const leadAction = insight.actions.find((a: any) => a.action_type === 'lead');
+            if (leadAction) leads = parseInt(leadAction.value);
+          }
+
+          totalCost += spend;
+          totalConversions += leads;
+          totalReach += reach;
+          totalImpressions += impressions;
+
+          allCampaigns.push({
+            id: insight.campaign_id,
+            name: name,
+            status: 'ACTIVE', // Meta SDK doesn't return campaign status in insights endpoint directly, we would need to fetch campaigns specifically. For simplicity, just listing them.
+            cost: spend,
+            conversions: leads,
+            reach: reach,
+            impressions: impressions,
+            cpl: leads > 0 ? spend / leads : 0
+          });
+        }
+      } catch (err: any) {
+        console.error(`Error fetching insights for account ${accountId}:`, err.message);
+        // Continue to the next account even if one fails
+      }
+    }
+
+    return NextResponse.json({
+      summary: {
+        totalCost,
+        totalConversions,
+        totalReach,
+        totalImpressions,
+      },
+      campaigns: allCampaigns
+    });
+  } catch (error: any) {
+    console.error('Meta Ads Dashboard Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

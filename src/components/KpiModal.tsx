@@ -22,7 +22,15 @@ export type KpiKey =
   | 'clicks'
   | 'impressions'
   | 'ctr'
-  | 'avgPosition';
+  | 'avgPosition'
+  // Meta
+  | 'metaCost'
+  | 'metaConversions'
+  | 'metaCpl'
+  | 'metaReach'
+  | 'metaImpressions'
+  | 'metaEngagement'
+  | 'metaProfileViews';
 
 export type KpiDef = {
   label: string;
@@ -120,6 +128,50 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
     what: 'É a posição média em que seu site aparece nos resultados de busca do Google. Posição 1 é a primeira do ranking — a melhor. Posição 10 geralmente é a última da primeira página.',
     how: 'Influencia diretamente o CTR e os Cliques. Sites na posição 1 a 3 recebem a grande maioria dos cliques. Se você está na posição 10+ com muitas Impressões, vale investir em SEO para subir.',
     tip: '💡 Quanto menor o número, melhor. Posição 1 é o ideal.',
+  },
+
+  // ── Meta Ads / FB / IG ──────────────────────────────────────────────────────
+  metaCost: {
+    label: 'Investimento (Meta Ads)',
+    what: 'Valor total investido nas campanhas de Facebook e Instagram Ads.',
+    how: 'Avalie junto com o CPL (Custo por Lead). Gastar mais é bom se o custo por lead estiver dentro da sua meta.',
+    tip: '💡 Campanhas no Meta costumam ter gastos mais acelerados, fique de olho no CPL diário.',
+  },
+  metaConversions: {
+    label: 'Leads (Meta Ads)',
+    what: 'Total de cadastros, mensagens ou ações principais geradas pelas campanhas no Meta.',
+    how: 'Se as impressões estão altas mas os leads estão baixos, o problema pode estar no criativo (imagem/vídeo) ou na página de destino.',
+    tip: '💡 Foque na qualidade do lead, não apenas no volume.',
+  },
+  metaCpl: {
+    label: 'Custo Por Lead (CPL)',
+    what: 'Quanto você pagou, em média, por cada lead ou conversão.',
+    how: 'É o Investimento dividido pelo número de Leads. Se esse número subir muito de uma semana para outra, o criativo pode estar desgastado (fadiga).',
+    tip: '💡 Teste novos criativos constantemente para manter o CPL baixo.',
+  },
+  metaReach: {
+    label: 'Alcance',
+    what: 'Número de pessoas únicas que viram seus anúncios ou postagens pelo menos uma vez.',
+    how: 'É diferente de Impressões. Se o alcance é 100 e impressões são 300, significa que as mesmas 100 pessoas viram o conteúdo 3 vezes em média.',
+    tip: '💡 Frequência alta (Impressões ÷ Alcance > 3) pode causar fadiga no seu público.',
+  },
+  metaImpressions: {
+    label: 'Impressões',
+    what: 'Total de vezes que o anúncio ou postagem foi exibido na tela das pessoas.',
+    how: 'Um número alto de impressões mostra que o conteúdo está rodando, mas sempre compare com Engajamento ou Cliques para saber se estão prestando atenção.',
+    tip: '💡 Impressões mostram entrega, não necessariamente resultado.',
+  },
+  metaEngagement: {
+    label: 'Engajamento',
+    what: 'Total de interações com seu conteúdo: curtidas, comentários, compartilhamentos e cliques.',
+    how: 'Posts com muito alcance mas pouco engajamento indicam que o conteúdo não ressoou com o público.',
+    tip: '💡 Conteúdos autênticos e que geram conversa são a chave para mais engajamento.',
+  },
+  metaProfileViews: {
+    label: 'Visitas ao Perfil',
+    what: 'Quantas vezes as pessoas clicaram para ver o seu perfil no Instagram.',
+    how: 'Muitas visitas sem aumento de seguidores significa que seu conteúdo da bio precisa ser mais atrativo.',
+    tip: '💡 Use os stories e posts virais para atrair cliques para o perfil.',
   },
 };
 

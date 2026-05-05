@@ -5,8 +5,13 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface Account {
   id: string;
   name: string;
-  googleAdsConfig?: any;
-  googleAnalyticsConfig?: any;
+  googleAdsConfigs?: any[];
+  googleAnalyticsConfigs?: any[];
+  googleSearchConsoleConfigs?: any[];
+  metaCredential?: any;
+  metaAdsConfigs?: any[];
+  facebookPageConfigs?: any[];
+  instagramPageConfigs?: any[];
 }
 
 interface AccountContextType {

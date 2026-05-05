@@ -17,6 +17,10 @@ type Account = {
   googleAdsConfigs?: any[];
   googleAnalyticsConfigs?: any[];
   googleSearchConsoleConfigs?: any[];
+  metaCredential?: any;
+  metaAdsConfigs?: any[];
+  facebookPageConfigs?: any[];
+  instagramPageConfigs?: any[];
 };
 
 // ─── Integration row ──────────────────────────────────────────────────────────
@@ -63,7 +67,11 @@ function AccountListItem({
     (account.googleAdsConfigs?.length ?? 0) > 0,
     (account.googleAnalyticsConfigs?.length ?? 0) > 0,
     (account.googleSearchConsoleConfigs?.length ?? 0) > 0,
-    account.googleBusinessUrl
+    account.googleBusinessUrl,
+    account.metaCredential,
+    (account.metaAdsConfigs?.length ?? 0) > 0,
+    (account.facebookPageConfigs?.length ?? 0) > 0,
+    (account.instagramPageConfigs?.length ?? 0) > 0
   ].filter(Boolean).length;
 
   return (
@@ -171,6 +179,10 @@ export default function Settings() {
     window.location.href = `/api/auth/google?mainAccountId=${mainAccountId}`;
   };
 
+  const linkMeta = (mainAccountId: string) => {
+    window.location.href = `/api/auth/meta?mainAccountId=${mainAccountId}`;
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="animate-in fade-in duration-500">
@@ -192,6 +204,7 @@ export default function Settings() {
       {success === 'google_linked' && <Banner color="emerald" message="Google Ads account successfully linked!" />}
       {success === 'google_analytics_linked' && <Banner color="amber" message="Google Analytics properties successfully linked!" />}
       {success === 'search_console_linked' && <Banner color="violet" message="Search Console sites successfully linked!" />}
+      {success === 'meta_linked' && <Banner color="blue" message="Meta account successfully linked!" />}
       {error && <Banner color="red" message="Integration failed. Please try again." />}
 
       {accounts.length === 0 ? (
@@ -392,6 +405,56 @@ export default function Settings() {
                   </div>
                 )}
               </Card>
+
+              {/* Meta Integrations card */}
+              <Card>
+                <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-1">Meta Integrations</h3>
+
+                {selectedAccount.metaCredential ? (
+                  <>
+                    <IntegrationRow
+                      icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
+                      label="Meta Ads"
+                      status={selectedAccount.metaAdsConfigs?.length > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.metaAdsConfigs.length} account(s) connected</span>
+                        : 'Not configured'}
+                      actionLabel="Configure"
+                      href={`/settings/meta-ads/select?mainAccountId=${selectedAccount.id}`}
+                    />
+                    <IntegrationRow
+                      icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
+                      label="Facebook Pages"
+                      status={selectedAccount.facebookPageConfigs?.length > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.facebookPageConfigs.length} page(s) connected</span>
+                        : 'Not configured'}
+                      actionLabel="Configure"
+                      href={`/settings/facebook-pages/select?mainAccountId=${selectedAccount.id}`}
+                    />
+                    <IntegrationRow
+                      icon={<div className="w-6 h-6 rounded bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-pink-600" /></div>}
+                      label="Instagram Pages"
+                      status={selectedAccount.instagramPageConfigs?.length > 0
+                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.instagramPageConfigs.length} account(s) connected</span>
+                        : 'Not configured'}
+                      actionLabel="Configure"
+                      href={`/settings/instagram/select?mainAccountId=${selectedAccount.id}`}
+                    />
+                  </>
+                ) : (
+                  <div className="py-4 flex flex-col items-start gap-3">
+                    <div className="flex items-center gap-2 text-muted text-sm">
+                      <AlertCircle className="w-4 h-4 text-blue-500" />
+                      No Meta account linked yet. Link one to enable all integrations.
+                    </div>
+                    <button
+                      onClick={() => linkMeta(selectedAccount.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      <LinkIcon className="w-4 h-4" /> Link Meta Account
+                    </button>
+                  </div>
+                )}
+              </Card>
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted py-24">
@@ -411,6 +474,7 @@ function Banner({ color, message }: { color: string; message: string }) {
     amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
     violet: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
     red: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',
+    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800',
   };
   return (
     <div className={`mb-6 p-4 border rounded-xl flex items-center gap-3 ${colors[color]}`}>

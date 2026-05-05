@@ -22,6 +22,11 @@ model MainAccount {
   googleAdsConfigs      GoogleAdsConfig[]
   googleAnalyticsConfigs GoogleAnalyticsConfig[]
   googleSearchConsoleConfigs GoogleSearchConsoleConfig[]
+
+  metaCredential        MetaCredential?
+  metaAdsConfigs        MetaAdsConfig[]
+  facebookPageConfigs   FacebookPageConfig[]
+  instagramPageConfigs  InstagramPageConfig[]
 }
 
 
@@ -80,4 +85,59 @@ model GoogleSearchConsoleConfig {
   @@unique([mainAccountId, siteUrl])
 }
 
+model MetaCredential {
+  id            String   @id @default(cuid())
+  mainAccountId String   @unique
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  accessToken   String?
+  longLivedToken String?
+  expiresAt     Float?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
 
+model MetaAdsConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  adAccountId   String
+  adAccountName String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([mainAccountId, adAccountId])
+}
+
+model FacebookPageConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  pageId        String
+  pageName      String?
+  accessToken   String? // Pages often require their own page access token
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([mainAccountId, pageId])
+}
+
+model InstagramPageConfig {
+  id            String   @id @default(cuid())
+  mainAccountId String
+  mainAccount   MainAccount @relation(fields: [mainAccountId], references: [id], onDelete: Cascade)
+  
+  igAccountId   String
+  igAccountName String?
+  facebookPageId String? // IG accounts are typically linked to an FB page
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([mainAccountId, igAccountId])
+}

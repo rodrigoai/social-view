@@ -32,9 +32,9 @@ code
   - Run tests in watch mode with `npm run test:watch`.
 
 ## State & Features
-- **Authentication**: Implementing OAuth 2.0 for Google Ads API.
-- **Main Account**: The central entity that links to Google Ads and Analytics accounts. Configurable in settings.
-- **Dashboard**: Displays campaigns, cost, and total conversion. Includes filters by period and campaign.
+- **Authentication**: OAuth 2.0 for Google APIs and Meta Graph API.
+- **Main Account**: The central entity that links to Google and Meta accounts. Configurable in settings.
+- **Dashboard**: Displays campaigns, cost, and conversions. Switchable between Google Dashboard and Meta Dashboard views. Reuses `FilterPanel` for date and campaign filtering.
 
 ## Google Ads API Integration
 - **Libraries**:
@@ -43,4 +43,10 @@ code
 - **Refresh Token**: Use `client.credentials.refresh_token` to refresh tokens without user interaction.
 - **Error Handling**: Catch specific Google Ads API errors (e.g., `Customer May Not Be Enabled`) and return appropriate responses.
 - **Date Range**: Supports `LAST_7_DAYS`, `LAST_30_DAYS`, `90D`, and custom dates.
+
+## Meta API Integration
+- **Platform**: Meta Graph API & Marketing API for fetching Facebook Pages, Instagram, and Meta Ads.
+- **Entities**: Supports connecting Meta Ads (Ad Accounts), Facebook Pages, and Instagram Pages.
+- **Authentication**: Uses short-lived to long-lived token exchange for persistent access without user interaction.
+- **Error Handling**: Monitor for OAuth token expiration and ad account permission errors.
 

@@ -9,6 +9,10 @@ export async function GET() {
         googleAdsConfigs: true,
         googleAnalyticsConfigs: true,
         googleSearchConsoleConfigs: true,
+        metaCredential: true,
+        metaAdsConfigs: true,
+        facebookPageConfigs: true,
+        instagramPageConfigs: true,
       }
     });
     return NextResponse.json({ accounts });

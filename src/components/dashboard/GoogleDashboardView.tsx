@@ -7,6 +7,59 @@ import { KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
+function PageSpeedScoreGauge({ label, score }: { label: string; score: number | null }) {
+  const normalizedScore = typeof score === 'number' ? Math.max(0, Math.min(score, 100)) : null;
+  const color = normalizedScore == null
+    ? 'rgb(148 163 184)'
+    : normalizedScore >= 90
+      ? 'rgb(34 197 94)'
+      : normalizedScore >= 50
+        ? 'rgb(249 115 22)'
+        : 'rgb(239 68 68)';
+  const circumference = 2 * Math.PI * 31;
+  const offset = normalizedScore == null ? circumference : circumference * (1 - normalizedScore / 100);
+
+  return (
+    <div className="flex flex-col items-center gap-2 min-w-0">
+      <div className="relative w-20 h-20">
+        <svg viewBox="0 0 80 80" className="w-20 h-20 -rotate-90">
+          <circle cx="40" cy="40" r="31" fill="none" stroke="currentColor" strokeWidth="5" className="text-accent-custom" />
+          <circle
+            cx="40"
+            cy="40"
+            r="31"
+            fill="none"
+            stroke={color}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-foreground">
+          {normalizedScore ?? '—'}
+        </span>
+      </div>
+      <p className="text-sm font-medium text-foreground text-center leading-snug max-w-28">{label}</p>
+    </div>
+  );
+}
+
+function PageSpeedScoreGroup({ title, scores }: { title: string; scores: Array<{ key: string; label: string; score: number | null }> }) {
+  if (!scores || scores.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <h4 className="text-xs font-bold text-muted uppercase tracking-wider">{title}</h4>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {scores.map((item) => (
+          <PageSpeedScoreGauge key={item.key} label={item.label} score={item.score} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function GoogleDashboardView({
   selectedAccountId,
   selectedAccount,
@@ -23,11 +76,13 @@ export function GoogleDashboardView({
   const [data, setData] = useState<any>(null);
   const [gaData, setGaData] = useState<any>(null);
   const [scData, setScData] = useState<any>(null);
+  const [pageSpeedData, setPageSpeedData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adsError, setAdsError] = useState<any>(null);
   const [gaError, setGaError] = useState<any>(null);
   const [scError, setScError] = useState<any>(null);
+  const [pageSpeedError, setPageSpeedError] = useState<any>(null);
 
   const handleFilterChange = (newFilters: any) => {
     onFilterChange(newFilters);
@@ -42,6 +97,7 @@ export function GoogleDashboardView({
       setAdsError(null);
       setGaError(null);
       setScError(null);
+      setPageSpeedError(null);
       
       try {
         const queryParams: any = {
@@ -57,10 +113,11 @@ export function GoogleDashboardView({
         
         const query = new URLSearchParams(queryParams);
         
-        const [adsRes, gaRes, scRes] = await Promise.all([
+        const [adsRes, gaRes, scRes, pageSpeedRes] = await Promise.all([
           fetch(`/api/ads/campaigns?${query.toString()}`),
           fetch(`/api/analytics/dashboard?${query.toString()}`),
-          fetch(`/api/search-console/dashboard?${query.toString()}`)
+          fetch(`/api/search-console/dashboard?${query.toString()}`),
+          fetch(`/api/pagespeed/dashboard?${query.toString()}`)
         ]);
 
         // Handle Ads
@@ -106,6 +163,18 @@ export function GoogleDashboardView({
           }
           setScError(errorJson);
           setScData(null);
+        }
+
+        // Handle PageSpeed Insights
+        if (pageSpeedRes.ok) {
+          const pageSpeedDataJson = await pageSpeedRes.json();
+          setPageSpeedData(pageSpeedDataJson);
+          setPageSpeedError(null);
+        } else {
+          const errorJson = await pageSpeedRes.json().catch(() => ({}));
+          console.error('PageSpeed Insights API Error:', errorJson);
+          setPageSpeedError(errorJson);
+          setPageSpeedData(null);
         }
 
       } catch (err: any) {
@@ -216,6 +285,15 @@ export function GoogleDashboardView({
       <rect x="3" y="3" width="18" height="18" rx="3" fill="#34A853"/>
       <circle cx="11" cy="11" r="4" stroke="white" strokeWidth="2" fill="none"/>
       <path d="M14 14L17 17" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+
+  const PageSpeedLogo = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-emerald-600">
+      <path d="M12 4C7.58 4 4 7.58 4 12C4 14.16 4.86 16.12 6.26 17.56" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M17.74 17.56C19.14 16.12 20 14.16 20 12C20 7.58 16.42 4 12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M12 12L16 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
     </svg>
   );
 
@@ -490,6 +568,53 @@ export function GoogleDashboardView({
           ))}
         </div>
       )}
+
+      <div className="mb-12 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <PageSpeedLogo />
+          <h2 className="text-xl font-bold text-foreground">PageSpeed Insights</h2>
+        </div>
+
+        <Card className="border-emerald-500/10 dark:border-emerald-500/20 bg-gradient-to-br from-white to-emerald-50/30 dark:from-background dark:to-emerald-950/5">
+          {pageSpeedData?.configured ? (
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-foreground truncate">{pageSpeedData.finalUrl || pageSpeedData.url}</h3>
+                  <p className="text-xs text-muted mt-0.5">Mobile and desktop Lighthouse scores</p>
+                </div>
+                {pageSpeedData.fetchedAt && (
+                  <span className="text-xs text-muted flex-shrink-0">
+                    {new Date(pageSpeedData.fetchedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-8">
+                <PageSpeedScoreGroup title="Mobile" scores={pageSpeedData.strategies?.mobile?.scores || pageSpeedData.scores || []} />
+                <PageSpeedScoreGroup title="Desktop" scores={pageSpeedData.strategies?.desktop?.scores || []} />
+              </div>
+            </div>
+          ) : pageSpeedError ? (
+            <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
+              <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="text-sm font-semibold">PageSpeed Insights unavailable</h3>
+                <p className="text-sm mt-1">{pageSpeedError.error || 'Failed to load PageSpeed Insights data.'}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Main website not configured</h3>
+                <p className="text-sm text-muted mt-1">Add the account website in Settings to enable PageSpeed Insights.</p>
+              </div>
+              <Link href="/settings" className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors flex-shrink-0">
+                Settings
+              </Link>
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

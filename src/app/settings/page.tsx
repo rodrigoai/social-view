@@ -13,6 +13,7 @@ type Account = {
   id: string;
   name: string;
   googleBusinessUrl?: string | null;
+  mainWebsiteUrl?: string | null;
   googleCredential?: any;
   googleAdsConfigs?: any[];
   googleAnalyticsConfigs?: any[];
@@ -79,6 +80,7 @@ function AccountListItem({
     (account.googleAdsConfigs?.length ?? 0) > 0,
     (account.googleAnalyticsConfigs?.length ?? 0) > 0,
     (account.googleSearchConsoleConfigs?.length ?? 0) > 0,
+    account.mainWebsiteUrl,
     account.googleBusinessUrl,
     account.metaCredential,
     (account.metaAdsConfigs?.length ?? 0) > 0,
@@ -122,6 +124,8 @@ function SettingsContent() {
   const [editName, setEditName] = useState('');
   const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
   const [editBusinessUrl, setEditBusinessUrl] = useState('');
+  const [editingWebsiteId, setEditingWebsiteId] = useState<string | null>(null);
+  const [editWebsiteUrl, setEditWebsiteUrl] = useState('');
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,6 +133,9 @@ function SettingsContent() {
   const error = searchParams.get('error');
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId) as Account | undefined;
+  const selectedWebsiteHref = selectedAccount?.mainWebsiteUrl
+    ? (/^https?:\/\//i.test(selectedAccount.mainWebsiteUrl) ? selectedAccount.mainWebsiteUrl : `https://${selectedAccount.mainWebsiteUrl}`)
+    : null;
 
   useEffect(() => {
     if (success || error) {
@@ -175,6 +182,15 @@ function SettingsContent() {
       body: JSON.stringify({ googleBusinessUrl: editBusinessUrl.trim() || null })
     });
     if (res.ok) { await refreshAccounts(); setEditingBusinessId(null); }
+  };
+
+  const saveWebsiteUrl = async (id: string) => {
+    const res = await fetch(`/api/accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mainWebsiteUrl: editWebsiteUrl.trim() || null })
+    });
+    if (res.ok) { await refreshAccounts(); setEditingWebsiteId(null); }
   };
 
   const linkGoogle = (mainAccountId: string) => {
@@ -436,6 +452,59 @@ function SettingsContent() {
                       className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 transition-colors"
                     >
                       {selectedAccount.googleBusinessUrl ? 'Edit' : 'Add Link'}
+                    </button>
+                  </div>
+                )}
+              </Card>
+
+              {/* Main Website card */}
+              <Card>
+                <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-1">Main Website</h3>
+
+                {editingWebsiteId === selectedAccount.id ? (
+                  <div className="flex items-center gap-2 py-3">
+                    <Globe className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <input
+                      type="url"
+                      value={editWebsiteUrl}
+                      onChange={e => setEditWebsiteUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      className="flex-grow text-sm bg-transparent border-b border-emerald-400 outline-none py-0.5 text-foreground placeholder:opacity-40"
+                      autoFocus
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveWebsiteUrl(selectedAccount.id);
+                        if (e.key === 'Escape') setEditingWebsiteId(null);
+                      }}
+                    />
+                    <button onClick={() => saveWebsiteUrl(selectedAccount.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setEditingWebsiteId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Globe className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                      {selectedAccount.mainWebsiteUrl ? (
+                        <a
+                          href={selectedWebsiteHref || selectedAccount.mainWebsiteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 truncate"
+                        >
+                          {selectedAccount.mainWebsiteUrl} <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-sm text-muted">Not configured</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setEditingWebsiteId(selectedAccount.id); setEditWebsiteUrl(selectedAccount.mainWebsiteUrl || ''); }}
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
+                    >
+                      {selectedAccount.mainWebsiteUrl ? 'Edit' : 'Add Website'}
                     </button>
                   </div>
                 )}

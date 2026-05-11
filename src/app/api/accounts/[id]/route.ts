@@ -11,6 +11,7 @@ export async function PATCH(
     const data: any = {};
     if (body.name !== undefined) data.name = body.name;
     if (body.googleBusinessUrl !== undefined) data.googleBusinessUrl = body.googleBusinessUrl || null;
+    if (body.mainWebsiteUrl !== undefined) data.mainWebsiteUrl = body.mainWebsiteUrl || null;
 
     const account = await prisma.mainAccount.update({
       where: { id },

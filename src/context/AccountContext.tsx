@@ -5,6 +5,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface Account {
   id: string;
   name: string;
+  googleBusinessUrl?: string | null;
+  mainWebsiteUrl?: string | null;
+  googleCredential?: any;
   googleAdsConfigs?: any[];
   googleAnalyticsConfigs?: any[];
   googleSearchConsoleConfigs?: any[];

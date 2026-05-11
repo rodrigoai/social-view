@@ -48,7 +48,7 @@ describe('Account Management API', () => {
     (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, name: 'Updated Name' });
     (prisma.mainAccount.findUnique as jest.Mock).mockResolvedValue({ id: testAccountId, name: 'Updated Name' });
 
-    const response = await PATCH(request, { params: { id: testAccountId } });
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
     const data = await response.json();
 
     expect(data.account.name).toBe('Updated Name');
@@ -68,7 +68,7 @@ describe('Account Management API', () => {
 
     (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, googleBusinessUrl: url });
 
-    const response = await PATCH(request, { params: { id: testAccountId } });
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
     const data = await response.json();
 
     expect(data.account.googleBusinessUrl).toBe(url);
@@ -87,7 +87,7 @@ describe('Account Management API', () => {
 
     (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, googleBusinessUrl: null });
 
-    const response = await PATCH(request, { params: { id: testAccountId } });
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
     const data = await response.json();
 
     expect(data.account.googleBusinessUrl).toBeNull();
@@ -106,12 +106,32 @@ describe('Account Management API', () => {
       body: JSON.stringify({ googleBusinessUrl: '' })
     });
 
-    const response = await PATCH(request, { params: { id: testAccountId } });
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
     const data = await response.json();
     expect(data.account.googleBusinessUrl).toBeNull();
     expect(prisma.mainAccount.update).toHaveBeenCalledWith({
       where: { id: testAccountId },
       data: { googleBusinessUrl: null }
+    });
+  });
+
+  it('should save a mainWebsiteUrl via PATCH', async () => {
+    const url = 'https://example.com';
+    const request = new Request('http://localhost/api/accounts/' + testAccountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mainWebsiteUrl: url })
+    });
+
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, mainWebsiteUrl: url });
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
+    const data = await response.json();
+
+    expect(data.account.mainWebsiteUrl).toBe(url);
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { mainWebsiteUrl: url }
     });
   });
 
@@ -122,10 +142,9 @@ describe('Account Management API', () => {
 
     (prisma.mainAccount.delete as jest.Mock).mockResolvedValue({ id: testAccountId });
 
-    const response = await DELETE_ACCOUNT(request, { params: { id: testAccountId } });
+    const response = await DELETE_ACCOUNT(request, { params: Promise.resolve({ id: testAccountId }) });
     expect(response.status).toBe(200);
 
     expect(prisma.mainAccount.delete).toHaveBeenCalledWith({ where: { id: testAccountId } });
   });
 });
-

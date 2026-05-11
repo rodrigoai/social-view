@@ -121,7 +121,10 @@ function MetaAdsSelectContent() {
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground text-lg">{acc.name}</h3>
-                  <p className="text-muted font-mono text-sm">ID: {acc.id}</p>
+                  <p className="text-muted font-mono text-sm">Ad Account: {acc.actId || `act_${acc.id}`}</p>
+                  {acc.currency && (
+                    <p className="text-muted text-xs mt-1">Currency: {acc.currency}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">

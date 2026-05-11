@@ -67,6 +67,71 @@ function TopContentList({ items, type }: { items: any[], type: 'ig' | 'fb' }) {
   );
 }
 
+function FollowersHistoryChart({ history }: { history: Array<{ date: string; followers: number }> }) {
+  if (!history || history.length === 0) return null;
+
+  const width = 720;
+  const height = 180;
+  const paddingX = 28;
+  const paddingY = 20;
+  const values = history.map((point) => point.followers);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = Math.max(maxValue - minValue, 1);
+  const plotWidth = width - paddingX * 2;
+  const plotHeight = height - paddingY * 2;
+  const points = history.map((point, index) => {
+    const x = paddingX + (history.length === 1 ? plotWidth : (index / (history.length - 1)) * plotWidth);
+    const y = paddingY + ((maxValue - point.followers) / range) * plotHeight;
+    return { ...point, x, y };
+  });
+  const path = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  const firstPoint = history[0];
+  const lastPoint = history[history.length - 1];
+  const delta = lastPoint.followers - firstPoint.followers;
+  const formatCompact = (value: number) => new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  const formatDate = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+  return (
+    <Card className="border-pink-500/10 dark:border-pink-500/20 shadow-sm hover:shadow-lg">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+        <div>
+          <h4 className="text-sm font-bold text-foreground uppercase tracking-wider">Histórico de Seguidores</h4>
+          <p className="text-xs text-muted mt-1">Últimos 90 dias</p>
+        </div>
+        <div className="text-left sm:text-right">
+          <p className="text-lg font-bold text-foreground">{formatCompact(lastPoint.followers)}</p>
+          <p className={`text-xs font-semibold ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+            {delta >= 0 ? '+' : ''}{formatCompact(delta)}
+          </p>
+        </div>
+      </div>
+      <div className="w-full overflow-hidden">
+        <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Histórico de seguidores do Instagram nos últimos 90 dias" className="w-full h-48">
+          <line x1={paddingX} y1={paddingY} x2={paddingX} y2={height - paddingY} stroke="currentColor" className="text-border-custom" strokeWidth="1" />
+          <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="currentColor" className="text-border-custom" strokeWidth="1" />
+          {[0, 0.5, 1].map((step) => {
+            const y = paddingY + step * plotHeight;
+            const label = Math.round(maxValue - step * range);
+            return (
+              <g key={step}>
+                <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="currentColor" className="text-border-custom/60" strokeWidth="1" strokeDasharray="4 6" />
+                <text x="0" y={y + 4} className="fill-muted text-[11px]">{formatCompact(label)}</text>
+              </g>
+            );
+          })}
+          <path d={path} fill="none" stroke="rgb(219 39 119)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          {points.map((point, index) => (
+            <circle key={`${point.date}-${index}`} cx={point.x} cy={point.y} r={index === points.length - 1 ? 4 : 2.5} fill="rgb(219 39 119)" />
+          ))}
+          <text x={paddingX} y={height - 3} className="fill-muted text-[11px]">{formatDate(firstPoint.date)}</text>
+          <text x={width - paddingX} y={height - 3} textAnchor="end" className="fill-muted text-[11px]">{formatDate(lastPoint.date)}</text>
+        </svg>
+      </div>
+    </Card>
+  );
+}
+
 export function MetaDashboardView({
   selectedAccountId,
   onOpenKpi,
@@ -399,7 +464,9 @@ export function MetaDashboardView({
                   </div>
                 </div>
               </Card>
-              
+
+              <FollowersHistoryChart history={acc.followersHistory} />
+
               <TopContentList items={acc.topMedia} type="ig" />
             </div>
           ))}

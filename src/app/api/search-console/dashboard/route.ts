@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
-import { getAuthorizedClient } from '@/lib/googleAuth';
 
 // Helper to format date for Search Console (YYYY-MM-DD)
 function formatDate(date: Date): string {
@@ -47,8 +46,8 @@ export async function GET(request: Request) {
         end.setDate(end.getDate() - 3);
         endDate = formatDate(end);
 
-        const start = new Date();
-        start.setDate(end.getDate() - days);
+        const start = new Date(end);
+        start.setDate(start.getDate() - days);
         startDate = formatDate(start);
       }
 

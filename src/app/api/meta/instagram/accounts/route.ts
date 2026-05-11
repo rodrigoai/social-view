@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,19 +10,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const cred = await prisma.metaCredential.findUnique({
-      where: { mainAccountId }
-    });
+    const accessToken = await getMetaAccessToken(mainAccountId);
 
-    if (!cred || !cred.longLivedToken) {
-      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta account not linked' }, { status: 401 });
-    }
-
-    const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=instagram_business_account{id,username},name&access_token=${cred.longLivedToken}`);
+    const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=instagram_business_account{id,username},name&access_token=${accessToken}`);
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.error?.message || 'Failed to fetch Instagram accounts');
+      throw createMetaApiError(data, 'Failed to fetch Instagram accounts');
     }
 
     const accounts: any[] = [];
@@ -39,6 +33,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ accounts });
   } catch (error: any) {
     console.error('Instagram Accounts Error:', error);
+    if (isMetaAuthError(error)) {
+      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

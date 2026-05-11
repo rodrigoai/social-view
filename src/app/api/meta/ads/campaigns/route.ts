@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bizSdk from 'facebook-nodejs-business-sdk';
+import { getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 
 const AdAccount = bizSdk.AdAccount;
 
@@ -34,10 +35,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const cred = await prisma.metaCredential.findUnique({ where: { mainAccountId } });
-    if (!cred || !cred.longLivedToken) {
-      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta account not linked' }, { status: 401 });
-    }
+    const accessToken = await getMetaAccessToken(mainAccountId);
 
     const configs = await prisma.metaAdsConfig.findMany({ where: { mainAccountId } });
     if (!configs || configs.length === 0) {
@@ -47,7 +45,7 @@ export async function GET(request: Request) {
     const timeRange = getDateRange(period, startDate, endDate);
     
     // Initialize SDK
-    bizSdk.FacebookAdsApi.init(cred.longLivedToken);
+    bizSdk.FacebookAdsApi.init(accessToken);
 
     let totalCost = 0;
     let totalConversions = 0; // Leads
@@ -116,6 +114,9 @@ export async function GET(request: Request) {
     });
   } catch (error: any) {
     console.error('Meta Ads Dashboard Error:', error);
+    if (isMetaAuthError(error)) {
+      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

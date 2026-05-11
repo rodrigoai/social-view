@@ -1,5 +1,24 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+
+function sumInsightValue(metricData: any) {
+  if (!metricData) return 0;
+
+  if (Array.isArray(metricData.values)) {
+    return metricData.values.reduce((sum: number, val: any) => {
+      const value = val?.value;
+      return sum + (typeof value === 'number' ? value : 0);
+    }, 0);
+  }
+
+  const totalValue = metricData.total_value?.value;
+  return typeof totalValue === 'number' ? totalValue : 0;
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -13,13 +32,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const cred = await prisma.metaCredential.findUnique({
-      where: { mainAccountId }
-    });
-
-    if (!cred || !cred.longLivedToken) {
-      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta account not linked' }, { status: 401 });
-    }
+    const accessToken = await getMetaAccessToken(mainAccountId);
 
     const configs = await prisma.instagramPageConfig.findMany({ where: { mainAccountId } });
     if (!configs || configs.length === 0) {
@@ -48,17 +61,52 @@ export async function GET(request: Request) {
     for (const config of configs) {
       try {
         // 1. Fetch Account Info (Followers)
-        const accountRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}?fields=followers_count,media_count,username&access_token=${cred.longLivedToken}`);
+        const accountRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}?fields=followers_count,media_count,username&access_token=${accessToken}`);
         const accountInfo = await accountRes.json();
+        if (!accountRes.ok) {
+          throw createMetaApiError(accountInfo, 'Failed to fetch Instagram account info');
+        }
+        const followers = accountInfo.followers_count || 0;
+        const today = startOfDay(new Date());
+
+        await prisma.instagramFollowersHistory.upsert({
+          where: {
+            igAccountId_date: {
+              igAccountId: config.igAccountId,
+              date: today
+            }
+          },
+          update: {
+            followersCount: followers
+          },
+          create: {
+            igAccountId: config.igAccountId,
+            date: today,
+            followersCount: followers
+          }
+        });
+
+        const historyStartDate = startOfDay(new Date(today));
+        historyStartDate.setDate(historyStartDate.getDate() - 89);
+        const followersHistory = await prisma.instagramFollowersHistory.findMany({
+          where: {
+            igAccountId: config.igAccountId,
+            date: {
+              gte: historyStartDate
+            }
+          },
+          orderBy: {
+            date: 'asc'
+          }
+        });
 
         // 2. Fetch Insights (Fetch in 30-day chunks because IG has a limit)
-        const metricsToFetch = ['reach', 'views'];
         let reach = 0;
-        let profileViews = 0; // Deprecated in v25.0, will remain 0
+        let profileViews = 0;
         let views = 0;
 
         // Function to fetch in chunks
-        const fetchInChunks = async (metric: string) => {
+        const fetchInChunks = async (metric: string, metricType?: 'total_value') => {
           let total = 0;
           let currentSince = sinceTs;
           const THIRTY_DAYS_SEC = 30 * 24 * 60 * 60;
@@ -66,16 +114,30 @@ export async function GET(request: Request) {
           while (currentSince < untilTs) {
             const nextUntil = Math.min(currentSince + THIRTY_DAYS_SEC, untilTs);
             try {
-              const insightsRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}/insights?metric=${metric}&period=day&since=${currentSince}&until=${nextUntil}&access_token=${cred.longLivedToken}`);
+              const params = new URLSearchParams({
+                metric,
+                period: 'day',
+                since: String(currentSince),
+                until: String(nextUntil),
+                access_token: accessToken
+              });
+              if (metricType) {
+                params.set('metric_type', metricType);
+              }
+              const insightsRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}/insights?${params.toString()}`);
               const insightsData = await insightsRes.json();
+              if (!insightsRes.ok) {
+                throw createMetaApiError(insightsData, `Failed to fetch Instagram ${metric} insights`);
+              }
               
               if (insightsData.data && insightsData.data[0]) {
-                total += insightsData.data[0].values.reduce((sum: number, val: any) => sum + (val.value || 0), 0);
-              } else if (insightsData.error) {
-                console.error(`[IG DEBUG] Chunk Error for ${metric} (${currentSince}-${nextUntil}):`, JSON.stringify(insightsData.error));
+                total += sumInsightValue(insightsData.data[0]);
               }
             } catch (e) {
               console.error(`Error in chunked fetch for ${metric}:`, e);
+              if (isMetaAuthError(e)) {
+                throw e;
+              }
             }
             currentSince = nextUntil;
             if (currentSince >= untilTs) break;
@@ -84,11 +146,15 @@ export async function GET(request: Request) {
         };
 
         reach = await fetchInChunks('reach');
-        views = await fetchInChunks('views');
+        views = await fetchInChunks('views', 'total_value');
+        profileViews = await fetchInChunks('profile_views', 'total_value');
 
         // 3. Fetch Media for Top Content
-        const mediaRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}/media?fields=id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count&limit=50&access_token=${cred.longLivedToken}`);
+        const mediaRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}/media?fields=id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count&limit=50&access_token=${accessToken}`);
         const mediaData = await mediaRes.json();
+        if (!mediaRes.ok) {
+          throw createMetaApiError(mediaData, 'Failed to fetch Instagram media');
+        }
         let topMedia = [];
         if (mediaData.data) {
           topMedia = mediaData.data
@@ -117,13 +183,17 @@ export async function GET(request: Request) {
           igAccountId: config.igAccountId,
           igAccountName: config.igAccountName,
           username: accountInfo.username || config.igAccountName,
-          followers: accountInfo.followers_count || 0,
+          followers,
           mediaCount: accountInfo.media_count || 0,
           stats: {
             impressions: views,
             reach,
             profileViews
           },
+          followersHistory: followersHistory.map((entry) => ({
+            date: entry.date.toISOString().slice(0, 10),
+            followers: entry.followersCount
+          })),
           topMedia
         });
 
@@ -135,6 +205,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ accounts: igData });
   } catch (error: any) {
     console.error('Instagram Dashboard Error:', error);
+    if (isMetaAuthError(error)) {
+      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

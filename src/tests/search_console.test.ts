@@ -208,6 +208,37 @@ describe('Search Console - Dashboard API (GET)', () => {
     expect(json.sites).toEqual([]);
   });
 
+  it('uses the delayed end date as the base for default 30d ranges', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-08T12:00:00Z'));
+
+    (getAuthorizedClient as jest.Mock).mockResolvedValue(mockAuthClient);
+    (prisma.googleSearchConsoleConfig.findMany as jest.Mock).mockResolvedValue([
+      { siteUrl: 'https://example.com/' }
+    ]);
+
+    const mockQuery = jest.fn().mockResolvedValue({
+      data: { rows: [{ clicks: 1, impressions: 2, ctr: 0.5, position: 3 }] }
+    });
+    google.searchconsole.mockReturnValue({
+      sites: { list: jest.fn() },
+      searchanalytics: { query: mockQuery }
+    });
+
+    const req = new Request('http://localhost/api/search-console/dashboard?mainAccountId=acc1&period=30d');
+    const res = await getDashboard(req);
+
+    expect(res.status).toBe(200);
+    expect(mockQuery).toHaveBeenCalledWith(expect.objectContaining({
+      requestBody: expect.objectContaining({
+        startDate: '2026-04-05',
+        endDate: '2026-05-05'
+      })
+    }));
+
+    jest.useRealTimers();
+  });
+
   it('returns performance stats for each configured site', async () => {
     (getAuthorizedClient as jest.Mock).mockResolvedValue(mockAuthClient);
     (prisma.googleSearchConsoleConfig.findMany as jest.Mock).mockResolvedValue([

@@ -141,3 +141,16 @@ model InstagramPageConfig {
 
   @@unique([mainAccountId, igAccountId])
 }
+
+model InstagramFollowersHistory {
+  id             String   @id @default(cuid())
+  igAccountId    String
+  date           DateTime
+  followersCount Int
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([igAccountId, date])
+  @@index([igAccountId, date])
+}

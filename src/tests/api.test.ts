@@ -141,5 +141,42 @@ describe('API Routes', () => {
       expect(json.campaigns.length).toBe(3);
       expect(json.summary.totalCost).toBe(2520.75);
     });
+
+    it('GET /api/ads/campaigns aggregates all selected Google Ads accounts', async () => {
+      const { getAuthorizedClient } = require('@/lib/googleAuth');
+      (getAuthorizedClient as jest.Mock).mockResolvedValue({
+        getAccessToken: jest.fn().mockResolvedValue({ token: 'valid_token' }),
+        credentials: { refresh_token: 'refresh' }
+      });
+      (prisma.googleAdsConfig.findMany as jest.Mock).mockResolvedValue([
+        { customerId: '123-456-7890' },
+        { customerId: '999-888-7777' }
+      ]);
+
+      (getCustomer as jest.Mock)
+        .mockReturnValueOnce({
+          report: jest.fn().mockResolvedValue([
+            { campaign: { id: '1', name: 'Customer 1 Campaign', primary_status: 'ELIGIBLE' }, metrics: { cost_micros: 1000000, conversions: 1 } }
+          ])
+        })
+        .mockReturnValueOnce({
+          report: jest.fn().mockResolvedValue([
+            { campaign: { id: '2', name: 'Customer 2 Campaign', primary_status: 'LEARNING' }, metrics: { cost_micros: 2000000, conversions: 2 } }
+          ])
+        });
+
+      const req = new Request('http://localhost/api/ads/campaigns?mainAccountId=123');
+      const response = await getCampaigns(req);
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.campaigns).toHaveLength(2);
+      expect(json.summary.totalCost).toBe(3);
+      expect(json.summary.totalConversions).toBe(3);
+      expect(json.campaigns.map((campaign: any) => campaign.customerId)).toEqual([
+        '123-456-7890',
+        '999-888-7777'
+      ]);
+    });
   });
 });

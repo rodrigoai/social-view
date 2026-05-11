@@ -39,8 +39,6 @@ export async function GET(request: Request) {
       }
 
       const tokens = await oauth2Client.getAccessToken();
-      const customerId = adsConfigs[0].customerId;
-      const customer = getCustomer(tokens.token!, customerId, oauth2Client.credentials.refresh_token || undefined);
 
       const constraints: any = {};
       if (campaignFilter && campaignFilter !== 'all') {
@@ -88,15 +86,31 @@ export async function GET(request: Request) {
         reportOptions.date_constant = dateMap[period] || 'LAST_7_DAYS';
       }
 
-      // Fetch campaigns with metrics
-      const campaigns = await customer.report(reportOptions);
+      const allCampaigns = await Promise.all(
+        adsConfigs
+          .filter(config => Boolean(config.customerId))
+          .map(async (config) => {
+            const customer = getCustomer(
+              tokens.token!,
+              config.customerId,
+              oauth2Client.credentials.refresh_token || undefined
+            );
+            const campaigns = await customer.report(reportOptions);
 
-      const formattedCampaigns = campaigns.map((c: any) => ({
-        id: c.campaign.id,
-        name: c.campaign.name,
-        status: c.campaign.primary_status,
-        cost: (c.metrics.cost_micros || 0) / 1000000, 
-        conversions: c.metrics.conversions || 0,
+            return campaigns.map((campaign: any) => ({
+              customerId: config.customerId,
+              campaign,
+            }));
+          })
+      );
+
+      const formattedCampaigns = allCampaigns.flat().map(({ customerId, campaign }: any) => ({
+        id: `${customerId}:${campaign.campaign.id}`,
+        customerId,
+        name: campaign.campaign.name,
+        status: campaign.campaign.primary_status,
+        cost: (campaign.metrics.cost_micros || 0) / 1000000,
+        conversions: campaign.metrics.conversions || 0,
       }));
 
       const totalCost = formattedCampaigns.reduce((acc, curr) => acc + curr.cost, 0);

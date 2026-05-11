@@ -1,6 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+function sumInsightValue(metricData: any) {
+  if (!metricData) return 0;
+
+  if (Array.isArray(metricData.values)) {
+    return metricData.values.reduce((sum: number, val: any) => {
+      const value = val?.value;
+      return sum + (typeof value === 'number' ? value : 0);
+    }, 0);
+  }
+
+  const totalValue = metricData.total_value?.value;
+  return typeof totalValue === 'number' ? totalValue : 0;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mainAccountId = url.searchParams.get('mainAccountId');
@@ -38,6 +52,7 @@ export async function GET(request: Request) {
 
     for (const config of configs) {
       if (!config.accessToken) continue;
+      const pageAccessToken = config.accessToken;
 
       try {
         // 1. Fetch Page Info (Fans/Followers)
@@ -56,11 +71,18 @@ export async function GET(request: Request) {
           while (currentSince < untilTs) {
             const nextUntil = Math.min(currentSince + THIRTY_DAYS_SEC, untilTs);
             try {
-              const insightsRes = await fetch(`https://graph.facebook.com/v25.0/${config.pageId}/insights?metric=${metric}&period=day&since=${currentSince}&until=${nextUntil}&access_token=${config.accessToken}`);
+              const params = new URLSearchParams({
+                metric,
+                period: 'day',
+                since: String(currentSince),
+                until: String(nextUntil),
+                access_token: pageAccessToken
+              });
+              const insightsRes = await fetch(`https://graph.facebook.com/v25.0/${config.pageId}/insights?${params.toString()}`);
               const insightsData = await insightsRes.json();
               
               if (insightsData.data && insightsData.data[0]) {
-                total += insightsData.data[0].values.reduce((sum: number, val: any) => sum + (val.value || 0), 0);
+                total += sumInsightValue(insightsData.data[0]);
               } else if (insightsData.error) {
                 console.error(`[FB DEBUG] Chunk Error for ${metric} (${currentSince}-${nextUntil}):`, JSON.stringify(insightsData.error));
               } else {
@@ -77,6 +99,7 @@ export async function GET(request: Request) {
 
         impressions = await fetchFbInChunks('page_media_view');
         const reach = await fetchFbInChunks('page_total_media_view_unique');
+        engagement = await fetchFbInChunks('page_post_engagements');
 
         // 3. Fetch Posts for Top Content
         const postsRes = await fetch(`https://graph.facebook.com/v25.0/${config.pageId}/posts?fields=id,message,created_time,shares,likes.summary(true),comments.summary(true),attachments{media,target,type,url}&limit=100&access_token=${config.accessToken}`);
@@ -110,10 +133,12 @@ export async function GET(request: Request) {
               return postTs >= sinceTs && postTs <= untilTs;
             });
 
-          totalEngagement = processedPosts.reduce((sum: number, p: any) => sum + p.engagement, 0);
+          totalEngagement = engagement || processedPosts.reduce((sum: number, p: any) => sum + p.engagement, 0);
           topPosts = processedPosts
             .sort((a: any, b: any) => b.engagement - a.engagement)
             .slice(0, 10);
+        } else {
+          totalEngagement = engagement;
         }
 
         pagesData.push({

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,30 +10,30 @@ export async function GET(request: Request) {
   }
 
   try {
-    const cred = await prisma.metaCredential.findUnique({
-      where: { mainAccountId }
-    });
+    const accessToken = await getMetaAccessToken(mainAccountId);
 
-    if (!cred || !cred.longLivedToken) {
-      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta account not linked' }, { status: 401 });
-    }
-
-    const res = await fetch(`https://graph.facebook.com/v25.0/me/adaccounts?fields=name,account_id&access_token=${cred.longLivedToken}`);
+    const res = await fetch(`https://graph.facebook.com/v25.0/me/adaccounts?fields=name,account_id,currency,account_status&access_token=${accessToken}`);
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.error?.message || 'Failed to fetch ad accounts');
+      throw createMetaApiError(data, 'Failed to fetch ad accounts');
     }
 
     // data.data contains the ad accounts
     const accounts = data.data.map((acc: any) => ({
       id: acc.account_id, // e.g. "act_123456789" is usually just the ID but often returned with act_ prefix or without, account_id is numeric.
-      name: acc.name || `Account ${acc.account_id}`
+      actId: `act_${acc.account_id}`,
+      name: acc.name || `Account ${acc.account_id}`,
+      currency: acc.currency || null,
+      accountStatus: acc.account_status ?? null,
     }));
 
     return NextResponse.json({ accounts });
   } catch (error: any) {
     console.error('Meta Ads Accounts Error:', error);
+    if (isMetaAuthError(error)) {
+      return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -68,6 +68,15 @@ describe('UI Components', () => {
       
       expect(mockFn).toHaveBeenCalledWith({ period: '30d', campaign: 'all', startDate: '', endDate: '' });
     });
+
+    it('calls onRefresh when refresh is clicked', () => {
+      const mockRefresh = jest.fn();
+      render(<FilterPanel onFilterChange={() => {}} onRefresh={mockRefresh} />);
+
+      fireEvent.click(screen.getByText('Refresh'));
+
+      expect(mockRefresh).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Navbar & Sidebar Components', () => {

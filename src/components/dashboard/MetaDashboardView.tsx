@@ -6,6 +6,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Eye, Heart, MessageCircle, Share2, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { clearDashboardCache, getDashboardCacheKey, readDashboardCache, writeDashboardCache } from '@/lib/dashboardClientCache';
 
 function TopContentList({ items, type }: { items: any[], type: 'ig' | 'fb' }) {
   if (!items || items.length === 0) return null;
@@ -146,6 +147,7 @@ export function MetaDashboardView({
   const [data, setData] = useState<any>(null);
   const [fbData, setFbData] = useState<any>(null);
   const [igData, setIgData] = useState<any>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adsError, setAdsError] = useState<any>(null);
@@ -154,6 +156,11 @@ export function MetaDashboardView({
 
   const handleFilterChange = (newFilters: any) => {
     onFilterChange(newFilters);
+  };
+
+  const handleRefresh = () => {
+    clearDashboardCache(getDashboardCacheKey('meta', selectedAccountId, filters));
+    setRefreshNonce((value) => value + 1);
   };
 
   useEffect(() => {
@@ -167,6 +174,19 @@ export function MetaDashboardView({
       setIgError(null);
       
       try {
+        const cacheKey = getDashboardCacheKey('meta', selectedAccountId, filters);
+        const cached = readDashboardCache<any>(cacheKey);
+
+        if (cached) {
+          setData(cached.data);
+          setFbData(cached.fbData);
+          setIgData(cached.igData);
+          setAdsError(cached.adsError || null);
+          setFbError(cached.fbError || null);
+          setIgError(cached.igError || null);
+          return;
+        }
+
         const queryParams: any = {
           mainAccountId: selectedAccountId,
           period: filters.period,
@@ -185,51 +205,66 @@ export function MetaDashboardView({
           fetch(`/api/meta/facebook-pages/dashboard?${query.toString()}`),
           fetch(`/api/meta/instagram/dashboard?${query.toString()}`)
         ]);
+        let nextData = null;
+        let nextFbData = null;
+        let nextIgData = null;
+        let nextAdsError = null;
+        let nextFbError = null;
+        let nextIgError = null;
 
         // Handle Ads
         if (adsRes.ok) {
-          const adsData = await adsRes.json();
-          setData(adsData);
+          nextData = await adsRes.json();
+          setData(nextData);
           setAdsError(null);
         } else {
-          const errorJson = await adsRes.json().catch(() => ({}));
-          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
-            console.error('Meta Ads API Error:', errorJson);
+          nextAdsError = await adsRes.json().catch(() => ({}));
+          if (nextAdsError.code !== 'AUTH_REQUIRED' && nextAdsError.code !== 'NOT_CONFIGURED') {
+            console.error('Meta Ads API Error:', nextAdsError);
           }
-          setAdsError(errorJson);
+          setAdsError(nextAdsError);
           setData(null);
-          if (errorJson.code !== 'AUTH_REQUIRED') {
-            setError(errorJson.message || 'Failed to load Meta Ads data');
+          if (nextAdsError.code !== 'AUTH_REQUIRED') {
+            setError(nextAdsError.message || 'Failed to load Meta Ads data');
           }
         }
 
         // Handle Facebook Pages
         if (fbRes.ok) {
-          const fbDataJson = await fbRes.json();
-          setFbData(fbDataJson);
+          nextFbData = await fbRes.json();
+          setFbData(nextFbData);
           setFbError(null);
         } else {
-          const errorJson = await fbRes.json().catch(() => ({}));
-          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
-            console.error('Facebook Pages API Error:', errorJson);
+          nextFbError = await fbRes.json().catch(() => ({}));
+          if (nextFbError.code !== 'AUTH_REQUIRED' && nextFbError.code !== 'NOT_CONFIGURED') {
+            console.error('Facebook Pages API Error:', nextFbError);
           }
-          setFbError(errorJson);
+          setFbError(nextFbError);
           setFbData(null);
         }
 
         // Handle Instagram
         if (igRes.ok) {
-          const igDataJson = await igRes.json();
-          setIgData(igDataJson);
+          nextIgData = await igRes.json();
+          setIgData(nextIgData);
           setIgError(null);
         } else {
-          const errorJson = await igRes.json().catch(() => ({}));
-          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
-            console.error('Instagram API Error:', errorJson);
+          nextIgError = await igRes.json().catch(() => ({}));
+          if (nextIgError.code !== 'AUTH_REQUIRED' && nextIgError.code !== 'NOT_CONFIGURED') {
+            console.error('Instagram API Error:', nextIgError);
           }
-          setIgError(errorJson);
+          setIgError(nextIgError);
           setIgData(null);
         }
+
+        writeDashboardCache(cacheKey, {
+          data: nextData,
+          fbData: nextFbData,
+          igData: nextIgData,
+          adsError: nextAdsError,
+          fbError: nextFbError,
+          igError: nextIgError
+        });
 
       } catch (err: any) {
         console.error('Dashboard Load Error:', err);
@@ -240,7 +275,7 @@ export function MetaDashboardView({
     }
     
     loadData();
-  }, [selectedAccountId, filters]);
+  }, [selectedAccountId, filters, refreshNonce]);
 
 
 
@@ -302,6 +337,8 @@ export function MetaDashboardView({
         currentCampaign={filters.campaign}
         currentStartDate={filters.startDate}
         currentEndDate={filters.endDate}
+        onRefresh={handleRefresh}
+        refreshing={loading}
       />
 
       {/* Authentication Required Banner */}

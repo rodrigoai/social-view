@@ -34,7 +34,8 @@ code
 ## State & Features
 - **Authentication**: OAuth 2.0 for Google APIs and Meta Graph API.
 - **Main Account**: The central entity that links to Google and Meta accounts. Configurable in settings.
-- **Dashboard**: Displays campaigns, cost, and conversions. Switchable between Google Dashboard and Meta Dashboard views. Reuses `FilterPanel` for date and campaign filtering.
+- **Dashboard**: Displays campaigns, cost, conversions, web/search metrics, and social metrics. Switchable between Google Dashboard and Meta Dashboard views. Reuses `FilterPanel` for date and campaign filtering.
+- **Client Dashboard Cache**: Google and Meta dashboard responses are cached in `localStorage` for 12 hours, keyed by dashboard type, main account, and filters. The `FilterPanel` Refresh button clears only the active dashboard cache key and forces a refetch.
 
 ## Google Ads API Integration
 - **Libraries**:
@@ -44,9 +45,15 @@ code
 - **Error Handling**: Catch specific Google Ads API errors (e.g., `Customer May Not Be Enabled`) and return appropriate responses.
 - **Date Range**: Supports `LAST_7_DAYS`, `LAST_30_DAYS`, `90D`, and custom dates.
 
+## Google PageSpeed Insights Integration
+- **Main Website URL**: Each `MainAccount` has a `mainWebsiteUrl` configured in Settings, separate from `googleBusinessUrl`.
+- **API Route**: `/api/pagespeed/dashboard` reads `mainWebsiteUrl` and calls PageSpeed Insights `runPagespeed`.
+- **Scores**: Fetches Lighthouse `performance`, `accessibility`, `best-practices`, and `seo` for both `mobile` and `desktop`.
+- **UI**: Results appear after Google Search Console in the Google dashboard using circular score gauges.
+
 ## Meta API Integration
 - **Platform**: Meta Graph API & Marketing API for fetching Facebook Pages, Instagram, and Meta Ads.
 - **Entities**: Supports connecting Meta Ads (Ad Accounts), Facebook Pages, and Instagram Pages.
 - **Authentication**: Uses short-lived to long-lived token exchange for persistent access without user interaction.
 - **Error Handling**: Monitor for OAuth token expiration and ad account permission errors.
-
+- **Instagram Followers History**: The Instagram API only returns current follower count, so dashboard access upserts one `InstagramFollowersHistory` record per IG account per day and displays the last 90 days without deleting older history.

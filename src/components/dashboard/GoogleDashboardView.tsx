@@ -6,6 +6,7 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { clearDashboardCache, getDashboardCacheKey, readDashboardCache, writeDashboardCache } from '@/lib/dashboardClientCache';
 
 function PageSpeedScoreGauge({ label, score }: { label: string; score: number | null }) {
   const normalizedScore = typeof score === 'number' ? Math.max(0, Math.min(score, 100)) : null;
@@ -77,6 +78,7 @@ export function GoogleDashboardView({
   const [gaData, setGaData] = useState<any>(null);
   const [scData, setScData] = useState<any>(null);
   const [pageSpeedData, setPageSpeedData] = useState<any>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adsError, setAdsError] = useState<any>(null);
@@ -86,6 +88,11 @@ export function GoogleDashboardView({
 
   const handleFilterChange = (newFilters: any) => {
     onFilterChange(newFilters);
+  };
+
+  const handleRefresh = () => {
+    clearDashboardCache(getDashboardCacheKey('google', selectedAccountId, filters));
+    setRefreshNonce((value) => value + 1);
   };
 
   useEffect(() => {
@@ -100,6 +107,21 @@ export function GoogleDashboardView({
       setPageSpeedError(null);
       
       try {
+        const cacheKey = getDashboardCacheKey('google', selectedAccountId, filters);
+        const cached = readDashboardCache<any>(cacheKey);
+
+        if (cached) {
+          setData(cached.data);
+          setGaData(cached.gaData);
+          setScData(cached.scData);
+          setPageSpeedData(cached.pageSpeedData);
+          setAdsError(cached.adsError || null);
+          setGaError(cached.gaError || null);
+          setScError(cached.scError || null);
+          setPageSpeedError(cached.pageSpeedError || null);
+          return;
+        }
+
         const queryParams: any = {
           mainAccountId: selectedAccountId,
           period: filters.period,
@@ -119,63 +141,82 @@ export function GoogleDashboardView({
           fetch(`/api/search-console/dashboard?${query.toString()}`),
           fetch(`/api/pagespeed/dashboard?${query.toString()}`)
         ]);
+        let nextData = null;
+        let nextGaData = null;
+        let nextScData = null;
+        let nextPageSpeedData = null;
+        let nextAdsError = null;
+        let nextGaError = null;
+        let nextScError = null;
+        let nextPageSpeedError = null;
 
         // Handle Ads
         if (adsRes.ok) {
-          const adsData = await adsRes.json();
-          setData(adsData);
+          nextData = await adsRes.json();
+          setData(nextData);
           setAdsError(null);
         } else {
-          const errorJson = await adsRes.json().catch(() => ({}));
-          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
-            console.error('Ads API Error:', errorJson);
+          nextAdsError = await adsRes.json().catch(() => ({}));
+          if (nextAdsError.code !== 'AUTH_REQUIRED' && nextAdsError.code !== 'NOT_CONFIGURED') {
+            console.error('Ads API Error:', nextAdsError);
           }
-          setAdsError(errorJson);
+          setAdsError(nextAdsError);
           setData(null);
-          if (errorJson.code !== 'AUTH_REQUIRED') {
-            setError(errorJson.message || 'Failed to load Ads data');
+          if (nextAdsError.code !== 'AUTH_REQUIRED') {
+            setError(nextAdsError.message || 'Failed to load Ads data');
           }
         }
 
         // Handle Analytics
         if (gaRes.ok) {
-          const gaDataJson = await gaRes.json();
-          setGaData(gaDataJson);
+          nextGaData = await gaRes.json();
+          setGaData(nextGaData);
           setGaError(null);
         } else {
-          const errorJson = await gaRes.json().catch(() => ({}));
-          if (errorJson.code !== 'AUTH_REQUIRED' && errorJson.code !== 'NOT_CONFIGURED') {
-            console.error('Analytics API Error:', errorJson);
+          nextGaError = await gaRes.json().catch(() => ({}));
+          if (nextGaError.code !== 'AUTH_REQUIRED' && nextGaError.code !== 'NOT_CONFIGURED') {
+            console.error('Analytics API Error:', nextGaError);
           }
-          setGaError(errorJson);
+          setGaError(nextGaError);
           setGaData(null);
         }
 
         // Handle Search Console
         if (scRes.ok) {
-          const scDataJson = await scRes.json();
-          setScData(scDataJson);
+          nextScData = await scRes.json();
+          setScData(nextScData);
           setScError(null);
         } else {
-          const errorJson = await scRes.json().catch(() => ({}));
-          if (errorJson.code !== 'AUTH_REQUIRED') {
-            console.error('Search Console API Error:', errorJson);
+          nextScError = await scRes.json().catch(() => ({}));
+          if (nextScError.code !== 'AUTH_REQUIRED') {
+            console.error('Search Console API Error:', nextScError);
           }
-          setScError(errorJson);
+          setScError(nextScError);
           setScData(null);
         }
 
         // Handle PageSpeed Insights
         if (pageSpeedRes.ok) {
-          const pageSpeedDataJson = await pageSpeedRes.json();
-          setPageSpeedData(pageSpeedDataJson);
+          nextPageSpeedData = await pageSpeedRes.json();
+          setPageSpeedData(nextPageSpeedData);
           setPageSpeedError(null);
         } else {
-          const errorJson = await pageSpeedRes.json().catch(() => ({}));
-          console.error('PageSpeed Insights API Error:', errorJson);
-          setPageSpeedError(errorJson);
+          nextPageSpeedError = await pageSpeedRes.json().catch(() => ({}));
+          console.error('PageSpeed Insights API Error:', nextPageSpeedError);
+          setPageSpeedError(nextPageSpeedError);
           setPageSpeedData(null);
         }
+
+        writeDashboardCache(cacheKey, {
+          data: nextData,
+          gaData: nextGaData,
+          scData: nextScData,
+          pageSpeedData: nextPageSpeedData,
+          adsError: nextAdsError,
+          gaError: nextGaError,
+          scError: nextScError,
+          pageSpeedError: nextPageSpeedError
+        });
 
       } catch (err: any) {
         console.error('Dashboard Load Error:', err);
@@ -186,7 +227,7 @@ export function GoogleDashboardView({
     }
     
     loadData();
-  }, [selectedAccountId, filters]);
+  }, [selectedAccountId, filters, refreshNonce]);
 
 
 
@@ -349,6 +390,8 @@ export function GoogleDashboardView({
         currentCampaign={filters.campaign}
         currentStartDate={filters.startDate}
         currentEndDate={filters.endDate}
+        onRefresh={handleRefresh}
+        refreshing={loading}
       />
 
       {/* Authentication Required Banner */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Filter } from 'lucide-react';
+import { Calendar, Filter, RefreshCw } from 'lucide-react';
 
 interface FilterPanelProps {
   onFilterChange: (filters: { period: string; campaign: string; startDate?: string; endDate?: string }) => void;
@@ -8,6 +8,8 @@ interface FilterPanelProps {
   currentCampaign?: string;
   currentStartDate?: string;
   currentEndDate?: string;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
 export function FilterPanel({ 
@@ -16,7 +18,9 @@ export function FilterPanel({
   currentPeriod = '7d', 
   currentCampaign = 'all',
   currentStartDate = '',
-  currentEndDate = ''
+  currentEndDate = '',
+  onRefresh,
+  refreshing = false
 }: FilterPanelProps) {
   const [period, setPeriod] = useState(currentPeriod);
   const [campaign, setCampaign] = useState(currentCampaign);
@@ -103,12 +107,25 @@ export function FilterPanel({
           </div>
         </div>
 
-        <button 
-          onClick={handleApply}
-          className="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-500/20"
-        >
-          Apply Filters
-        </button>
+        <div className="flex w-full sm:w-auto gap-2">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="w-full sm:w-auto px-4 py-2 bg-accent-custom hover:bg-border-custom disabled:opacity-60 text-foreground text-sm font-medium rounded-lg transition-colors inline-flex items-center justify-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          )}
+          <button
+            onClick={handleApply}
+            className="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+          >
+            Apply Filters
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -158,7 +158,7 @@ function SettingsContent() {
 
   const deleteAccount = async (id: string) => {
     if (!window.confirm('Delete this account? All linked integrations will be removed.')) return;
-    const res = await fetch(`/api/accounts?id=${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
     if (res.ok) {
       await refreshAccounts();
       setSelectedAccountId('');

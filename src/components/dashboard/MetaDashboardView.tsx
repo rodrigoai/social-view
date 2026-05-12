@@ -408,8 +408,8 @@ export function MetaDashboardView({
               key={campaign.id}
               className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5"
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="grid grid-cols-2 md:grid-cols-[minmax(0,1fr)_112px_96px_96px_96px] items-center gap-x-6 gap-y-4 md:gap-x-8">
+                <div className="col-span-2 md:col-span-1 flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
@@ -418,31 +418,29 @@ export function MetaDashboardView({
                     <p className="text-xs text-muted font-mono mt-0.5 opacity-70">ID: {campaign.id}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-4">
-                  <div className="flex flex-col">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5" /> Custo
-                    </div>
-                    <span className="text-xl font-bold text-foreground">{formatCurrency(campaign.cost)}</span>
+                <div className="flex flex-col min-w-0">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5" /> Custo
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5" /> Leads
-                    </div>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(campaign.conversions)}</span>
+                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatCurrency(campaign.cost)}</span>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" /> Leads
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
-                      <TrendingUp className="w-3.5 h-3.5" /> CPL
-                    </div>
-                    <span className="text-xl font-bold text-foreground">{formatCurrency(campaign.cpl)}</span>
+                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatNumber(campaign.conversions)}</span>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" /> CPL
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
-                      <Eye className="w-3.5 h-3.5" /> Reach
-                    </div>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(campaign.reach)}</span>
+                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatCurrency(campaign.cpl)}</span>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5" /> Reach
                   </div>
+                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatNumber(campaign.reach)}</span>
                 </div>
               </div>
             </Card>

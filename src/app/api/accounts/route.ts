@@ -17,6 +17,7 @@ export async function GET() {
     });
     return NextResponse.json({ accounts });
   } catch (error) {
+    console.error('Failed to fetch accounts:', error);
     return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500 });
   }
 }
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ account });
   } catch (error) {
+    console.error('Failed to create account:', error);
     return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
   }
 }

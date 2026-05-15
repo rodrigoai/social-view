@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 const PAGESPEED_ENDPOINT = 'https://pagespeedonline.googleapis.com/pagespeedonline/v5/runPagespeed';
 
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireMainAccountAccess(mainAccountId);
     const account = await prisma.mainAccount.findUnique({
       where: { id: mainAccountId },
       select: { mainWebsiteUrl: true }
@@ -101,6 +103,8 @@ export async function GET(request: Request) {
       scores: mobile.scores
     });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('PageSpeed Dashboard Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

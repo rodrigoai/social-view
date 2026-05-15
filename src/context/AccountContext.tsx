@@ -36,6 +36,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const fetchAccounts = React.useCallback(async () => {
     try {
       const res = await fetch('/api/accounts');
+      if (!res.ok) {
+        setAccounts([]);
+        setSelectedAccountIdState(null);
+        localStorage.removeItem('selectedAccountId');
+        return;
+      }
       const data = await res.json();
       const fetchedAccounts = data.accounts || [];
       setAccounts(fetchedAccounts);
@@ -52,6 +58,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setSelectedAccountIdState(null);
+        localStorage.removeItem('selectedAccountId');
       }
     } catch (error) {
       console.error('Failed to fetch accounts in context:', error);

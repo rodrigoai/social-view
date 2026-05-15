@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function POST(request: Request) {
   try {
+    await requireAdmin();
     const { mainAccountId, accountId, accountName, facebookPageId } = await request.json();
 
     if (!mainAccountId || !accountId) {
@@ -30,6 +32,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Instagram Selection Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

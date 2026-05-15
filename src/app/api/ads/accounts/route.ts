@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { GoogleAdsApi } from 'google-ads-api';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireAdmin();
     const { withGoogleAuth } = await import('@/lib/googleAuth');
 
     const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
@@ -88,6 +90,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ customers });
     });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Failed to fetch Google Ads accounts:', error);
     
     const authErrors = ['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'];

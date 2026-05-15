@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Layout } from "@/components/Layout";
+import { AppShell } from "@/components/AppShell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,9 +18,6 @@ export const metadata: Metadata = {
   description: "A social dashboard for your business.",
 };
 
-import { AccountProvider } from "@/context/AccountContext";
-import { ThemeProvider } from "@/context/ThemeContext";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,11 +30,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-300">
-        <ThemeProvider>
-          <AccountProvider>
-            <Layout>{children}</Layout>
-          </AccountProvider>
-        </ThemeProvider>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function POST(request: Request) {
   try {
+    await requireAdmin();
     const { mainAccountId, sites } = await request.json();
 
     if (!mainAccountId || !sites || !Array.isArray(sites)) {
@@ -26,6 +28,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Failed to select Search Console sites:', error);
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
   }

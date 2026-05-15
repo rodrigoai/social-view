@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 function sumInsightValue(metricData: any) {
   if (!metricData) return 0;
@@ -32,6 +33,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireMainAccountAccess(mainAccountId);
     const accessToken = await getMetaAccessToken(mainAccountId);
 
     const configs = await prisma.instagramPageConfig.findMany({ where: { mainAccountId } });
@@ -204,6 +206,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ accounts: igData });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Instagram Dashboard Error:', error);
     if (isMetaAuthError(error)) {
       return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });

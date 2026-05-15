@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getMetaAuthConfig } from '@/lib/metaAuth';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireAdmin();
     const { appId, appSecret, redirectUri } = getMetaAuthConfig(url.origin);
 
     // 1. Exchange code for short-lived access token
@@ -56,6 +58,8 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(new URL(`/settings?success=meta_linked`, request.url));
   } catch (error) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Error in Meta OAuth callback', error);
     return NextResponse.redirect(new URL('/settings?error=meta_link_failed', request.url));
   }

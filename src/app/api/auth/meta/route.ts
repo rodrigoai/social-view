@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMetaAuthConfig } from '@/lib/metaAuth';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,6 +11,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireAdmin();
     const { appId, redirectUri } = getMetaAuthConfig(url.origin);
     const scope = [
       'ads_read',
@@ -24,6 +26,8 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(authUrl);
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

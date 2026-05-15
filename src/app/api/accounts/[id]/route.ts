@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function PATCH(
   request: Request,
@@ -7,6 +8,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
+    await requireAdmin();
     const body = await request.json();
     const data: any = {};
     if (body.name !== undefined) data.name = body.name;
@@ -19,6 +21,8 @@ export async function PATCH(
     });
     return NextResponse.json({ account });
   } catch (error) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     return NextResponse.json({ error: 'Failed to update account' }, { status: 500 });
   }
 
@@ -30,11 +34,14 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
+    await requireAdmin();
     await prisma.mainAccount.delete({
       where: { id }
     });
     return NextResponse.json({ success: true });
   } catch (error) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
   }
 }

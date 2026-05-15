@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGoogleOAuthClient } from '@/lib/googleAuth';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireAdmin();
     const client = getGoogleOAuthClient();
     const { tokens } = await client.getToken(code);
     
@@ -38,6 +40,8 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(new URL(`/settings?success=google_linked`, request.url));
   } catch (error) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Error in Google OAuth callback', error);
     return NextResponse.redirect(new URL('/settings?error=google_link_failed', request.url));
   }

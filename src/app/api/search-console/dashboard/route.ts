@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 // Helper to format date for Search Console (YYYY-MM-DD)
 function formatDate(date: Date): string {
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireMainAccountAccess(mainAccountId);
     const { withGoogleAuth } = await import('@/lib/googleAuth');
 
     return await withGoogleAuth(mainAccountId, async (authClient) => {
@@ -95,6 +97,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ sites: sitesResults });
     });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Search Console Dashboard Error:', error);
     
     const authErrors = ['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'];

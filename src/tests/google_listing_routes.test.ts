@@ -80,7 +80,7 @@ describe('Google listing routes', () => {
         displayName: 'Empty GA Account',
       },
     ]]);
-    (AnalyticsAdminServiceClient as jest.Mock).mockImplementation(() => ({
+    (AnalyticsAdminServiceClient as unknown as jest.Mock).mockImplementation(() => ({
       listAccountSummaries,
     }));
 

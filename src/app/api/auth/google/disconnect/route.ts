@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function POST(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await requireAdmin();
     // Delete the google credential and all associated configs
     await prisma.$transaction([
       prisma.googleAdsConfig.deleteMany({ where: { mainAccountId } }),
@@ -20,6 +22,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Error disconnecting Google:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

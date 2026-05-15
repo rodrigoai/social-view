@@ -1,0 +1,104 @@
+'use client';
+
+import { FormEvent, useEffect, useState } from 'react';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Lock, Mail } from 'lucide-react';
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { status } = useSession();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/');
+    }
+  }, [router, status]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+      callbackUrl: '/',
+    });
+
+    setIsSubmitting(false);
+
+    if (result?.error) {
+      setError('Invalid email or password.');
+      return;
+    }
+
+    router.replace('/');
+  }
+
+  return (
+    <main className="min-h-screen bg-background flex items-center justify-center px-4">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-card border border-border-custom rounded-2xl p-6 shadow-xl"
+      >
+        <div className="mb-6">
+          <p className="text-sm font-semibold text-blue-600">SocialView</p>
+          <h1 className="text-2xl font-bold text-foreground mt-1">Sign in</h1>
+          <p className="text-sm text-muted mt-1">Use your account credentials to continue.</p>
+        </div>
+
+        <label className="block text-sm font-semibold text-foreground mb-2" htmlFor="email">
+          Email
+        </label>
+        <div className="relative mb-4">
+          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-border-custom bg-background text-foreground outline-none focus:border-blue-500"
+            required
+          />
+        </div>
+
+        <label className="block text-sm font-semibold text-foreground mb-2" htmlFor="password">
+          Password
+        </label>
+        <div className="relative mb-4">
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-border-custom bg-background text-foreground outline-none focus:border-blue-500"
+            required
+          />
+        </div>
+
+        {error && (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-bold transition-colors"
+        >
+          {isSubmitting ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+    </main>
+  );
+}

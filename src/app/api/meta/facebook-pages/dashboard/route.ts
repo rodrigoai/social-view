@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 function sumInsightValue(metricData: any) {
   if (!metricData) return 0;
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireMainAccountAccess(mainAccountId);
     const configs = await prisma.facebookPageConfig.findMany({ where: { mainAccountId } });
     if (!configs || configs.length === 0) {
       return NextResponse.json({ pages: [] });
@@ -161,6 +163,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ pages: pagesData });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Facebook Pages Dashboard Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

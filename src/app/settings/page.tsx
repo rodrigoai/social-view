@@ -4,10 +4,11 @@ import { useState, useEffect, Suspense } from 'react';
 import { Card } from '@/components/Card';
 import {
   CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
-  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle
+  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccount } from '@/context/AccountContext';
+import { useSession } from 'next-auth/react';
 
 type Account = {
   id: string;
@@ -22,6 +23,15 @@ type Account = {
   metaAdsConfigs?: any[];
   facebookPageConfigs?: any[];
   instagramPageConfigs?: any[];
+};
+
+type AppUser = {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: 'ADMIN' | 'CLIENT';
+  status: 'ACTIVE' | 'DISABLED';
+  clientMainAccountAccesses?: { mainAccountId: string; mainAccount: { id: string; name: string } }[];
 };
 
 // ─── Integration row ──────────────────────────────────────────────────────────
@@ -119,6 +129,7 @@ function AccountListItem({
 
 function SettingsContent() {
   const { accounts, refreshAccounts, selectedAccountId, setSelectedAccountId } = useAccount();
+  const { data: session, status } = useSession();
 
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -126,6 +137,14 @@ function SettingsContent() {
   const [editBusinessUrl, setEditBusinessUrl] = useState('');
   const [editingWebsiteId, setEditingWebsiteId] = useState<string | null>(null);
   const [editWebsiteUrl, setEditWebsiteUrl] = useState('');
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'CLIENT' as 'ADMIN' | 'CLIENT',
+    mainAccountIds: [] as string[],
+  });
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,12 +157,39 @@ function SettingsContent() {
     : null;
 
   useEffect(() => {
+    if (status !== 'loading' && session?.user?.role !== 'ADMIN') {
+      router.replace('/');
+    }
+  }, [router, session?.user?.role, status]);
+
+  useEffect(() => {
     if (success || error) {
       refreshAccounts();
       const timer = setTimeout(() => router.replace('/settings', { scroll: false }), 3000);
       return () => clearTimeout(timer);
     }
   }, [success, error, refreshAccounts, router]);
+
+  const refreshUsers = async () => {
+    const res = await fetch('/api/users');
+    if (!res.ok) return;
+    const data = await res.json();
+    setUsers(data.users || []);
+  };
+
+  useEffect(() => {
+    if (session?.user?.role === 'ADMIN') {
+      void refreshUsers();
+    }
+  }, [session?.user?.role]);
+
+  if (status === 'loading' || session?.user?.role !== 'ADMIN') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
 
   const createAccount = async () => {
     const name = window.prompt('Enter account name:', 'My Business Account');
@@ -223,6 +269,35 @@ function SettingsContent() {
     if (res.ok) await refreshAccounts();
   };
 
+  const toggleNewUserAccount = (mainAccountId: string) => {
+    setNewUser((current) => ({
+      ...current,
+      mainAccountIds: current.mainAccountIds.includes(mainAccountId)
+        ? current.mainAccountIds.filter((id) => id !== mainAccountId)
+        : [...current.mainAccountIds, mainAccountId],
+    }));
+  };
+
+  const createUser = async () => {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newUser),
+    });
+    if (!res.ok) return;
+    setNewUser({ name: '', email: '', password: '', role: 'CLIENT', mainAccountIds: [] });
+    await refreshUsers();
+  };
+
+  const updateUser = async (id: string, payload: Partial<AppUser> & { mainAccountIds?: string[] }) => {
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) await refreshUsers();
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="animate-in fade-in duration-500">
@@ -246,6 +321,129 @@ function SettingsContent() {
       {success === 'search_console_linked' && <Banner color="violet" message="Search Console sites successfully linked!" />}
       {success === 'meta_linked' && <Banner color="blue" message="Meta account successfully linked!" />}
       {error && <Banner color="red" message="Integration failed. Please try again." />}
+
+      <div className="mb-8 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] gap-6">
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-bold text-foreground">Users</h2>
+          </div>
+          <div className="space-y-3">
+            {users.map((user) => {
+              const assignedIds = user.clientMainAccountAccesses?.map((access) => access.mainAccountId) || [];
+              return (
+                <div key={user.id} className="border border-border-custom rounded-xl p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-foreground">{user.name || user.email}</p>
+                      <p className="text-xs text-muted">{user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={user.role}
+                        onChange={(event) => updateUser(user.id, { role: event.target.value as AppUser['role'] })}
+                        className="text-xs bg-background border border-border-custom rounded-lg px-2 py-1"
+                      >
+                        <option value="ADMIN">Admin</option>
+                        <option value="CLIENT">Client</option>
+                      </select>
+                      <button
+                        onClick={() => updateUser(user.id, { status: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
+                        className={`text-xs font-semibold px-2 py-1 rounded-lg ${
+                          user.status === 'ACTIVE'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+                        }`}
+                      >
+                        {user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                      </button>
+                    </div>
+                  </div>
+                  {user.role === 'CLIENT' && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {accounts.map((account) => {
+                        const checked = assignedIds.includes(account.id);
+                        return (
+                          <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-muted border border-border-custom rounded-lg px-2 py-1">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const mainAccountIds = checked
+                                  ? assignedIds.filter((id) => id !== account.id)
+                                  : [...assignedIds, account.id];
+                                updateUser(user.id, { mainAccountIds });
+                              }}
+                            />
+                            {account.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <UserPlus className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-bold text-foreground">Add User</h2>
+          </div>
+          <div className="space-y-3">
+            <input
+              value={newUser.name}
+              onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}
+              placeholder="Name"
+              className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
+            />
+            <input
+              type="email"
+              value={newUser.email}
+              onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
+              placeholder="Email"
+              className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
+            />
+            <input
+              type="password"
+              value={newUser.password}
+              onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
+              placeholder="Temporary password"
+              className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
+            />
+            <select
+              value={newUser.role}
+              onChange={(event) => setNewUser({ ...newUser, role: event.target.value as 'ADMIN' | 'CLIENT', mainAccountIds: [] })}
+              className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
+            >
+              <option value="CLIENT">Client</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+            {newUser.role === 'CLIENT' && (
+              <div className="flex flex-wrap gap-2">
+                {accounts.map((account) => (
+                  <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-muted border border-border-custom rounded-lg px-2 py-1">
+                    <input
+                      type="checkbox"
+                      checked={newUser.mainAccountIds.includes(account.id)}
+                      onChange={() => toggleNewUserAccount(account.id)}
+                    />
+                    {account.name}
+                  </label>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={createUser}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Create User
+            </button>
+          </div>
+        </Card>
+      </div>
 
       {accounts.length === 0 ? (
         <div className="text-center py-24 border-2 border-dashed border-border-custom rounded-2xl bg-card">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bizSdk from 'facebook-nodejs-business-sdk';
 import { getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 const AdAccount = bizSdk.AdAccount;
 
@@ -35,6 +36,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireMainAccountAccess(mainAccountId);
     const accessToken = await getMetaAccessToken(mainAccountId);
 
     const configs = await prisma.metaAdsConfig.findMany({ where: { mainAccountId } });
@@ -113,6 +115,8 @@ export async function GET(request: Request) {
       campaigns: allCampaigns
     });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Meta Ads Dashboard Error:', error);
     if (isMetaAuthError(error)) {
       return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });

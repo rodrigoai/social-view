@@ -7,17 +7,20 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest"
+    "test": "jest",
+    "seed:admin": "ts-node scripts/seed-admin.ts"
   },
   "dependencies": {
     "@google-analytics/admin": "^9.0.1",
     "@google-analytics/data": "^5.2.1",
+    "bcryptjs": "^3.0.3",
     "facebook-nodejs-business-sdk": "^24.0.1",
     "google-ads-api": "^23.0.0",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
+    "next-auth": "^4.24.14",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

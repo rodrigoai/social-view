@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { BetaAnalyticsDataClient } from '@google-analytics/data';
+import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireMainAccountAccess(mainAccountId);
     const { withGoogleAuth } = await import('@/lib/googleAuth');
 
     return await withGoogleAuth(mainAccountId, async (oauth2Client) => {
@@ -118,6 +120,8 @@ export async function GET(request: Request) {
       });
     });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Failed to fetch Google Analytics dashboard data:', error);
     
     const authErrors = ['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'];

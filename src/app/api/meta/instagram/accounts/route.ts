@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -10,6 +11,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireAdmin();
     const accessToken = await getMetaAccessToken(mainAccountId);
 
     const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=instagram_business_account{id,username},name&access_token=${accessToken}`);
@@ -32,6 +34,8 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ accounts });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Instagram Accounts Error:', error);
     if (isMetaAuthError(error)) {
       return NextResponse.json({ code: 'AUTH_REQUIRED', message: 'Meta authentication failed' }, { status: 401 });

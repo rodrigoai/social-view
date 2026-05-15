@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getAuthorizedClient } from '@/lib/googleAuth';
+import { authzErrorResponse, requireAdmin } from '@/lib/authz';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await requireAdmin();
     const { withGoogleAuth } = await import('@/lib/googleAuth');
 
     return await withGoogleAuth(mainAccountId, async (authClient) => {
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ sites });
     });
   } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
     console.error('Failed to fetch Search Console sites:', error);
     
     const authErrors = ['NOT_CONFIGURED', 'REFRESH_FAILED', 'REFRESH_TOKEN_MISSING'];

@@ -118,7 +118,7 @@ describe('AccountContext', () => {
 
     expect(screen.getByTestId('count')).toHaveTextContent('0');
     expect(screen.getByTestId('selected-id')).toHaveTextContent('none');
-    expect(localStorage.getItem('selectedAccountId')).toBe('account-1');
+    expect(localStorage.getItem('selectedAccountId')).toBeNull();
   });
 
   it('lets users change or clear the selected account explicitly', async () => {

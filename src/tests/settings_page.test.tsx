@@ -58,4 +58,55 @@ describe('Settings page', () => {
     expect(refreshAccounts).toHaveBeenCalled();
     expect(setSelectedAccountId).toHaveBeenCalledWith('');
   });
+
+  it('disables an active user through the dynamic user route', async () => {
+    let userStatus = 'ACTIVE';
+    (global.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === '/api/users' && !init) {
+        return {
+          ok: true,
+          json: async () => ({
+            users: [{
+              id: 'user-1',
+              email: 'client@example.com',
+              name: 'Client User',
+              role: 'CLIENT',
+              status: userStatus,
+              clientMainAccountAccesses: [],
+            }],
+          }),
+          text: async () => '',
+        };
+      }
+
+      if (url === '/api/users/user-1' && init?.method === 'PATCH') {
+        userStatus = 'DISABLED';
+        return {
+          ok: true,
+          json: async () => ({ user: { id: 'user-1', status: userStatus } }),
+          text: async () => '',
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({}),
+        text: async () => '',
+      };
+    });
+
+    render(<Settings />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Disable' }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/users/user-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'DISABLED' }),
+      });
+    });
+    expect(window.confirm).toHaveBeenCalledWith('Disable this user?');
+    expect(await screen.findByRole('button', { name: 'Enable' })).toBeInTheDocument();
+  });
 });

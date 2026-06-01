@@ -58,7 +58,7 @@ describe('Campaign Filters API', () => {
     mockReport.mockResolvedValue([
       {
         campaign: { id: '1', name: 'C1', primary_status: 'ELIGIBLE' },
-        metrics: { cost_micros: 1000000, conversions: 5 }
+        metrics: { cost_micros: 1000000, conversions: 5, clicks: 12 }
       }
     ]);
 
@@ -72,6 +72,19 @@ describe('Campaign Filters API', () => {
       to_date: '2026-04-22'
     }));
     expect(json.campaigns[0].cost).toBe(1);
+    expect(json.campaigns[0].clicks).toBe(12);
+  });
+
+  it('requests clicks from Google Ads campaign reports', async () => {
+    setupMockConfig();
+    mockReport.mockResolvedValue([]);
+
+    const req = new Request('http://localhost/api/ads/campaigns?mainAccountId=test');
+    await getCampaigns(req);
+
+    expect(mockReport).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: expect.arrayContaining(['metrics.clicks'])
+    }));
   });
 
   it('uses LAST_7_DAYS by default', async () => {

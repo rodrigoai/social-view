@@ -262,6 +262,10 @@ export function GoogleDashboardView({
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(value);
   };
 
+  const formatInteger = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value);
+  };
+
   const formatDuration = (seconds: number) => {
     if (!seconds) return '0s';
     const m = Math.floor(seconds / 60);
@@ -279,24 +283,24 @@ export function GoogleDashboardView({
 
   const getStatusBadge = (status: string | number) => {
     const statusMap: Record<string | number, { label: string; color: string }> = {
-      'ELIGIBLE': { label: 'Qualificada', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-      2: { label: 'Qualificada', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
+      'ELIGIBLE': { label: 'Qualificada', color: 'bg-emerald-700 text-white border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' },
+      2: { label: 'Qualificada', color: 'bg-emerald-700 text-white border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' },
       
-      'LEARNING': { label: 'Em Aprendizado', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
-      10: { label: 'Em Aprendizado', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
+      'LEARNING': { label: 'Em Aprendizado', color: 'bg-blue-700 text-white border-blue-700 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' },
+      10: { label: 'Em Aprendizado', color: 'bg-blue-700 text-white border-blue-700 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' },
       
-      'LEARNING_OPTIMIZING': { label: 'Aprendizado (Otimizando)', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
-      11: { label: 'Aprendizado (Otimizando)', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
+      'LEARNING_OPTIMIZING': { label: 'Aprendizado (Otimizando)', color: 'bg-blue-700 text-white border-blue-700 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' },
+      11: { label: 'Aprendizado (Otimizando)', color: 'bg-blue-700 text-white border-blue-700 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' },
       
-      'LIMITED': { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
-      8: { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
-      9: { label: 'Limitada pelo Orçamento', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
+      'LIMITED': { label: 'Limitada pelo Orçamento', color: 'bg-amber-700 text-white border-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800' },
+      8: { label: 'Limitada pelo Orçamento', color: 'bg-amber-700 text-white border-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800' },
+      9: { label: 'Limitada pelo Orçamento', color: 'bg-amber-700 text-white border-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800' },
       
-      'MISCONFIGURED': { label: 'Incorreta', color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },
-      7: { label: 'Incorreta', color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },
+      'MISCONFIGURED': { label: 'Incorreta', color: 'bg-red-700 text-white border-red-700 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' },
+      7: { label: 'Incorreta', color: 'bg-red-700 text-white border-red-700 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' },
     };
 
-    const config = statusMap[status] || { label: `Status ${status}`, color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' };
+    const config = statusMap[status] || { label: `Status ${status}`, color: 'bg-gray-700 text-white border-gray-700 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20' };
 
     return (
       <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${config.color}`}>
@@ -376,7 +380,7 @@ export function GoogleDashboardView({
             </div>
           </div>
           {selectedAccount?.googleBusinessUrl && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 flex-shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-orange-600 text-white border border-orange-600 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800/40 flex-shrink-0">
               Linked
             </span>
           )}
@@ -487,7 +491,7 @@ export function GoogleDashboardView({
           <h2 className="text-xl font-bold text-foreground">Google Ads</h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
             <KpiLabel kpiKey="totalCost" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
               <DollarSign className="w-3.5 h-3.5" /> Total Cost
@@ -499,6 +503,12 @@ export function GoogleDashboardView({
               <MousePointerClick className="w-3.5 h-3.5" /> Total Conversions
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalConversions || 0)}</p>
+          </Card>
+          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="totalClicks" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+              <MousePointerClick className="w-3.5 h-3.5" /> Total Clicks
+            </KpiLabel>
+            <p className="text-2xl font-bold text-foreground">{formatInteger(data?.summary?.totalClicks || 0)}</p>
           </Card>
           <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
             <KpiLabel kpiKey="costPerConversion" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
@@ -528,7 +538,7 @@ export function GoogleDashboardView({
                     <p className="text-xs text-muted font-mono mt-0.5 opacity-70">ID: {campaign.id}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4">
                   <div className="flex flex-col">
                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
                       <DollarSign className="w-3.5 h-3.5" /> Cost
@@ -544,6 +554,16 @@ export function GoogleDashboardView({
                       <MousePointerClick className="w-3.5 h-3.5" /> Conversions
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatNumber(campaign.conversions)}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <KpiLabel
+                      kpiKey="campaignClicks"
+                      onOpen={onOpenKpi}
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider"
+                    >
+                      <MousePointerClick className="w-3.5 h-3.5" /> Clicks
+                    </KpiLabel>
+                    <span className="text-xl font-bold text-foreground">{formatInteger(campaign.clicks || 0)}</span>
                   </div>
                 </div>
               </div>

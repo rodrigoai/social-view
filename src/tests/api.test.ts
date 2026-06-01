@@ -9,9 +9,9 @@ import { getCustomer } from '@/lib/googleAds';
 jest.mock('@/lib/googleAds', () => ({
   getCustomer: jest.fn(() => ({
     report: jest.fn().mockResolvedValue([
-      { campaign: { id: '1', name: 'Mock 1', primary_status: 'ELIGIBLE' }, metrics: { cost_micros: 1000000000, conversions: 5 } },
-      { campaign: { id: '2', name: 'Mock 2', primary_status: 'LEARNING' }, metrics: { cost_micros: 1000000000, conversions: 10 } },
-      { campaign: { id: '3', name: 'Mock 3', primary_status: 'LIMITED' }, metrics: { cost_micros: 520750000, conversions: 2 } },
+      { campaign: { id: '1', name: 'Mock 1', primary_status: 'ELIGIBLE' }, metrics: { cost_micros: 1000000000, conversions: 5, clicks: 100 } },
+      { campaign: { id: '2', name: 'Mock 2', primary_status: 'LEARNING' }, metrics: { cost_micros: 1000000000, conversions: 10, clicks: 200 } },
+      { campaign: { id: '3', name: 'Mock 3', primary_status: 'LIMITED' }, metrics: { cost_micros: 520750000, conversions: 2, clicks: 50 } },
     ])
   }))
 }));
@@ -119,6 +119,7 @@ describe('API Routes', () => {
       expect(response.status).toBe(200);
       expect(json.campaigns).toEqual([]);
       expect(json.summary.totalCost).toBe(0);
+      expect(json.summary.totalClicks).toBe(0);
     });
 
     it('GET /api/ads/campaigns returns mock campaigns on success', async () => {
@@ -140,6 +141,8 @@ describe('API Routes', () => {
       expect(response.status).toBe(200);
       expect(json.campaigns.length).toBe(3);
       expect(json.summary.totalCost).toBe(2520.75);
+      expect(json.summary.totalClicks).toBe(350);
+      expect(json.campaigns[0].clicks).toBe(100);
     });
 
     it('GET /api/ads/campaigns aggregates all selected Google Ads accounts', async () => {
@@ -156,12 +159,12 @@ describe('API Routes', () => {
       (getCustomer as jest.Mock)
         .mockReturnValueOnce({
           report: jest.fn().mockResolvedValue([
-            { campaign: { id: '1', name: 'Customer 1 Campaign', primary_status: 'ELIGIBLE' }, metrics: { cost_micros: 1000000, conversions: 1 } }
+            { campaign: { id: '1', name: 'Customer 1 Campaign', primary_status: 'ELIGIBLE' }, metrics: { cost_micros: 1000000, conversions: 1, clicks: 10 } }
           ])
         })
         .mockReturnValueOnce({
           report: jest.fn().mockResolvedValue([
-            { campaign: { id: '2', name: 'Customer 2 Campaign', primary_status: 'LEARNING' }, metrics: { cost_micros: 2000000, conversions: 2 } }
+            { campaign: { id: '2', name: 'Customer 2 Campaign', primary_status: 'LEARNING' }, metrics: { cost_micros: 2000000, conversions: 2, clicks: 20 } }
           ])
         });
 
@@ -173,6 +176,7 @@ describe('API Routes', () => {
       expect(json.campaigns).toHaveLength(2);
       expect(json.summary.totalCost).toBe(3);
       expect(json.summary.totalConversions).toBe(3);
+      expect(json.summary.totalClicks).toBe(30);
       expect(json.campaigns.map((campaign: any) => campaign.customerId)).toEqual([
         '123-456-7890',
         '999-888-7777'

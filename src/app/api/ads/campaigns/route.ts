@@ -35,7 +35,8 @@ export async function GET(request: Request) {
           campaigns: [],
           summary: {
             totalCost: 0,
-            totalConversions: 0
+            totalConversions: 0,
+            totalClicks: 0
           }
         });
       }
@@ -61,7 +62,7 @@ export async function GET(request: Request) {
           'campaign.primary_status',
           'campaign.serving_status'
         ],
-        metrics: ['metrics.cost_micros', 'metrics.conversions'],
+        metrics: ['metrics.cost_micros', 'metrics.conversions', 'metrics.clicks'],
         constraints,
       };
 
@@ -113,16 +114,19 @@ export async function GET(request: Request) {
         status: campaign.campaign.primary_status,
         cost: (campaign.metrics.cost_micros || 0) / 1000000,
         conversions: campaign.metrics.conversions || 0,
+        clicks: campaign.metrics.clicks || 0,
       }));
 
       const totalCost = formattedCampaigns.reduce((acc, curr) => acc + curr.cost, 0);
       const totalConversions = formattedCampaigns.reduce((acc, curr) => acc + curr.conversions, 0);
+      const totalClicks = formattedCampaigns.reduce((acc, curr) => acc + curr.clicks, 0);
 
       return NextResponse.json({ 
         campaigns: formattedCampaigns,
         summary: {
           totalCost,
-          totalConversions
+          totalConversions,
+          totalClicks
         }
       });
     });

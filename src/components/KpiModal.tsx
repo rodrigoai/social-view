@@ -15,9 +15,11 @@ export type KpiKey =
   // Google Ads
   | 'totalCost'
   | 'totalConversions'
+  | 'totalClicks'
   | 'costPerConversion'
   | 'campaignCost'
   | 'campaignConversions'
+  | 'campaignClicks'
   // Search Console
   | 'clicks'
   | 'impressions'
@@ -85,6 +87,12 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
     how: 'Divida o Custo Total por este número para obter o Custo por Conversão. Se o número de conversões crescer sem que o custo suba proporcionalmente, suas campanhas estão melhorando.',
     tip: '💡 Este é o indicador mais importante do Google Ads. Tudo gira em torno dele.',
   },
+  totalClicks: {
+    label: 'Total de Cliques',
+    what: 'É o número total de cliques recebidos pelos anúncios do Google Ads no período selecionado.',
+    how: 'Compare com o Custo Total para entender o custo por clique e com as Conversões para avaliar se o tráfego pago está gerando ações relevantes.',
+    tip: '💡 Cliques mostram o volume de visitas gerado pela mídia paga.',
+  },
   costPerConversion: {
     label: 'Custo por Conversão',
     what: 'Também chamado de CPA (Custo por Aquisição). Mostra, em média, quanto você pagou para conseguir cada conversão. É calculado automaticamente: Custo Total ÷ Total de Conversões.',
@@ -102,6 +110,12 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
     what: 'Número de conversões geradas especificamente por esta campanha. Permite ver qual campanha está performando melhor.',
     how: 'Divida pelo Custo da Campanha para comparar a eficiência entre campanhas. Uma campanha com menos gastos e mais conversões é melhor.',
     tip: '💡 Use este número para priorizar onde investir.',
+  },
+  campaignClicks: {
+    label: 'Cliques da Campanha',
+    what: 'Número de cliques recebidos pelos anúncios desta campanha no Google Ads durante o período selecionado.',
+    how: 'Compare com o custo e as conversões da campanha. Muitos cliques com poucas conversões podem indicar que o anúncio atrai interesse, mas a segmentação, a oferta ou a página de destino precisam melhorar.',
+    tip: '💡 Cliques mostram volume de tráfego pago; conversões mostram se esse tráfego está gerando resultado.',
   },
 
   // ── Search Console ─────────────────────────────────────────────────────────

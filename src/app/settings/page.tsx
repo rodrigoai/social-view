@@ -138,6 +138,7 @@ function SettingsContent() {
   const [editingWebsiteId, setEditingWebsiteId] = useState<string | null>(null);
   const [editWebsiteUrl, setEditWebsiteUrl] = useState('');
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [pendingUserStatusIds, setPendingUserStatusIds] = useState<string[]>([]);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -298,6 +299,28 @@ function SettingsContent() {
     if (res.ok) await refreshUsers();
   };
 
+  const toggleUserStatus = async (user: AppUser) => {
+    const nextStatus = user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    const action = nextStatus === 'DISABLED' ? 'disable' : 'enable';
+    if (!window.confirm(`${action === 'disable' ? 'Disable' : 'Enable'} this user?`)) return;
+
+    setPendingUserStatusIds((current) => [...current, user.id]);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) return;
+      setUsers((current) => current.map((item) => (
+        item.id === user.id ? { ...item, status: nextStatus } : item
+      )));
+      await refreshUsers();
+    } finally {
+      setPendingUserStatusIds((current) => current.filter((id) => id !== user.id));
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="animate-in fade-in duration-500">
@@ -331,6 +354,7 @@ function SettingsContent() {
           <div className="space-y-3">
             {users.map((user) => {
               const assignedIds = user.clientMainAccountAccesses?.map((access) => access.mainAccountId) || [];
+              const isStatusPending = pendingUserStatusIds.includes(user.id);
               return (
                 <div key={user.id} className="border border-border-custom rounded-xl p-3">
                   <div className="flex items-start justify-between gap-3">
@@ -348,14 +372,15 @@ function SettingsContent() {
                         <option value="CLIENT">Client</option>
                       </select>
                       <button
-                        onClick={() => updateUser(user.id, { status: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}
+                        onClick={() => toggleUserStatus(user)}
+                        disabled={isStatusPending}
                         className={`text-xs font-semibold px-2 py-1 rounded-lg ${
                           user.status === 'ACTIVE'
                             ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
                             : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
                         }`}
                       >
-                        {user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                        {isStatusPending ? 'Saving...' : user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
                       </button>
                     </div>
                   </div>

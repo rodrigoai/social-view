@@ -21,6 +21,10 @@ jest.mock('@/lib/googleAds', () => ({
   getCustomer: jest.fn(),
 }));
 
+jest.mock('@/lib/prisma', () => ({
+  prisma: {},
+}));
+
 jest.mock('@google-analytics/admin', () => ({
   AnalyticsAdminServiceClient: jest.fn(),
 }));

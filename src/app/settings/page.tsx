@@ -68,7 +68,7 @@ function IntegrationRow({
         )}
         <button
           onClick={onAction || (href ? () => { window.location.href = href; } : undefined)}
-          className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent-custom hover:bg-border-custom text-foreground transition-colors whitespace-nowrap"
+          className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white dark:bg-accent-custom dark:hover:bg-border-custom dark:text-foreground transition-colors whitespace-nowrap"
         >
           {actionLabel}
         </button>
@@ -374,10 +374,10 @@ function SettingsContent() {
                       <button
                         onClick={() => toggleUserStatus(user)}
                         disabled={isStatusPending}
-                        className={`text-xs font-semibold px-2 py-1 rounded-lg ${
+                        className={`text-xs font-semibold px-2 py-1 rounded-lg disabled:opacity-60 ${
                           user.status === 'ACTIVE'
-                            ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+                            ? 'bg-red-700 text-white dark:bg-red-900/20 dark:text-red-300'
+                            : 'bg-emerald-700 text-white dark:bg-emerald-900/20 dark:text-emerald-300'
                         }`}
                       >
                         {isStatusPending ? 'Saving...' : user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
@@ -389,7 +389,7 @@ function SettingsContent() {
                       {accounts.map((account) => {
                         const checked = assignedIds.includes(account.id);
                         return (
-                          <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-muted border border-border-custom rounded-lg px-2 py-1">
+                          <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-foreground border border-border-custom rounded-lg px-2 py-1">
                             <input
                               type="checkbox"
                               checked={checked}
@@ -449,7 +449,7 @@ function SettingsContent() {
             {newUser.role === 'CLIENT' && (
               <div className="flex flex-wrap gap-2">
                 {accounts.map((account) => (
-                  <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-muted border border-border-custom rounded-lg px-2 py-1">
+                  <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-foreground border border-border-custom rounded-lg px-2 py-1">
                     <input
                       type="checkbox"
                       checked={newUser.mainAccountIds.includes(account.id)}
@@ -523,7 +523,7 @@ function SettingsContent() {
                               if (e.key === 'Escape') setEditingNameId(null);
                             }}
                           />
-                          <button onClick={() => saveName(selectedAccount.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                          <button onClick={() => saveName(selectedAccount.id)} className="p-1 text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded">
                             <Check className="w-4 h-4" />
                           </button>
                           <button onClick={() => setEditingNameId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
@@ -549,7 +549,7 @@ function SettingsContent() {
                     {editingNameId !== selectedAccount.id && (
                       <button
                         onClick={() => { setEditingNameId(selectedAccount.id); setEditName(selectedAccount.name); }}
-                        className="p-2 text-muted hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        className="p-2 text-muted hover:text-blue-700 hover:bg-blue-100 dark:hover:text-blue-400 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                         title="Rename"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -557,7 +557,7 @@ function SettingsContent() {
                     )}
                     <button
                       onClick={() => deleteAccount(selectedAccount.id)}
-                      className="p-2 text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      className="p-2 text-muted hover:text-red-700 hover:bg-red-100 dark:hover:text-red-400 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       title="Delete account"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -573,30 +573,30 @@ function SettingsContent() {
                 {selectedAccount.googleCredential ? (
                   <>
                     <IntegrationRow
-                      icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
+                      icon={<div className="w-6 h-6 rounded bg-blue-600 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-white dark:text-blue-400" /></div>}
                       label="Google Ads"
                       status={(selectedAccount.googleAdsConfigs?.length ?? 0) > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAdsConfigs?.length} account(s) connected</span>
+                        ? <span className="inline-flex rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-transparent dark:px-0 dark:py-0 dark:text-xs dark:text-emerald-400">{selectedAccount.googleAdsConfigs?.length} account(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-ads/select?mainAccountId=${selectedAccount.id}`}
                       onClear={(selectedAccount.googleAdsConfigs?.length ?? 0) > 0 ? () => clearIntegration('google-ads', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
-                      icon={<div className="w-6 h-6 rounded bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-amber-600" /></div>}
+                      icon={<div className="w-6 h-6 rounded bg-amber-600 dark:bg-amber-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-white dark:text-amber-400" /></div>}
                       label="Google Analytics"
                       status={(selectedAccount.googleAnalyticsConfigs?.length ?? 0) > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleAnalyticsConfigs?.length} propert(ies) connected</span>
+                        ? <span className="inline-flex rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-transparent dark:px-0 dark:py-0 dark:text-xs dark:text-emerald-400">{selectedAccount.googleAnalyticsConfigs?.length} propert(ies) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-analytics/select?mainAccountId=${selectedAccount.id}`}
                       onClear={(selectedAccount.googleAnalyticsConfigs?.length ?? 0) > 0 ? () => clearIntegration('google-analytics', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
-                      icon={<div className="w-6 h-6 rounded bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center"><Globe className="w-3.5 h-3.5 text-violet-600" /></div>}
+                      icon={<div className="w-6 h-6 rounded bg-violet-600 dark:bg-violet-900/30 flex items-center justify-center"><Globe className="w-3.5 h-3.5 text-white dark:text-violet-400" /></div>}
                       label="Search Console"
                       status={(selectedAccount.googleSearchConsoleConfigs?.length ?? 0) > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.googleSearchConsoleConfigs?.length} site(s) connected</span>
+                        ? <span className="inline-flex rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-transparent dark:px-0 dark:py-0 dark:text-xs dark:text-emerald-400">{selectedAccount.googleSearchConsoleConfigs?.length} site(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/google-search-console/select?mainAccountId=${selectedAccount.id}`}
@@ -605,7 +605,7 @@ function SettingsContent() {
                     <div className="mt-4 pt-4">
                       <button
                         onClick={() => disconnectGoogle(selectedAccount.id)}
-                        className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 transition-colors"
+                        className="text-xs font-semibold text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Disconnect Google Account
                       </button>
@@ -646,7 +646,7 @@ function SettingsContent() {
                         if (e.key === 'Escape') setEditingBusinessId(null);
                       }}
                     />
-                    <button onClick={() => saveBusinessUrl(selectedAccount.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                    <button onClick={() => saveBusinessUrl(selectedAccount.id)} className="p-1 text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded">
                       <Check className="w-4 h-4" />
                     </button>
                     <button onClick={() => setEditingBusinessId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
@@ -672,7 +672,7 @@ function SettingsContent() {
                     </div>
                     <button
                       onClick={() => { setEditingBusinessId(selectedAccount.id); setEditBusinessUrl(selectedAccount.googleBusinessUrl || ''); }}
-                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 transition-colors"
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700 dark:bg-orange-900/20 dark:text-orange-400 transition-colors"
                     >
                       {selectedAccount.googleBusinessUrl ? 'Edit' : 'Add Link'}
                     </button>
@@ -699,7 +699,7 @@ function SettingsContent() {
                         if (e.key === 'Escape') setEditingWebsiteId(null);
                       }}
                     />
-                    <button onClick={() => saveWebsiteUrl(selectedAccount.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded">
+                    <button onClick={() => saveWebsiteUrl(selectedAccount.id)} className="p-1 text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded">
                       <Check className="w-4 h-4" />
                     </button>
                     <button onClick={() => setEditingWebsiteId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
@@ -725,7 +725,7 @@ function SettingsContent() {
                     </div>
                     <button
                       onClick={() => { setEditingWebsiteId(selectedAccount.id); setEditWebsiteUrl(selectedAccount.mainWebsiteUrl || ''); }}
-                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
                     >
                       {selectedAccount.mainWebsiteUrl ? 'Edit' : 'Add Website'}
                     </button>
@@ -740,30 +740,30 @@ function SettingsContent() {
                 {selectedAccount.metaCredential ? (
                   <>
                     <IntegrationRow
-                      icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
+                      icon={<div className="w-6 h-6 rounded bg-blue-600 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-white dark:text-blue-400" /></div>}
                       label="Meta Ads"
                       status={(selectedAccount.metaAdsConfigs?.length ?? 0) > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.metaAdsConfigs?.length} account(s) connected</span>
+                        ? <span className="inline-flex rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-transparent dark:px-0 dark:py-0 dark:text-xs dark:text-emerald-400">{selectedAccount.metaAdsConfigs?.length} account(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/meta-ads/select?mainAccountId=${selectedAccount.id}`}
                       onClear={(selectedAccount.metaAdsConfigs?.length ?? 0) > 0 ? () => clearIntegration('meta-ads', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
-                      icon={<div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /></div>}
+                      icon={<div className="w-6 h-6 rounded bg-blue-600 dark:bg-blue-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-white dark:text-blue-400" /></div>}
                       label="Facebook Pages"
                       status={(selectedAccount.facebookPageConfigs?.length ?? 0) > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.facebookPageConfigs?.length} page(s) connected</span>
+                        ? <span className="inline-flex rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-transparent dark:px-0 dark:py-0 dark:text-xs dark:text-emerald-400">{selectedAccount.facebookPageConfigs?.length} page(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/facebook-pages/select?mainAccountId=${selectedAccount.id}`}
                       onClear={(selectedAccount.facebookPageConfigs?.length ?? 0) > 0 ? () => clearIntegration('facebook-pages', selectedAccount.id) : undefined}
                     />
                     <IntegrationRow
-                      icon={<div className="w-6 h-6 rounded bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-pink-600" /></div>}
+                      icon={<div className="w-6 h-6 rounded bg-pink-600 dark:bg-pink-900/30 flex items-center justify-center"><CheckCircle2 className="w-3.5 h-3.5 text-white dark:text-pink-400" /></div>}
                       label="Instagram Pages"
                       status={(selectedAccount.instagramPageConfigs?.length ?? 0) > 0
-                        ? <span className="text-emerald-600 dark:text-emerald-400">{selectedAccount.instagramPageConfigs?.length} account(s) connected</span>
+                        ? <span className="inline-flex rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-transparent dark:px-0 dark:py-0 dark:text-xs dark:text-emerald-400">{selectedAccount.instagramPageConfigs?.length} account(s) connected</span>
                         : 'Not configured'}
                       actionLabel="Configure"
                       href={`/settings/instagram/select?mainAccountId=${selectedAccount.id}`}
@@ -772,7 +772,7 @@ function SettingsContent() {
                     <div className="mt-4 pt-4">
                       <button
                         onClick={() => disconnectMeta(selectedAccount.id)}
-                        className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 transition-colors"
+                        className="text-xs font-semibold text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1.5 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Disconnect Meta Account
                       </button>
@@ -808,11 +808,11 @@ function SettingsContent() {
 // ── Small helper ─────────────────────────────────────────────────────────────
 function Banner({ color, message }: { color: string; message: string }) {
   const colors: Record<string, string> = {
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
-    amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800',
-    violet: 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+    emerald: 'bg-emerald-700 text-white border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800',
+    amber: 'bg-amber-700 text-white border-amber-700 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800',
+    violet: 'bg-violet-700 text-white border-violet-700 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800',
+    red: 'bg-red-700 text-white border-red-700 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800',
+    blue: 'bg-blue-700 text-white border-blue-700 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800',
   };
   return (
     <div className={`mb-6 p-4 border rounded-xl flex items-center gap-3 ${colors[color]}`}>

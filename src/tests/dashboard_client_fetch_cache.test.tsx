@@ -132,7 +132,7 @@ describe('dashboard views client cache', () => {
 
     await waitFor(() => expect(screen.getByText('Google Ads')).toBeInTheDocument());
     expect(screen.getByText('R$ 125,00')).toBeInTheDocument();
-    expect(screen.getByText('Loading PageSpeed Insights...')).toBeInTheDocument();
+    expect(screen.getByTestId('pagespeed-skeleton')).toBeInTheDocument();
 
     rerender(
       <GoogleDashboardView
@@ -157,6 +157,37 @@ describe('dashboard views client cache', () => {
     });
 
     await waitFor(() => expect(screen.getByText('Main website not configured')).toBeInTheDocument());
+  });
+
+  it('shows dashboard skeletons while Google and Meta API calls are pending', () => {
+    (global.fetch as jest.Mock).mockReturnValue(new Promise(() => {}));
+
+    const { unmount } = render(
+      <GoogleDashboardView
+        selectedAccountId="acc1"
+        selectedAccount={{ id: 'acc1', name: 'Account' }}
+        onOpenKpi={() => {}}
+        filters={filters}
+        onFilterChange={() => {}}
+      />
+    );
+
+    expect(screen.getByTestId('google-dashboard-skeleton')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).not.toBeInTheDocument();
+
+    unmount();
+
+    render(
+      <MetaDashboardView
+        selectedAccountId="acc1"
+        onOpenKpi={() => {}}
+        filters={filters}
+        onFilterChange={() => {}}
+      />
+    );
+
+    expect(screen.getByTestId('meta-dashboard-skeleton')).toBeInTheDocument();
+    expect(document.querySelector('.animate-spin')).not.toBeInTheDocument();
   });
 
   it('uses cached Meta dashboard data instead of fetching again', async () => {

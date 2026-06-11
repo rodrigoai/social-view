@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { KpiModal, type KpiKey } from '@/components/KpiModal';
 import { useAccount } from '@/context/AccountContext';
+import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { GoogleDashboardView } from '@/components/dashboard/GoogleDashboardView';
 import { MetaDashboardView } from '@/components/dashboard/MetaDashboardView';
 
@@ -18,11 +19,7 @@ export default function Dashboard() {
   });
 
   if (accountsLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <DashboardSkeleton variant="google" />;
   }
 
   if (!selectedAccountId) {

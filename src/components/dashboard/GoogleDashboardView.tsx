@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
+import { DashboardSkeleton, PageSpeedSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FilterPanel } from '@/components/FilterPanel';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search, ExternalLink } from 'lucide-react';
@@ -285,11 +286,7 @@ export function GoogleDashboardView({
 
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <DashboardSkeleton variant="google" />;
   }
 
   if (error) {
@@ -693,10 +690,7 @@ export function GoogleDashboardView({
 
         <Card className="border-emerald-500/10 dark:border-emerald-500/20 bg-gradient-to-br from-white to-emerald-50/30 dark:from-background dark:to-emerald-950/5">
           {pageSpeedLoading ? (
-            <div className="flex items-center gap-3 text-muted" role="status">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600" />
-              <p className="text-sm">Loading PageSpeed Insights...</p>
-            </div>
+            <PageSpeedSkeleton />
           ) : pageSpeedData?.configured ? (
             <div className="space-y-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">

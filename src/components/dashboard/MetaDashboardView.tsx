@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/Card';
+import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FilterPanel } from '@/components/FilterPanel';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Eye, Heart, MessageCircle, Share2, ExternalLink } from 'lucide-react';
@@ -280,11 +281,7 @@ export function MetaDashboardView({
 
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <DashboardSkeleton variant="meta" />;
   }
 
   if (error) {

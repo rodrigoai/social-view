@@ -6,7 +6,14 @@ import { FilterPanel } from '@/components/FilterPanel';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
 import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity, Timer, MousePointer2, Globe, Search, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { clearDashboardCache, getDashboardCacheKey, readDashboardCache, writeDashboardCache } from '@/lib/dashboardClientCache';
+import {
+  clearDashboardCache,
+  getDashboardCacheKey,
+  getPageSpeedCacheKey,
+  readDashboardCache,
+  writeDashboardCache,
+  writePageSpeedCache
+} from '@/lib/dashboardClientCache';
 
 function PageSpeedScoreGauge({ label, score }: { label: string; score: number | null }) {
   const normalizedScore = typeof score === 'number' ? Math.max(0, Math.min(score, 100)) : null;
@@ -80,6 +87,7 @@ export function GoogleDashboardView({
   const [pageSpeedData, setPageSpeedData] = useState<any>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [pageSpeedLoading, setPageSpeedLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adsError, setAdsError] = useState<any>(null);
   const [gaError, setGaError] = useState<any>(null);
@@ -92,10 +100,67 @@ export function GoogleDashboardView({
 
   const handleRefresh = () => {
     clearDashboardCache(getDashboardCacheKey('google', selectedAccountId, filters));
+    clearDashboardCache(getPageSpeedCacheKey(selectedAccountId));
     setRefreshNonce((value) => value + 1);
   };
 
   useEffect(() => {
+    let active = true;
+
+    async function loadPageSpeedData() {
+      if (!selectedAccountId) return;
+
+      setPageSpeedLoading(true);
+      setPageSpeedError(null);
+      setPageSpeedData(null);
+
+      const cacheKey = getPageSpeedCacheKey(selectedAccountId);
+      const cached = readDashboardCache<any>(cacheKey);
+
+      if (cached) {
+        setPageSpeedData(cached.pageSpeedData);
+        setPageSpeedLoading(false);
+        return;
+      }
+
+      let nextPageSpeedData = null;
+      let nextPageSpeedError = null;
+
+      try {
+        const query = new URLSearchParams({ mainAccountId: selectedAccountId });
+        const response = await fetch(`/api/pagespeed/dashboard?${query.toString()}`);
+
+        if (response.ok) {
+          nextPageSpeedData = await response.json();
+        } else {
+          nextPageSpeedError = await response.json().catch(() => ({}));
+          console.error('PageSpeed Insights API Error:', nextPageSpeedError);
+        }
+      } catch (err: any) {
+        nextPageSpeedError = { error: err.message || 'Failed to load PageSpeed Insights data.' };
+        console.error('PageSpeed Insights Load Error:', err);
+      }
+
+      if (!active) return;
+
+      setPageSpeedData(nextPageSpeedData);
+      setPageSpeedError(nextPageSpeedError);
+      setPageSpeedLoading(false);
+      if (nextPageSpeedData) {
+        writePageSpeedCache(cacheKey, { pageSpeedData: nextPageSpeedData });
+      }
+    }
+
+    loadPageSpeedData();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedAccountId, refreshNonce]);
+
+  useEffect(() => {
+    let active = true;
+
     async function loadData() {
       if (!selectedAccountId) return;
 
@@ -104,23 +169,10 @@ export function GoogleDashboardView({
       setAdsError(null);
       setGaError(null);
       setScError(null);
-      setPageSpeedError(null);
       
       try {
         const cacheKey = getDashboardCacheKey('google', selectedAccountId, filters);
         const cached = readDashboardCache<any>(cacheKey);
-
-        if (cached) {
-          setData(cached.data);
-          setGaData(cached.gaData);
-          setScData(cached.scData);
-          setPageSpeedData(cached.pageSpeedData);
-          setAdsError(cached.adsError || null);
-          setGaError(cached.gaError || null);
-          setScError(cached.scError || null);
-          setPageSpeedError(cached.pageSpeedError || null);
-          return;
-        }
 
         const queryParams: any = {
           mainAccountId: selectedAccountId,
@@ -134,21 +186,31 @@ export function GoogleDashboardView({
         }
         
         const query = new URLSearchParams(queryParams);
-        
-        const [adsRes, gaRes, scRes, pageSpeedRes] = await Promise.all([
+
+        if (cached) {
+          if (!active) return;
+          setData(cached.data);
+          setGaData(cached.gaData);
+          setScData(cached.scData);
+          setAdsError(cached.adsError || null);
+          setGaError(cached.gaError || null);
+          setScError(cached.scError || null);
+          return;
+        }
+
+        const [adsRes, gaRes, scRes] = await Promise.all([
           fetch(`/api/ads/campaigns?${query.toString()}`),
           fetch(`/api/analytics/dashboard?${query.toString()}`),
-          fetch(`/api/search-console/dashboard?${query.toString()}`),
-          fetch(`/api/pagespeed/dashboard?${query.toString()}`)
+          fetch(`/api/search-console/dashboard?${query.toString()}`)
         ]);
+        if (!active) return;
+
         let nextData = null;
         let nextGaData = null;
         let nextScData = null;
-        let nextPageSpeedData = null;
         let nextAdsError = null;
         let nextGaError = null;
         let nextScError = null;
-        let nextPageSpeedError = null;
 
         // Handle Ads
         if (adsRes.ok) {
@@ -195,38 +257,29 @@ export function GoogleDashboardView({
           setScData(null);
         }
 
-        // Handle PageSpeed Insights
-        if (pageSpeedRes.ok) {
-          nextPageSpeedData = await pageSpeedRes.json();
-          setPageSpeedData(nextPageSpeedData);
-          setPageSpeedError(null);
-        } else {
-          nextPageSpeedError = await pageSpeedRes.json().catch(() => ({}));
-          console.error('PageSpeed Insights API Error:', nextPageSpeedError);
-          setPageSpeedError(nextPageSpeedError);
-          setPageSpeedData(null);
-        }
-
         writeDashboardCache(cacheKey, {
           data: nextData,
           gaData: nextGaData,
           scData: nextScData,
-          pageSpeedData: nextPageSpeedData,
           adsError: nextAdsError,
           gaError: nextGaError,
-          scError: nextScError,
-          pageSpeedError: nextPageSpeedError
+          scError: nextScError
         });
 
       } catch (err: any) {
+        if (!active) return;
         console.error('Dashboard Load Error:', err);
         setError(err.message);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     
     loadData();
+
+    return () => {
+      active = false;
+    };
   }, [selectedAccountId, filters, refreshNonce]);
 
 
@@ -639,7 +692,12 @@ export function GoogleDashboardView({
         </div>
 
         <Card className="border-emerald-500/10 dark:border-emerald-500/20 bg-gradient-to-br from-white to-emerald-50/30 dark:from-background dark:to-emerald-950/5">
-          {pageSpeedData?.configured ? (
+          {pageSpeedLoading ? (
+            <div className="flex items-center gap-3 text-muted" role="status">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600" />
+              <p className="text-sm">Loading PageSpeed Insights...</p>
+            </div>
+          ) : pageSpeedData?.configured ? (
             <div className="space-y-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
                 <div className="min-w-0">

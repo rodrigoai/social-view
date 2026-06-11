@@ -4,8 +4,10 @@
 import {
   clearDashboardCache,
   getDashboardCacheKey,
+  getPageSpeedCacheKey,
   readDashboardCache,
-  writeDashboardCache
+  writeDashboardCache,
+  writePageSpeedCache
 } from '@/lib/dashboardClientCache';
 
 describe('dashboard client cache', () => {
@@ -45,6 +47,21 @@ describe('dashboard client cache', () => {
 
     expect(readDashboardCache(key, 1_000 + (12 * 60 * 60 * 1000) + 1)).toBeNull();
     expect(window.localStorage.getItem(key)).toBeNull();
+  });
+
+  it('keeps PageSpeed entries for one week', () => {
+    const key = getPageSpeedCacheKey('acc1');
+    const payload = { pageSpeedData: { configured: true } };
+
+    writePageSpeedCache(key, payload, 1_000);
+
+    expect(readDashboardCache(key, 1_000 + (12 * 60 * 60 * 1000) + 1)).toEqual(payload);
+    expect(readDashboardCache(key, 1_000 + (7 * 24 * 60 * 60 * 1000) + 1)).toBeNull();
+  });
+
+  it('uses one PageSpeed cache key per account regardless of dashboard filters', () => {
+    expect(getPageSpeedCacheKey('acc1')).toBe(getPageSpeedCacheKey('acc1'));
+    expect(getPageSpeedCacheKey('acc1')).not.toBe(getPageSpeedCacheKey('acc2'));
   });
 
   it('clears only the active dashboard cache key', () => {

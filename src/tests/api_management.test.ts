@@ -135,6 +135,45 @@ describe('Account Management API', () => {
     });
   });
 
+  it('should save a WA Tracker account id via PATCH', async () => {
+    const waTrackerAccountId = 'cmp5rwgnw0000o6c0swvrrdsb';
+    const request = new Request('http://localhost/api/accounts/' + testAccountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waTrackerAccountId })
+    });
+
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, waTrackerAccountId });
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
+    const data = await response.json();
+
+    expect(data.account.waTrackerAccountId).toBe(waTrackerAccountId);
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { waTrackerAccountId }
+    });
+  });
+
+  it('should clear WA Tracker account id when an empty string is passed', async () => {
+    const request = new Request('http://localhost/api/accounts/' + testAccountId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waTrackerAccountId: '' })
+    });
+
+    (prisma.mainAccount.update as jest.Mock).mockResolvedValue({ id: testAccountId, waTrackerAccountId: null });
+
+    const response = await PATCH(request, { params: Promise.resolve({ id: testAccountId }) });
+    const data = await response.json();
+
+    expect(data.account.waTrackerAccountId).toBeNull();
+    expect(prisma.mainAccount.update).toHaveBeenCalledWith({
+      where: { id: testAccountId },
+      data: { waTrackerAccountId: null }
+    });
+  });
+
   it('should delete account via DELETE', async () => {
     const request = new Request('http://localhost/api/accounts/' + testAccountId, {
       method: 'DELETE'

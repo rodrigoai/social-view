@@ -7,6 +7,7 @@ interface Account {
   name: string;
   googleBusinessUrl?: string | null;
   mainWebsiteUrl?: string | null;
+  waTrackerAccountId?: string | null;
   googleCredential?: any;
   googleAdsConfigs?: any[];
   googleAnalyticsConfigs?: any[];

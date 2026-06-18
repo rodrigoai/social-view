@@ -25,10 +25,14 @@ describe('dashboard client cache', () => {
   it('uses separate cache keys per dashboard scope', () => {
     const googleKey = getDashboardCacheKey('google', 'acc1', filters);
     const metaKey = getDashboardCacheKey('meta', 'acc1', filters);
+    const waTrackerKey = getDashboardCacheKey('wa-tracker', 'acc1', filters);
 
     expect(googleKey).not.toBe(metaKey);
+    expect(waTrackerKey).not.toBe(googleKey);
+    expect(waTrackerKey).not.toBe(metaKey);
     expect(googleKey).toContain('google');
     expect(metaKey).toContain('meta');
+    expect(waTrackerKey).toContain('wa-tracker');
   });
 
   it('reads a fresh cache entry for the same account and filters', () => {
@@ -67,13 +71,16 @@ describe('dashboard client cache', () => {
   it('clears only the active dashboard cache key', () => {
     const googleKey = getDashboardCacheKey('google', 'acc1', filters);
     const metaKey = getDashboardCacheKey('meta', 'acc1', filters);
+    const waTrackerKey = getDashboardCacheKey('wa-tracker', 'acc1', filters);
 
     writeDashboardCache(googleKey, { source: 'google' }, 1_000);
     writeDashboardCache(metaKey, { source: 'meta' }, 1_000);
+    writeDashboardCache(waTrackerKey, { source: 'wa-tracker' }, 1_000);
     clearDashboardCache(googleKey);
 
     expect(readDashboardCache(googleKey, 2_000)).toBeNull();
     expect(readDashboardCache(metaKey, 2_000)).toEqual({ source: 'meta' });
+    expect(readDashboardCache(waTrackerKey, 2_000)).toEqual({ source: 'wa-tracker' });
   });
 
   it('uses separate cache keys when filters change', () => {

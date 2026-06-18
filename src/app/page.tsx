@@ -6,11 +6,12 @@ import { useAccount } from '@/context/AccountContext';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { GoogleDashboardView } from '@/components/dashboard/GoogleDashboardView';
 import { MetaDashboardView } from '@/components/dashboard/MetaDashboardView';
+import { WaTrackerDashboardView } from '@/components/dashboard/WaTrackerDashboardView';
 
 export default function Dashboard() {
   const { selectedAccountId, selectedAccount, isLoading: accountsLoading } = useAccount();
   const [openKpi, setOpenKpi] = useState<KpiKey | null>(null);
-  const [activeTab, setActiveTab] = useState<'google' | 'meta'>('google');
+  const [activeTab, setActiveTab] = useState<'google' | 'meta' | 'wa-tracker'>('google');
   const [filters, setFilters] = useState({ 
     period: '7d', 
     campaign: 'all',
@@ -39,7 +40,7 @@ export default function Dashboard() {
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex p-1 mb-8 bg-card border border-border-custom rounded-xl w-full max-w-sm">
+      <div className="grid grid-cols-3 p-1 mb-8 bg-card border border-border-custom rounded-xl w-full max-w-lg">
         <button
           onClick={() => setActiveTab('google')}
           className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
@@ -60,6 +61,16 @@ export default function Dashboard() {
         >
           Meta
         </button>
+        <button
+          onClick={() => setActiveTab('wa-tracker')}
+          className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+            activeTab === 'wa-tracker'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-muted hover:text-foreground hover:bg-accent-custom'
+          }`}
+        >
+          WA Tracker
+        </button>
       </div>
 
       {activeTab === 'google' ? (
@@ -70,10 +81,17 @@ export default function Dashboard() {
           filters={filters}
           onFilterChange={setFilters}
         />
-      ) : (
+      ) : activeTab === 'meta' ? (
         <MetaDashboardView 
           selectedAccountId={selectedAccountId} 
           onOpenKpi={setOpenKpi} 
+          filters={filters}
+          onFilterChange={setFilters}
+        />
+      ) : (
+        <WaTrackerDashboardView
+          selectedAccountId={selectedAccountId}
+          onOpenKpi={setOpenKpi}
           filters={filters}
           onFilterChange={setFilters}
         />

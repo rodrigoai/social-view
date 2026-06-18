@@ -14,6 +14,7 @@ export async function PATCH(
     if (body.name !== undefined) data.name = body.name;
     if (body.googleBusinessUrl !== undefined) data.googleBusinessUrl = body.googleBusinessUrl || null;
     if (body.mainWebsiteUrl !== undefined) data.mainWebsiteUrl = body.mainWebsiteUrl || null;
+    if (body.waTrackerAccountId !== undefined) data.waTrackerAccountId = body.waTrackerAccountId || null;
 
     const account = await prisma.mainAccount.update({
       where: { id },

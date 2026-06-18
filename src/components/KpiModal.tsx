@@ -32,7 +32,29 @@ export type KpiKey =
   | 'metaReach'
   | 'metaImpressions'
   | 'metaEngagement'
-  | 'metaProfileViews';
+  | 'metaProfileViews'
+  // WA Tracker
+  | 'waLeads'
+  | 'waAvgLeadsPerDay'
+  | 'waProposals'
+  | 'waSales'
+  | 'waSalesRate'
+  | 'waCampaignLeads'
+  | 'waCampaignProposals'
+  | 'waCampaignSales'
+  | 'waProposalRate'
+  | 'waLeadStatus'
+  | 'waConversion'
+  | 'waSource'
+  | 'waCampaign'
+  | 'waMedium'
+  | 'waEnrichment'
+  | 'waGclid'
+  | 'waGbraid'
+  | 'waWbraid'
+  | 'waKeyword'
+  | 'waMatchType'
+  | 'waNetwork';
 
 export type KpiDef = {
   label: string;
@@ -186,6 +208,134 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
     what: 'Quantas vezes as pessoas clicaram para ver o seu perfil no Instagram.',
     how: 'Muitas visitas sem aumento de seguidores significa que seu conteúdo da bio precisa ser mais atrativo.',
     tip: '💡 Use os stories e posts virais para atrair cliques para o perfil.',
+  },
+
+  // ── WA Tracker ────────────────────────────────────────────────────────────
+  waLeads: {
+    label: 'Leads (WA Tracker)',
+    what: 'Total de contatos capturados pelo WA Tracker no período selecionado. Cada registro representa uma conversão ou entrada gerada pelo fluxo de WhatsApp.',
+    how: 'Use este número como volume bruto do funil. Depois compare com Propostas e Vendas para entender se a qualidade dos leads está acompanhando o volume.',
+    tip: '💡 Volume alto sem propostas pode indicar problema de qualificação, oferta ou atendimento.',
+  },
+  waAvgLeadsPerDay: {
+    label: 'Média de Leads por Dia',
+    what: 'Média diária de leads no período selecionado. É calculada dividindo o total de leads pela quantidade de dias do filtro.',
+    how: 'Ajuda a comparar períodos de tamanhos diferentes. Por exemplo, 70 leads em 7 dias e 300 leads em 30 dias têm leituras diferentes quando vistos pela média diária.',
+    tip: '💡 Use a média diária para detectar aceleração ou queda no ritmo de geração de leads.',
+  },
+  waProposals: {
+    label: 'Propostas',
+    what: 'Quantidade de leads que chegaram ao status Proposta no WA Tracker.',
+    how: 'Compare com o total de leads para medir a taxa de avanço do funil. Se muitos leads não viram proposta, pode haver problema na qualidade do tráfego ou no atendimento.',
+    tip: '💡 Propostas mostram avanço real no funil, não apenas captação.',
+  },
+  waSales: {
+    label: 'Vendas',
+    what: 'Quantidade de leads que chegaram ao status Venda no WA Tracker.',
+    how: 'É o resultado final do funil dentro do WA Tracker. Compare com Leads e Propostas para entender onde há perda de oportunidade.',
+    tip: '💡 Vendas por campanha ajudam a identificar quais origens realmente geram receita.',
+  },
+  waSalesRate: {
+    label: 'Taxa de Venda',
+    what: 'Percentual de leads que viraram venda. É calculado como Vendas ÷ Leads.',
+    how: 'Uma taxa alta indica boa qualidade de lead e boa conversão comercial. Uma taxa baixa com muitos leads pode indicar tráfego pouco qualificado ou falhas no processo de venda.',
+    tip: '💡 Analise junto com o volume: taxa alta com pouco lead pode não escalar.',
+  },
+  waCampaignLeads: {
+    label: 'Leads da Campanha',
+    what: 'Leads atribuídos a uma origem ou campanha específica no período selecionado.',
+    how: 'Use para comparar quais campanhas geram mais contatos. O volume sozinho não indica qualidade, então avalie junto com propostas e vendas.',
+    tip: '💡 Campanhas com muitos leads e poucas vendas merecem revisão.',
+  },
+  waCampaignProposals: {
+    label: 'Propostas da Campanha',
+    what: 'Leads desta origem ou campanha que chegaram ao status Proposta.',
+    how: 'Mostra quais campanhas estão gerando oportunidades comerciais, não apenas contatos.',
+    tip: '💡 Uma boa campanha tende a gerar propostas de forma consistente.',
+  },
+  waCampaignSales: {
+    label: 'Vendas da Campanha',
+    what: 'Leads desta origem ou campanha que chegaram ao status Venda.',
+    how: 'Use este dado para entender quais campanhas estão trazendo resultados finais no funil comercial.',
+    tip: '💡 Priorize campanhas que combinam volume, propostas e vendas.',
+  },
+  waProposalRate: {
+    label: 'Taxa de Proposta',
+    what: 'Percentual de leads de uma origem ou campanha que viraram proposta. É calculado como Propostas ÷ Leads.',
+    how: 'Ajuda a medir a qualidade da campanha antes da etapa de venda. Taxa baixa pode indicar leads pouco qualificados.',
+    tip: '💡 É uma métrica intermediária importante para diagnosticar o funil.',
+  },
+  waLeadStatus: {
+    label: 'Status do Lead',
+    what: 'Etapa atual do lead no WA Tracker. Not Qualified significa que o lead ainda não virou proposta ou venda.',
+    how: 'Use o status para separar leads iniciais, propostas em andamento e vendas concluídas.',
+    tip: '💡 Filtrar por status ajuda a revisar rapidamente cada etapa do funil.',
+  },
+  waConversion: {
+    label: 'Conversão',
+    what: 'Data, hora e nome da conversão registrada pelo WA Tracker.',
+    how: 'Ajuda a entender quando o lead entrou no funil e qual evento originou o registro.',
+    tip: '💡 Compare horários e dias com picos de mídia ou atendimento.',
+  },
+  waSource: {
+    label: 'Origem',
+    what: 'Origem identificada do lead. Google indica clique pago rastreado; Orgânico indica ausência de clique Google associado.',
+    how: 'Serve para separar leads vindos de mídia paga, UTM ou tráfego sem campanha identificada.',
+    tip: '💡 Origem sem campanha não significa ausência de valor; pode ser demanda orgânica.',
+  },
+  waCampaign: {
+    label: 'Campanha',
+    what: 'Campanha atribuída ao lead. Quando há enriquecimento do Google Ads, o nome da campanha do Google tem prioridade; caso contrário, usa UTM ou Orgânico.',
+    how: 'Use para conectar leads individuais ao desempenho agregado por campanha no dashboard.',
+    tip: '💡 Campanhas com nomes padronizados facilitam análise e comparação.',
+  },
+  waMedium: {
+    label: 'Meio',
+    what: 'Meio de tráfego informado pela UTM, como cpc, organic, referral ou outro valor configurado.',
+    how: 'Ajuda a entender o canal de aquisição além da campanha e da origem.',
+    tip: '💡 UTMs consistentes deixam este campo mais confiável.',
+  },
+  waEnrichment: {
+    label: 'Enriquecimento',
+    what: 'Estado do enriquecimento com dados do Google Ads. ENRICHED significa que dados do clique foram encontrados e associados ao lead.',
+    how: 'Quando enriquecido, o lead pode exibir campanha, grupo de anúncio, palavra-chave, rede e informações geográficas do clique.',
+    tip: '💡 Leads pendentes ou com falha podem não ter todos os dados de campanha disponíveis.',
+  },
+  waGclid: {
+    label: 'GCLID',
+    what: 'Identificador de clique do Google usado para associar o lead à campanha, grupo de anúncio, palavra-chave e outros dados do Google Ads.',
+    how: 'Quando presente e enriquecido, permite rastrear com mais precisão a origem paga do lead.',
+    tip: '💡 GCLID é um dos campos mais importantes para atribuição de Google Ads.',
+  },
+  waGbraid: {
+    label: 'GBRAID',
+    what: 'Identificador usado pelo Google em alguns fluxos de conversão, especialmente em cenários com restrições de privacidade.',
+    how: 'Pode substituir ou complementar o GCLID dependendo do ambiente e das regras de privacidade.',
+    tip: '💡 Nem todo lead terá GBRAID; isso é esperado.',
+  },
+  waWbraid: {
+    label: 'WBRAID',
+    what: 'Identificador usado pelo Google para conversões web-to-app ou cenários com restrições de privacidade.',
+    how: 'Assim como GBRAID, ajuda na atribuição quando o GCLID tradicional não está disponível.',
+    tip: '💡 A presença de WBRAID depende do tipo de campanha e do contexto do clique.',
+  },
+  waKeyword: {
+    label: 'Palavra-chave',
+    what: 'Palavra-chave associada ao clique quando o Google Ads conseguiu enriquecer o lead.',
+    how: 'Ajuda a entender quais termos de busca trouxeram leads, propostas e vendas.',
+    tip: '💡 Palavras-chave com muitos leads e poucas vendas podem precisar de ajuste.',
+  },
+  waMatchType: {
+    label: 'Tipo de Correspondência',
+    what: 'Tipo de correspondência da palavra-chave no Google Ads, como exact, phrase ou broad.',
+    how: 'Indica o grau de proximidade entre a busca do usuário e a palavra-chave configurada.',
+    tip: '💡 Correspondências amplas podem gerar volume, mas exigem atenção à qualidade.',
+  },
+  waNetwork: {
+    label: 'Rede',
+    what: 'Rede em que o clique aconteceu, como Search, Display ou parceiros do Google.',
+    how: 'Ajuda a entender o contexto em que o anúncio foi exibido antes da conversão.',
+    tip: '💡 Compare redes para entender onde os leads mais qualificados aparecem.',
   },
 };
 

@@ -7,7 +7,7 @@ type DashboardCacheEntry<T> = {
   payload: T;
 };
 
-export type DashboardCacheScope = 'google' | 'meta';
+export type DashboardCacheScope = 'google' | 'meta' | 'wa-tracker';
 
 export function getDashboardCacheKey(scope: DashboardCacheScope, selectedAccountId: string, filters: any) {
   const normalizedFilters = {

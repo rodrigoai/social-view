@@ -15,6 +15,7 @@ model MainAccount {
   name      String   @default("My Business")
   googleBusinessUrl String?
   mainWebsiteUrl String?
+  waTrackerAccountId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

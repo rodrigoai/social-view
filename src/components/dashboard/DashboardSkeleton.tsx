@@ -74,12 +74,14 @@ function ResultRowsSkeleton() {
   );
 }
 
-export function DashboardSkeleton({ variant }: { variant: 'google' | 'meta' }) {
+export function DashboardSkeleton({ variant }: { variant: 'google' | 'meta' | 'wa-tracker' }) {
+  const label = variant === 'google' ? 'Google' : variant === 'meta' ? 'Meta' : 'WA Tracker';
+
   return (
     <div
       className="animate-pulse"
       role="status"
-      aria-label={`Loading ${variant === 'google' ? 'Google' : 'Meta'} dashboard`}
+      aria-label={`Loading ${label} dashboard`}
       data-testid={`${variant}-dashboard-skeleton`}
     >
       {variant === 'google' && (

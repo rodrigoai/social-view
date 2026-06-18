@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { Card } from '@/components/Card';
 import {
   CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
-  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus
+  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccount } from '@/context/AccountContext';
@@ -15,6 +15,7 @@ type Account = {
   name: string;
   googleBusinessUrl?: string | null;
   mainWebsiteUrl?: string | null;
+  waTrackerAccountId?: string | null;
   googleCredential?: any;
   googleAdsConfigs?: any[];
   googleAnalyticsConfigs?: any[];
@@ -95,7 +96,8 @@ function AccountListItem({
     account.metaCredential,
     (account.metaAdsConfigs?.length ?? 0) > 0,
     (account.facebookPageConfigs?.length ?? 0) > 0,
-    (account.instagramPageConfigs?.length ?? 0) > 0
+    (account.instagramPageConfigs?.length ?? 0) > 0,
+    account.waTrackerAccountId
   ].filter(Boolean).length;
 
   return (
@@ -137,6 +139,8 @@ function SettingsContent() {
   const [editBusinessUrl, setEditBusinessUrl] = useState('');
   const [editingWebsiteId, setEditingWebsiteId] = useState<string | null>(null);
   const [editWebsiteUrl, setEditWebsiteUrl] = useState('');
+  const [editingWaTrackerId, setEditingWaTrackerId] = useState<string | null>(null);
+  const [editWaTrackerAccountId, setEditWaTrackerAccountId] = useState('');
   const [users, setUsers] = useState<AppUser[]>([]);
   const [pendingUserStatusIds, setPendingUserStatusIds] = useState<string[]>([]);
   const [newUser, setNewUser] = useState({
@@ -238,6 +242,15 @@ function SettingsContent() {
       body: JSON.stringify({ mainWebsiteUrl: editWebsiteUrl.trim() || null })
     });
     if (res.ok) { await refreshAccounts(); setEditingWebsiteId(null); }
+  };
+
+  const saveWaTrackerAccountId = async (id: string) => {
+    const res = await fetch(`/api/accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ waTrackerAccountId: editWaTrackerAccountId.trim() || null })
+    });
+    if (res.ok) { await refreshAccounts(); setEditingWaTrackerId(null); }
   };
 
   const linkGoogle = (mainAccountId: string) => {
@@ -728,6 +741,52 @@ function SettingsContent() {
                       className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
                     >
                       {selectedAccount.mainWebsiteUrl ? 'Edit' : 'Add Website'}
+                    </button>
+                  </div>
+                )}
+              </Card>
+
+              {/* WA Tracker card */}
+              <Card>
+                <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-1">WA Tracker</h3>
+
+                {editingWaTrackerId === selectedAccount.id ? (
+                  <div className="flex items-center gap-2 py-3">
+                    <MessageSquareText className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                    <input
+                      type="text"
+                      value={editWaTrackerAccountId}
+                      onChange={e => setEditWaTrackerAccountId(e.target.value)}
+                      placeholder="WA Tracker Account ID"
+                      className="flex-grow text-sm bg-transparent border-b border-teal-500 outline-none py-0.5 text-foreground placeholder:opacity-40"
+                      autoFocus
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveWaTrackerAccountId(selectedAccount.id);
+                        if (e.key === 'Escape') setEditingWaTrackerId(null);
+                      }}
+                    />
+                    <button onClick={() => saveWaTrackerAccountId(selectedAccount.id)} className="p-1 text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/20 rounded">
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setEditingWaTrackerId(null)} className="p-1 text-muted hover:bg-accent-custom rounded">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MessageSquareText className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                      {selectedAccount.waTrackerAccountId ? (
+                        <span className="text-sm font-mono text-foreground truncate">{selectedAccount.waTrackerAccountId}</span>
+                      ) : (
+                        <span className="text-sm text-muted">Not configured</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setEditingWaTrackerId(selectedAccount.id); setEditWaTrackerAccountId(selectedAccount.waTrackerAccountId || ''); }}
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-900/20 dark:text-teal-400 transition-colors"
+                    >
+                      {selectedAccount.waTrackerAccountId ? 'Edit' : 'Add Account ID'}
                     </button>
                   </div>
                 )}

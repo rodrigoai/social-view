@@ -1,6 +1,7 @@
 'use client';
 
-import Link from 'next/link'; 
+import Image from 'next/image';
+import Link from 'next/link';
 import { Settings, User, Bell, Sun, Moon, LogOut } from 'lucide-react';
 import { AccountSwitcher } from './AccountSwitcher';
 import { useTheme } from '@/context/ThemeContext';
@@ -24,8 +25,18 @@ export function Navbar() {
       <div className="px-3 py-3 lg:px-5 lg:pl-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center justify-start gap-4 lg:gap-8">
-            <Link href="/" className="text-xl font-bold flex items-center lg:ml-2.5">
-              <span className="self-center whitespace-nowrap text-blue-600 tracking-tight">SocialView</span>
+            <Link href="/" className="flex items-center gap-3 lg:ml-2.5" aria-label="Social View">
+              <Image
+                src="/coyo-logo.png"
+                alt="Social View logo"
+                width={40}
+                height={40}
+                className="h-10 w-10 shrink-0"
+                priority
+              />
+              <span className="self-center whitespace-nowrap text-lg font-bold text-foreground tracking-tight">
+                Social View
+              </span>
             </Link>
             <AccountSwitcher />
           </div>

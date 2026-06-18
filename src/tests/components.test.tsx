@@ -89,7 +89,8 @@ describe('UI Components', () => {
 
     it('renders Navbar correctly', () => {
       renderWithProviders(<Navbar />);
-      expect(screen.getByText('SocialView')).toBeInTheDocument();
+      expect(screen.getByText('Social View')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: /Social View logo/i })).toBeInTheDocument();
     });
 
     it('renders Sidebar correctly', () => {
@@ -100,7 +101,7 @@ describe('UI Components', () => {
     
     it('contains valid links in Navbar', () => {
       renderWithProviders(<Navbar />);
-      const settingsLink = screen.getByRole('link', { name: /SocialView/i });
+      const settingsLink = screen.getByRole('link', { name: /Social View/i });
       expect(settingsLink).toHaveAttribute('href', '/');
     });
   });

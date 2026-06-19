@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/Card';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FilterPanel } from '@/components/FilterPanel';
-import { AlertCircle, CheckCircle2, MessageSquareText, TrendingUp, Users } from 'lucide-react';
+import { AlertCircle, MessageSquareText, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { clearDashboardCache, getDashboardCacheKey, readDashboardCache, writeDashboardCache } from '@/lib/dashboardClientCache';
 import { WaTrackerLeadsTable } from '@/components/dashboard/WaTrackerLeadsTable';
@@ -162,7 +162,7 @@ export function WaTrackerDashboardView({ selectedAccountId, onOpenKpi, filters, 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
             <KpiLabel kpiKey="waLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
               <Users className="w-3.5 h-3.5" /> Leads
@@ -170,28 +170,22 @@ export function WaTrackerDashboardView({ selectedAccountId, onOpenKpi, filters, 
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalLeads)}</p>
           </Card>
           <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
+            <KpiLabel kpiKey="waOrganicLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
+              <Users className="w-3.5 h-3.5" /> Organic Leads
+            </KpiLabel>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalOrganicLeads)}</p>
+          </Card>
+          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
+            <KpiLabel kpiKey="waAdsLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
+              <TrendingUp className="w-3.5 h-3.5" /> Ads Leads
+            </KpiLabel>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalAdsLeads)}</p>
+          </Card>
+          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
             <KpiLabel kpiKey="waAvgLeadsPerDay" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
               <TrendingUp className="w-3.5 h-3.5" /> Avg Leads/Day
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatDecimal(data?.summary?.avgLeadsPerDay)}</p>
-          </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waProposals" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
-              <TrendingUp className="w-3.5 h-3.5" /> Proposals
-            </KpiLabel>
-            <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalProposals)}</p>
-          </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waSales" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Sales
-            </KpiLabel>
-            <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalSales)}</p>
-          </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waSalesRate" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
-              <TrendingUp className="w-3.5 h-3.5" /> Sales Rate
-            </KpiLabel>
-            <p className="text-2xl font-bold text-foreground">{formatPercent(data?.summary?.salesRate)}</p>
           </Card>
         </div>
 

@@ -35,6 +35,8 @@ export type KpiKey =
   | 'metaProfileViews'
   // WA Tracker
   | 'waLeads'
+  | 'waOrganicLeads'
+  | 'waAdsLeads'
   | 'waAvgLeadsPerDay'
   | 'waProposals'
   | 'waSales'
@@ -216,6 +218,18 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
     what: 'Total de contatos capturados pelo WA Tracker no período selecionado. Cada registro representa uma conversão ou entrada gerada pelo fluxo de WhatsApp.',
     how: 'Use este número como volume bruto do funil. Depois compare com Propostas e Vendas para entender se a qualidade dos leads está acompanhando o volume.',
     tip: '💡 Volume alto sem propostas pode indicar problema de qualificação, oferta ou atendimento.',
+  },
+  waOrganicLeads: {
+    label: 'Leads Orgânicos',
+    what: 'Total de leads cuja origem foi identificada como Organic ou Orgânico no WA Tracker durante o período selecionado.',
+    how: 'Compare com Leads de Ads para entender quanto da captação vem de demanda orgânica sem atribuição paga.',
+    tip: '💡 Crescimento orgânico consistente pode indicar marca, SEO ou canais próprios mais fortes.',
+  },
+  waAdsLeads: {
+    label: 'Leads de Ads',
+    what: 'Total de leads atribuídos a origens não orgânicas no WA Tracker durante o período selecionado.',
+    how: 'Use este número para acompanhar o volume de leads gerado por tráfego pago ou fontes rastreadas que não foram marcadas como orgânicas.',
+    tip: '💡 Compare com investimento e vendas para avaliar se a mídia paga está trazendo volume com qualidade.',
   },
   waAvgLeadsPerDay: {
     label: 'Média de Leads por Dia',

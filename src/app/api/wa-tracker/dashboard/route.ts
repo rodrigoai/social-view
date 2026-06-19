@@ -91,6 +91,11 @@ function countInclusiveDays(from: string, to: string) {
   return Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1;
 }
 
+function isOrganicSource(source: string) {
+  const normalized = source.trim().toLowerCase();
+  return normalized === 'organic' || normalized === 'organico' || normalized === 'orgânico';
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mainAccountId = url.searchParams.get('mainAccountId');
@@ -149,11 +154,17 @@ export async function GET(request: Request) {
       ? groups
       : groups.filter((group: NormalizedWaTrackerGroup) => group.campaign === campaignFilter || group.campaignId === campaignFilter);
 
-    const summary = filteredGroups.reduce((acc, group: NormalizedWaTrackerGroup) => ({
-      totalLeads: acc.totalLeads + group.leads,
-      totalProposals: acc.totalProposals + group.proposals,
-      totalSales: acc.totalSales + group.sales,
-    }), { totalLeads: 0, totalProposals: 0, totalSales: 0 });
+    const summary = filteredGroups.reduce((acc, group: NormalizedWaTrackerGroup) => {
+      const organic = isOrganicSource(group.source);
+
+      return {
+        totalLeads: acc.totalLeads + group.leads,
+        totalOrganicLeads: acc.totalOrganicLeads + (organic ? group.leads : 0),
+        totalAdsLeads: acc.totalAdsLeads + (organic ? 0 : group.leads),
+        totalProposals: acc.totalProposals + group.proposals,
+        totalSales: acc.totalSales + group.sales,
+      };
+    }, { totalLeads: 0, totalOrganicLeads: 0, totalAdsLeads: 0, totalProposals: 0, totalSales: 0 });
     const days = countInclusiveDays(from, to);
 
     return NextResponse.json({

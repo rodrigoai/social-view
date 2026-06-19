@@ -74,6 +74,8 @@ describe('WA Tracker dashboard API', () => {
     );
     expect(json.summary).toEqual({
       totalLeads: 31,
+      totalOrganicLeads: 23,
+      totalAdsLeads: 8,
       totalProposals: 5,
       totalSales: 1,
       avgLeadsPerDay: 31 / 7,
@@ -95,6 +97,8 @@ describe('WA Tracker dashboard API', () => {
 
     expect(json.campaigns).toHaveLength(1);
     expect(json.summary.totalLeads).toBe(6);
+    expect(json.summary.totalOrganicLeads).toBe(0);
+    expect(json.summary.totalAdsLeads).toBe(6);
     expect(json.summary.totalProposals).toBe(2);
     expect(json.summary.totalSales).toBe(1);
     expect(json.summary.avgLeadsPerDay).toBe(6 / 8);

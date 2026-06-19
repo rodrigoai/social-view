@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/Card';
 import { AlertCircle, ChevronDown, ChevronRight, Loader2, MessageSquareText, RefreshCw } from 'lucide-react';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
@@ -65,6 +65,34 @@ function formatDateTime(value?: string | null) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function getLeadDateKey(value?: string | null) {
+  if (!value) return 'No date';
+  const isoDate = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (isoDate) return isoDate;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'No date';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isOrganicSource(source: string) {
+  const normalized = source.trim().toLowerCase();
+  return normalized === 'organic' || normalized === 'organico' || normalized === 'orgânico';
 }
 
 function getContactLabel(lead: WaTrackerLead) {
@@ -170,6 +198,23 @@ export function WaTrackerLeadsTable({ selectedAccountId, filters, onOpenKpi }: W
     ));
   };
 
+  const dailyLeads = useMemo(() => {
+    const dailyMap = new Map<string, { date: string; organic: number; ads: number; total: number }>();
+
+    leads.forEach((lead) => {
+      const date = getLeadDateKey(lead.conversion_time);
+      const current = dailyMap.get(date) || { date, organic: 0, ads: 0, total: 0 };
+
+      if (isOrganicSource(lead.source)) current.organic += 1;
+      else current.ads += 1;
+
+      current.total += 1;
+      dailyMap.set(date, current);
+    });
+
+    return Array.from(dailyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }, [leads]);
+
   return (
     <div className="mt-10">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
@@ -211,6 +256,39 @@ export function WaTrackerLeadsTable({ selectedAccountId, filters, onOpenKpi }: W
           </button>
         </div>
       </div>
+
+      {!loading && !error && dailyLeads.length > 0 && (
+        <Card className="mb-6 shadow-sm hover:shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h4 className="text-sm font-bold text-foreground">Daily Leads</h4>
+            {pagination?.has_more && (
+              <span className="text-xs text-muted">Loaded leads only</span>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border-custom text-xs uppercase tracking-wider text-muted">
+                  <th className="py-3 pr-4 text-left font-semibold">Date</th>
+                  <th className="py-3 pr-4 text-right font-semibold">Organic</th>
+                  <th className="py-3 pr-4 text-right font-semibold">Ads</th>
+                  <th className="py-3 text-right font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyLeads.map((day) => (
+                  <tr key={day.date} className="border-b border-border-custom last:border-0">
+                    <td className="py-3 pr-4 font-medium text-foreground">{day.date === 'No date' ? 'No date' : formatDate(day.date)}</td>
+                    <td className="py-3 pr-4 text-right text-foreground">{day.organic}</td>
+                    <td className="py-3 pr-4 text-right text-foreground">{day.ads}</td>
+                    <td className="py-3 text-right font-semibold text-foreground">{day.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card className="shadow-sm hover:shadow-sm overflow-hidden">
         {error && (

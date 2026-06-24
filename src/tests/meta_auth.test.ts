@@ -134,6 +134,40 @@ describe('Meta authentication handling', () => {
     expect(json.code).toBe('AUTH_REQUIRED');
   });
 
+  it('returns messaging conversations started for each campaign and the summary', async () => {
+    (prisma.metaCredential.findUnique as jest.Mock).mockResolvedValue({
+      longLivedToken: 'token',
+      expiresAt: Date.now() + 600_000
+    });
+    (prisma.metaAdsConfig.findMany as jest.Mock).mockResolvedValue([{ adAccountId: '123' }]);
+
+    const sdk = require('facebook-nodejs-business-sdk');
+    sdk.AdAccount.mockImplementation(() => ({
+      getInsights: jest.fn().mockResolvedValue([{
+        campaign_id: 'campaign-1',
+        campaign_name: 'Mensagens',
+        spend: '42.50',
+        reach: '100',
+        impressions: '200',
+        actions: [
+          { action_type: 'lead', value: '3' },
+          { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '8' }
+        ],
+        cost_per_action_type: [
+          { action_type: 'lead', value: '14.17' },
+          { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '5.31' }
+        ]
+      }])
+    }));
+
+    const response = await getMetaAdsCampaigns(new Request('http://localhost/api/meta/ads/campaigns?mainAccountId=acc1'));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.summary).toMatchObject({ totalConversions: 3, totalMessagingConversationsStarted: 8, totalCostPerResult: 42.5 / 3 });
+    expect(json.campaigns[0]).toMatchObject({ conversions: 3, messagingConversationsStarted: 8, costPerResult: 14.17 });
+  });
+
   it('accepts Meta credentials with no expiresAt and fetches accounts', async () => {
     (prisma.metaCredential.findUnique as jest.Mock).mockResolvedValue({
       longLivedToken: 'token-without-expiry',

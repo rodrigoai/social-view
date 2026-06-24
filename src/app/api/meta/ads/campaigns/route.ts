@@ -5,6 +5,32 @@ import { getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 const AdAccount = bizSdk.AdAccount;
+const LEAD_ACTION = 'lead';
+const MESSAGING_CONVERSATION_STARTED_ACTION = 'onsite_conversion.messaging_conversation_started_7d';
+const RESULT_ACTION_TYPES = [LEAD_ACTION, MESSAGING_CONVERSATION_STARTED_ACTION];
+
+function getActionValue(actions: Array<{ action_type?: string; value?: string | number }> | undefined, actionType: string) {
+  const action = actions?.find((item) => item.action_type === actionType);
+  return Number(action?.value || 0);
+}
+
+function getCostPerResult(
+  costPerActionType: Array<{ action_type?: string; value?: string | number }> | undefined,
+  actions: Array<{ action_type?: string; value?: string | number }> | undefined
+) {
+  for (const actionType of RESULT_ACTION_TYPES) {
+    const cost = costPerActionType?.find((item) => item.action_type === actionType);
+    if (cost) {
+      return {
+        value: Number(cost.value || 0),
+        resultCount: getActionValue(actions, actionType),
+        actionType
+      };
+    }
+  }
+
+  return { value: 0, resultCount: 0, actionType: null };
+}
 
 function getDateRange(period: string, startDate?: string, endDate?: string) {
   if (period === 'custom' && startDate && endDate) {
@@ -41,7 +67,7 @@ export async function GET(request: Request) {
 
     const configs = await prisma.metaAdsConfig.findMany({ where: { mainAccountId } });
     if (!configs || configs.length === 0) {
-      return NextResponse.json({ summary: { totalCost: 0, totalConversions: 0, totalReach: 0, totalImpressions: 0 }, campaigns: [] });
+      return NextResponse.json({ summary: { totalCost: 0, totalConversions: 0, totalMessagingConversationsStarted: 0, totalCostPerResult: 0, totalReach: 0, totalImpressions: 0 }, campaigns: [] });
     }
 
     const timeRange = getDateRange(period, startDate, endDate);
@@ -51,6 +77,8 @@ export async function GET(request: Request) {
 
     let totalCost = 0;
     let totalConversions = 0; // Leads
+    let totalMessagingConversationsStarted = 0;
+    let totalResults = 0;
     let totalReach = 0;
     let totalImpressions = 0;
     const allCampaigns = [];
@@ -60,7 +88,7 @@ export async function GET(request: Request) {
       const accountId = config.adAccountId.startsWith('act_') ? config.adAccountId : `act_${config.adAccountId}`;
       const account = new AdAccount(accountId);
 
-      const fields = ['campaign_id', 'campaign_name', 'spend', 'reach', 'impressions', 'actions'];
+      const fields = ['campaign_id', 'campaign_name', 'spend', 'reach', 'impressions', 'actions', 'cost_per_action_type'];
       const params = {
         time_range: timeRange,
         level: 'campaign'
@@ -77,14 +105,17 @@ export async function GET(request: Request) {
           const reach = parseInt(insight.reach || '0');
           const impressions = parseInt(insight.impressions || '0');
           
-          let leads = 0;
-          if (insight.actions) {
-            const leadAction = insight.actions.find((a: any) => a.action_type === 'lead');
-            if (leadAction) leads = parseInt(leadAction.value);
-          }
+          const leads = getActionValue(insight.actions, LEAD_ACTION);
+          const messagingConversationsStarted = getActionValue(
+            insight.actions,
+            MESSAGING_CONVERSATION_STARTED_ACTION
+          );
+          const costPerResult = getCostPerResult(insight.cost_per_action_type, insight.actions);
 
           totalCost += spend;
           totalConversions += leads;
+          totalMessagingConversationsStarted += messagingConversationsStarted;
+          totalResults += costPerResult.resultCount;
           totalReach += reach;
           totalImpressions += impressions;
 
@@ -94,9 +125,11 @@ export async function GET(request: Request) {
             status: 'ACTIVE', // Meta SDK doesn't return campaign status in insights endpoint directly, we would need to fetch campaigns specifically. For simplicity, just listing them.
             cost: spend,
             conversions: leads,
+            messagingConversationsStarted,
+            costPerResult: costPerResult.value,
+            resultActionType: costPerResult.actionType,
             reach: reach,
             impressions: impressions,
-            cpl: leads > 0 ? spend / leads : 0
           });
         }
       } catch (err: any) {
@@ -109,6 +142,8 @@ export async function GET(request: Request) {
       summary: {
         totalCost,
         totalConversions,
+        totalMessagingConversationsStarted,
+        totalCostPerResult: totalResults > 0 ? totalCost / totalResults : 0,
         totalReach,
         totalImpressions,
       },

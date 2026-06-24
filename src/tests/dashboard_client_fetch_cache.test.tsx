@@ -213,4 +213,40 @@ describe('dashboard views client cache', () => {
     await waitFor(() => expect(screen.getByText('Meta Ads')).toBeInTheDocument());
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('shows messaging conversations started in the Meta Leads summary and campaign', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.startsWith('/api/meta/ads/campaigns')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            summary: { totalCost: 125, totalConversions: 5, totalMessagingConversationsStarted: 8, totalCostPerResult: 25, totalImpressions: 100 },
+            campaigns: [{
+              id: 'campaign-1',
+              name: 'Campanha de mensagens',
+              cost: 125,
+              conversions: 5,
+              messagingConversationsStarted: 8,
+              costPerResult: 25,
+              reach: 80
+            }]
+          })
+        });
+      }
+
+      return Promise.resolve({ ok: true, json: async () => ({ accounts: [], pages: [] }) });
+    });
+
+    render(
+      <MetaDashboardView
+        selectedAccountId="acc1"
+        onOpenKpi={() => {}}
+        filters={filters}
+        onFilterChange={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(screen.getAllByText('Conversas')).toHaveLength(2));
+    expect(screen.getAllByText(/\D25,00$/)).toHaveLength(2);
+  });
 });

@@ -307,10 +307,6 @@ export function MetaDashboardView({
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
   };
 
-  const cpl = data?.summary?.totalConversions > 0 
-    ? (data.summary.totalCost / data.summary.totalConversions)
-    : 0;
-
   const MetaLogo = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-blue-600">
       <path fillRule="evenodd" clipRule="evenodd" d="M12.0001 5.92505C8.98829 5.92505 6.30006 7.64095 5.0934 10.3346C3.88674 13.0283 4.41725 16.143 6.46782 18.3965L7.91578 17.0805C6.4635 15.4851 6.08627 13.2754 6.94086 11.3653C7.79545 9.45524 9.69766 8.24057 11.8315 8.24057C12.7214 8.24057 13.5824 8.49079 14.3315 8.9616L15.655 7.63812C14.6111 6.64379 13.3323 5.92505 12.0001 5.92505ZM18.9067 13.6654C20.1134 10.9717 19.5829 7.85703 17.5323 5.60351L16.0844 6.91953C17.5366 8.51493 17.9139 10.7246 17.0593 12.6347C16.2047 14.5448 14.3025 15.7594 12.1686 15.7594C11.2787 15.7594 10.4177 15.5092 9.66858 15.0384L8.34515 16.3619C9.38902 17.3562 10.6678 18.075 12.0001 18.075C15.0118 18.075 17.6999 16.359 18.9067 13.6654Z" fill="currentColor"/>
@@ -368,7 +364,7 @@ export function MetaDashboardView({
           <h2 className="text-xl font-bold text-foreground">Meta Ads</h2>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
             <KpiLabel kpiKey="metaCost" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
               <DollarSign className="w-3.5 h-3.5" /> Investimento
@@ -382,12 +378,19 @@ export function MetaDashboardView({
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalConversions || 0)}</p>
           </Card>
+
+          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider inline-flex items-center gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5" /> Conversas
+            </div>
+            <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalMessagingConversationsStarted || 0)}</p>
+          </Card>
           
           <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="metaCpl" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
-              <TrendingUp className="w-3.5 h-3.5" /> CPL
+            <KpiLabel kpiKey="metaCostPerResult" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+              <TrendingUp className="w-3.5 h-3.5" /> Custo por resultado
             </KpiLabel>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(cpl)}</p>
+            <p className="text-2xl font-bold text-foreground">{formatCurrency(data?.summary?.totalCostPerResult || 0)}</p>
           </Card>
 
           <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
@@ -405,8 +408,8 @@ export function MetaDashboardView({
               key={campaign.id}
               className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5"
             >
-              <div className="grid grid-cols-2 md:grid-cols-[minmax(0,1fr)_112px_96px_96px_96px] items-center gap-x-6 gap-y-4 md:gap-x-8">
-                <div className="col-span-2 md:col-span-1 flex items-center gap-3 min-w-0">
+              <div className="grid grid-cols-2 lg:grid-cols-[minmax(0,1fr)_112px_96px_120px_96px_96px] items-center gap-x-6 gap-y-4 lg:gap-x-8">
+                <div className="col-span-2 lg:col-span-1 flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                     <TrendingUp className="w-5 h-5" />
                   </div>
@@ -429,9 +432,15 @@ export function MetaDashboardView({
                 </div>
                 <div className="flex flex-col min-w-0">
                   <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" /> CPL
+                    <MessageCircle className="w-3.5 h-3.5" /> Conversas
                   </div>
-                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatCurrency(campaign.cpl)}</span>
+                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatNumber(campaign.messagingConversationsStarted || 0)}</span>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" /> Custo por resultado
+                  </div>
+                  <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatCurrency(campaign.costPerResult || 0)}</span>
                 </div>
                 <div className="flex flex-col min-w-0">
                   <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">

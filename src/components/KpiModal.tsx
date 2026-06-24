@@ -28,7 +28,7 @@ export type KpiKey =
   // Meta
   | 'metaCost'
   | 'metaConversions'
-  | 'metaCpl'
+  | 'metaCostPerResult'
   | 'metaReach'
   | 'metaImpressions'
   | 'metaEngagement'
@@ -177,15 +177,15 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
   },
   metaConversions: {
     label: 'Leads (Meta Ads)',
-    what: 'Total de cadastros, mensagens ou ações principais geradas pelas campanhas no Meta.',
-    how: 'Se as impressões estão altas mas os leads estão baixos, o problema pode estar no criativo (imagem/vídeo) ou na página de destino.',
-    tip: '💡 Foque na qualidade do lead, não apenas no volume.',
+    what: 'Total de leads registrados como ação “lead” pelas campanhas no Meta. O mesmo bloco também mostra, separadamente, as Conversas por mensagem iniciadas — pessoas que começaram uma nova conversa após interagir com o anúncio.',
+    how: 'Leads e Conversas por mensagem iniciadas não são somados: são ações distintas. Compare os dois volumes para entender se as campanhas estão gerando cadastros, conversas ou ambos. Se as impressões estão altas mas os resultados estão baixos, revise criativo, segmentação e destino do anúncio.',
+    tip: '💡 Foque na qualidade do lead e acompanhe as conversas iniciadas como um indicador separado de intenção.',
   },
-  metaCpl: {
-    label: 'Custo Por Lead (CPL)',
-    what: 'Quanto você pagou, em média, por cada lead ou conversão.',
-    how: 'É o Investimento dividido pelo número de Leads. Se esse número subir muito de uma semana para outra, o criativo pode estar desgastado (fadiga).',
-    tip: '💡 Teste novos criativos constantemente para manter o CPL baixo.',
+  metaCostPerResult: {
+    label: 'Custo por resultado (Meta Ads)',
+    what: 'Métrica informada pela Meta para o resultado principal da campanha: Lead ou Conversa por mensagem iniciada.',
+    how: 'Em cada campanha, a Meta associa o custo ao tipo de resultado que ela registrou. No resumo, o valor é calculado a partir do investimento total e dos resultados principais dessas campanhas.',
+    tip: '💡 Compare campanhas com o mesmo objetivo para avaliar eficiência de forma justa.',
   },
   metaReach: {
     label: 'Alcance',

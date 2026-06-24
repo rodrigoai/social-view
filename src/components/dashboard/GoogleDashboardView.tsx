@@ -492,38 +492,38 @@ export function GoogleDashboardView({
                 </div>
                 
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="activeUsers" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="activeUsers" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider justify-end">
                       <Users className="w-3.5 h-3.5" /> Active Users
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.activeUsers)}</span>
                   </div>
                   
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="sessions" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="sessions" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider justify-end">
                       <Activity className="w-3.5 h-3.5" /> Sessions
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.sessions)}</span>
                   </div>
 
                   {prop.stats.trackedEventName && (
-                    <div className="flex flex-col">
-                      <KpiLabel kpiKey="trackedEvent" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
+                    <div className="flex flex-col text-right">
+                      <KpiLabel kpiKey="trackedEvent" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider justify-end">
                         <TrendingUp className="w-3.5 h-3.5" /> {prop.stats.trackedEventName}
                       </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(prop.stats.trackedEventCount)}</span>
                     </div>
                   )}
                   
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="bounceRate" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="bounceRate" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider justify-end">
                       <MousePointer2 className="w-3.5 h-3.5" /> Bounce Rate
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatPercent(prop.stats.bounceRate)}</span>
                   </div>
                   
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="avgSession" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="avgSession" onOpen={onOpenKpi} className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1 uppercase tracking-wider justify-end">
                       <Timer className="w-3.5 h-3.5" /> Avg. Session
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatDuration(prop.stats.averageSessionDuration)}</span>
@@ -542,26 +542,26 @@ export function GoogleDashboardView({
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="totalCost" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="totalCost" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <DollarSign className="w-3.5 h-3.5" /> Total Cost
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(data?.summary?.totalCost || 0)}</p>
           </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="totalConversions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="totalConversions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <MousePointerClick className="w-3.5 h-3.5" /> Total Conversions
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalConversions || 0)}</p>
           </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="totalClicks" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="totalClicks" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <MousePointerClick className="w-3.5 h-3.5" /> Total Clicks
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatInteger(data?.summary?.totalClicks || 0)}</p>
           </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="costPerConversion" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="costPerConversion" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <TrendingUp className="w-3.5 h-3.5" /> Cost Per Conversion
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(cpa)}</p>
@@ -588,9 +588,9 @@ export function GoogleDashboardView({
                     <p className="text-xs text-muted font-mono mt-0.5 opacity-70">ID: {campaign.id}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4 text-right">
                   <div className="flex flex-col">
-                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                       <DollarSign className="w-3.5 h-3.5" /> Cost
                     </div>
                     <span className="text-xl font-bold text-foreground">{formatCurrency(campaign.cost)}</span>
@@ -599,7 +599,7 @@ export function GoogleDashboardView({
                     <KpiLabel
                       kpiKey="campaignConversions"
                       onOpen={onOpenKpi}
-                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider"
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider justify-end"
                     >
                       <MousePointerClick className="w-3.5 h-3.5" /> Conversions
                     </KpiLabel>
@@ -609,7 +609,7 @@ export function GoogleDashboardView({
                     <KpiLabel
                       kpiKey="campaignClicks"
                       onOpen={onOpenKpi}
-                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider"
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider justify-end"
                     >
                       <MousePointerClick className="w-3.5 h-3.5" /> Clicks
                     </KpiLabel>
@@ -648,29 +648,29 @@ export function GoogleDashboardView({
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="clicks" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="clicks" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider justify-end">
                       <MousePointerClick className="w-3.5 h-3.5" /> Clicks
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{new Intl.NumberFormat('pt-BR').format(site.stats.clicks)}</span>
                   </div>
 
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="impressions" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="impressions" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider justify-end">
                       <Search className="w-3.5 h-3.5" /> Impressions
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{new Intl.NumberFormat('pt-BR').format(site.stats.impressions)}</span>
                   </div>
 
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="ctr" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="ctr" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider justify-end">
                       <TrendingUp className="w-3.5 h-3.5" /> CTR
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatPercent(site.stats.ctr)}</span>
                   </div>
 
-                  <div className="flex flex-col">
-                    <KpiLabel kpiKey="avgPosition" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider">
+                  <div className="flex flex-col text-right">
+                    <KpiLabel kpiKey="avgPosition" onOpen={onOpenKpi} className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1 uppercase tracking-wider justify-end">
                       <Activity className="w-3.5 h-3.5" /> Avg. Position
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{site.stats.position > 0 ? site.stats.position.toFixed(1) : '—'}</span>

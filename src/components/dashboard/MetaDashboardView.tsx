@@ -365,36 +365,36 @@ export function MetaDashboardView({
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="metaCost" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="metaCost" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <DollarSign className="w-3.5 h-3.5" /> Investimento
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(data?.summary?.totalCost || 0)}</p>
           </Card>
           
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="metaConversions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="metaConversions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <Users className="w-3.5 h-3.5" /> Leads
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalConversions || 0)}</p>
           </Card>
 
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider inline-flex items-center gap-1.5">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
               <MessageCircle className="w-3.5 h-3.5" /> Conversas
             </div>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalMessagingConversationsStarted || 0)}</p>
           </Card>
           
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="metaCostPerResult" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
-              <TrendingUp className="w-3.5 h-3.5" /> Custo por resultado
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="metaCostPerResult" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
+              <TrendingUp className="w-3.5 h-3.5" /> CPR
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatCurrency(data?.summary?.totalCostPerResult || 0)}</p>
           </Card>
 
-          <Card className="hover:scale-[1.005] transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
-            <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-blue-500/10 dark:border-blue-500/20 bg-gradient-to-br from-white to-blue-50/30 dark:from-background dark:to-blue-950/5">
+            <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wider justify-end">
               <Eye className="w-3.5 h-3.5" /> Impressões
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalImpressions || 0)}</p>
@@ -418,32 +418,32 @@ export function MetaDashboardView({
                     <p className="text-xs text-muted font-mono mt-0.5 opacity-70">ID: {campaign.id}</p>
                   </div>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                <div className="flex flex-col min-w-0 text-right">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                     <DollarSign className="w-3.5 h-3.5" /> Custo
                   </div>
                   <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatCurrency(campaign.cost)}</span>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                <div className="flex flex-col min-w-0 text-right">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                     <Users className="w-3.5 h-3.5" /> Leads
                   </div>
                   <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatNumber(campaign.conversions)}</span>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                <div className="flex flex-col min-w-0 text-right">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                     <MessageCircle className="w-3.5 h-3.5" /> Conversas
                   </div>
                   <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatNumber(campaign.messagingConversationsStarted || 0)}</span>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5" /> Custo por resultado
+                <div className="flex flex-col min-w-0 text-right">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5" /> CPR
                   </div>
                   <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatCurrency(campaign.costPerResult || 0)}</span>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                <div className="flex flex-col min-w-0 text-right">
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                     <Eye className="w-3.5 h-3.5" /> Reach
                   </div>
                   <span className="text-xl font-bold text-foreground whitespace-nowrap">{formatNumber(campaign.reach)}</span>
@@ -474,30 +474,30 @@ export function MetaDashboardView({
                     <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {acc.igAccountId}</p>
                   </div>
                   
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 text-right md:flex-grow md:justify-end">
                     <div className="flex flex-col">
-                      <div className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                      <div className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                         <Users className="w-3.5 h-3.5" /> Seguidores
                       </div>
                       <span className="text-xl font-bold text-foreground">{formatNumber(acc.followers)}</span>
                     </div>
 
                     <div className="flex flex-col">
-                      <KpiLabel kpiKey="metaReach" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
+                      <KpiLabel kpiKey="metaReach" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider justify-end">
                         <Users className="w-3.5 h-3.5" /> Reach
                       </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.reach)}</span>
                     </div>
                     
                     <div className="flex flex-col">
-                      <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
+                      <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider justify-end">
                         <Eye className="w-3.5 h-3.5" /> Impressões
                       </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.impressions)}</span>
                     </div>
 
                     <div className="flex flex-col">
-                      <KpiLabel kpiKey="metaProfileViews" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider">
+                      <KpiLabel kpiKey="metaProfileViews" onOpen={onOpenKpi} className="text-xs font-medium text-pink-600 dark:text-pink-400 mb-1 uppercase tracking-wider justify-end">
                         <MousePointerClick className="w-3.5 h-3.5" /> Visitas ao Perfil
                       </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(acc.stats.profileViews)}</span>
@@ -531,23 +531,23 @@ export function MetaDashboardView({
                     <p className="text-xs text-muted font-mono mt-1 opacity-70">ID: {page.pageId}</p>
                   </div>
                   
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 md:flex-grow md:justify-end">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-right md:flex-grow md:justify-end">
                     <div className="flex flex-col">
-                      <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
+                      <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                         <Users className="w-3.5 h-3.5" /> Seguidores
                       </div>
                       <span className="text-xl font-bold text-foreground">{formatNumber(page.followers || page.fans)}</span>
                     </div>
 
                     <div className="flex flex-col">
-                      <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
+                      <KpiLabel kpiKey="metaImpressions" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider justify-end">
                         <Eye className="w-3.5 h-3.5" /> Impressões
                       </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(page.stats.impressions)}</span>
                     </div>
                     
                     <div className="flex flex-col">
-                      <KpiLabel kpiKey="metaEngagement" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider">
+                      <KpiLabel kpiKey="metaEngagement" onOpen={onOpenKpi} className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider justify-end">
                         <Heart className="w-3.5 h-3.5" /> Engajamento
                       </KpiLabel>
                       <span className="text-xl font-bold text-foreground">{formatNumber(page.stats.engagement)}</span>

@@ -163,26 +163,26 @@ export function WaTrackerDashboardView({ selectedAccountId, onOpenKpi, filters, 
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
+            <KpiLabel kpiKey="waLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider justify-end">
               <Users className="w-3.5 h-3.5" /> Leads
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalLeads)}</p>
           </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waOrganicLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
+            <KpiLabel kpiKey="waOrganicLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider justify-end">
               <Users className="w-3.5 h-3.5" /> Organic Leads
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalOrganicLeads)}</p>
           </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waAdsLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
+            <KpiLabel kpiKey="waAdsLeads" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider justify-end">
               <TrendingUp className="w-3.5 h-3.5" /> Ads Leads
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatNumber(data?.summary?.totalAdsLeads)}</p>
           </Card>
-          <Card className="hover:scale-[1.005] transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
-            <KpiLabel kpiKey="waAvgLeadsPerDay" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider">
+          <Card className="hover:scale-[1.005] text-right transition-transform border-teal-500/10 dark:border-teal-500/20 bg-gradient-to-br from-white to-teal-50/30 dark:from-background dark:to-teal-950/5">
+            <KpiLabel kpiKey="waAvgLeadsPerDay" onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-2 uppercase tracking-wider justify-end">
               <TrendingUp className="w-3.5 h-3.5" /> Avg Leads/Day
             </KpiLabel>
             <p className="text-2xl font-bold text-foreground">{formatDecimal(data?.summary?.avgLeadsPerDay)}</p>
@@ -235,8 +235,8 @@ function Metric({
   onOpenKpi: (key: KpiKey) => void;
 }) {
   return (
-    <div className="flex flex-col min-w-0">
-      <KpiLabel kpiKey={kpiKey} onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-1 uppercase tracking-wider">
+    <div className="flex flex-col min-w-0 text-right">
+      <KpiLabel kpiKey={kpiKey} onOpen={onOpenKpi} className="text-xs font-medium text-teal-700 dark:text-teal-400 mb-1 uppercase tracking-wider justify-end">
         {label}
       </KpiLabel>
       <span className="text-xl font-bold text-foreground whitespace-nowrap">{value}</span>

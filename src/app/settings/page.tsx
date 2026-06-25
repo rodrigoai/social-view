@@ -143,6 +143,9 @@ function SettingsContent() {
   const [editWaTrackerAccountId, setEditWaTrackerAccountId] = useState('');
   const [users, setUsers] = useState<AppUser[]>([]);
   const [pendingUserStatusIds, setPendingUserStatusIds] = useState<string[]>([]);
+  const [pendingUserDeleteIds, setPendingUserDeleteIds] = useState<string[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -157,6 +160,15 @@ function SettingsContent() {
   const error = searchParams.get('error');
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId) as Account | undefined;
+  const selectedUser = users.find((user) => user.id === selectedUserId) || null;
+  const normalizedUserSearch = userSearch.trim().toLowerCase();
+  const filteredUsers = normalizedUserSearch
+    ? users.filter((user) => [
+        user.name || '',
+        user.email,
+        user.role === 'ADMIN' ? 'admin' : 'client',
+      ].some((value) => value.toLowerCase().includes(normalizedUserSearch)))
+    : users;
   const selectedWebsiteHref = selectedAccount?.mainWebsiteUrl
     ? (/^https?:\/\//i.test(selectedAccount.mainWebsiteUrl) ? selectedAccount.mainWebsiteUrl : `https://${selectedAccount.mainWebsiteUrl}`)
     : null;
@@ -292,24 +304,75 @@ function SettingsContent() {
     }));
   };
 
-  const createUser = async () => {
+  const resetUserForm = () => {
+    setSelectedUserId(null);
+    setNewUser({ name: '', email: '', password: '', role: 'CLIENT', mainAccountIds: [] });
+  };
+
+  const selectUserForEdit = (user: AppUser) => {
+    setSelectedUserId(user.id);
+    setNewUser({
+      name: user.name || '',
+      email: user.email,
+      password: '',
+      role: user.role,
+      mainAccountIds: user.clientMainAccountAccesses?.map((access) => access.mainAccountId) || [],
+    });
+  };
+
+  const saveUserForm = async () => {
+    if (selectedUser) {
+      const payload: Partial<AppUser> & { mainAccountIds?: string[]; password?: string } = {
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        mainAccountIds: newUser.role === 'CLIENT' ? newUser.mainAccountIds : [],
+      };
+      if (newUser.password) payload.password = newUser.password;
+
+      const res = await fetch(`/api/users/${selectedUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return;
+      await refreshUsers();
+      setNewUser((current) => ({ ...current, password: '' }));
+      return;
+    }
+
     const res = await fetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newUser),
     });
     if (!res.ok) return;
-    setNewUser({ name: '', email: '', password: '', role: 'CLIENT', mainAccountIds: [] });
+    resetUserForm();
     await refreshUsers();
   };
 
-  const updateUser = async (id: string, payload: Partial<AppUser> & { mainAccountIds?: string[] }) => {
+  const updateUser = async (id: string, payload: Partial<AppUser> & { mainAccountIds?: string[]; password?: string }) => {
     const res = await fetch(`/api/users/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     if (res.ok) await refreshUsers();
+  };
+
+  const deleteUser = async (user: AppUser) => {
+    if (!window.confirm(`Delete ${user.email}? This cannot be undone.`)) return;
+
+    setPendingUserDeleteIds((current) => [...current, user.id]);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        if (selectedUserId === user.id) resetUserForm();
+        await refreshUsers();
+      }
+    } finally {
+      setPendingUserDeleteIds((current) => current.filter((id) => id !== user.id));
+    }
   };
 
   const toggleUserStatus = async (user: AppUser) => {
@@ -364,26 +427,40 @@ function SettingsContent() {
             <Users className="w-5 h-5 text-blue-600" />
             <h2 className="text-lg font-bold text-foreground">Users</h2>
           </div>
+          <input
+            aria-label="Search users"
+            value={userSearch}
+            onChange={(event) => setUserSearch(event.target.value)}
+            placeholder="Search users"
+            className="mb-3 w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
+          />
           <div className="space-y-3">
-            {users.map((user) => {
-              const assignedIds = user.clientMainAccountAccesses?.map((access) => access.mainAccountId) || [];
+            {filteredUsers.map((user) => {
               const isStatusPending = pendingUserStatusIds.includes(user.id);
+              const isDeletePending = pendingUserDeleteIds.includes(user.id);
+              const isSelectedUser = selectedUserId === user.id;
+              const roleClassName = user.role === 'ADMIN'
+                ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300';
               return (
-                <div key={user.id} className="border border-border-custom rounded-xl p-3">
+                <div key={user.id} className={`border rounded-xl p-3 transition-colors ${
+                  isSelectedUser
+                    ? 'border-blue-300 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-900/10'
+                    : 'border-border-custom'
+                }`}>
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-foreground">{user.name || user.email}</p>
-                      <p className="text-xs text-muted">{user.email}</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => selectUserForEdit(user)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="font-semibold text-foreground truncate">{user.name || user.email}</p>
+                      <p className="text-xs text-muted truncate">{user.email}</p>
+                    </button>
                     <div className="flex items-center gap-2">
-                      <select
-                        value={user.role}
-                        onChange={(event) => updateUser(user.id, { role: event.target.value as AppUser['role'] })}
-                        className="text-xs bg-background border border-border-custom rounded-lg px-2 py-1"
-                      >
-                        <option value="ADMIN">Admin</option>
-                        <option value="CLIENT">Client</option>
-                      </select>
+                      <span className={`text-xs border rounded-lg px-2 py-1 font-semibold ${roleClassName}`}>
+                        {user.role === 'ADMIN' ? 'Admin' : 'Client'}
+                      </span>
                       <button
                         onClick={() => toggleUserStatus(user)}
                         disabled={isStatusPending}
@@ -395,30 +472,17 @@ function SettingsContent() {
                       >
                         {isStatusPending ? 'Saving...' : user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
                       </button>
+                      <button
+                        onClick={() => deleteUser(user)}
+                        disabled={isDeletePending}
+                        className="p-1.5 rounded-lg text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60"
+                        title="Delete user"
+                        aria-label={`Delete ${user.email}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  {user.role === 'CLIENT' && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {accounts.map((account) => {
-                        const checked = assignedIds.includes(account.id);
-                        return (
-                          <label key={account.id} className="inline-flex items-center gap-1.5 text-xs text-foreground border border-border-custom rounded-lg px-2 py-1">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => {
-                                const mainAccountIds = checked
-                                  ? assignedIds.filter((id) => id !== account.id)
-                                  : [...assignedIds, account.id];
-                                updateUser(user.id, { mainAccountIds });
-                              }}
-                            />
-                            {account.name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -426,18 +490,31 @@ function SettingsContent() {
         </Card>
 
         <Card>
-          <div className="flex items-center gap-2 mb-4">
-            <UserPlus className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-foreground">Add User</h2>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-bold text-foreground">{selectedUser ? 'Edit User' : 'Add User'}</h2>
+            </div>
+            {selectedUser && (
+              <button
+                type="button"
+                onClick={resetUserForm}
+                className="text-xs font-semibold text-muted hover:text-foreground"
+              >
+                New user
+              </button>
+            )}
           </div>
           <div className="space-y-3">
             <input
+              aria-label="User name"
               value={newUser.name}
               onChange={(event) => setNewUser({ ...newUser, name: event.target.value })}
               placeholder="Name"
               className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
             />
             <input
+              aria-label="User email"
               type="email"
               value={newUser.email}
               onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
@@ -445,13 +522,15 @@ function SettingsContent() {
               className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
             />
             <input
+              aria-label="User password"
               type="password"
               value={newUser.password}
               onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
-              placeholder="Temporary password"
+              placeholder={selectedUser ? 'New password' : 'Temporary password'}
               className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
             />
             <select
+              aria-label="User role"
               value={newUser.role}
               onChange={(event) => setNewUser({ ...newUser, role: event.target.value as 'ADMIN' | 'CLIENT', mainAccountIds: [] })}
               className="w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
@@ -474,10 +553,10 @@ function SettingsContent() {
               </div>
             )}
             <button
-              onClick={createUser}
+              onClick={saveUserForm}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors"
             >
-              <Plus className="w-4 h-4" /> Create User
+              <Plus className="w-4 h-4" /> {selectedUser ? 'Save User' : 'Create User'}
             </button>
           </div>
         </Card>

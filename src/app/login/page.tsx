@@ -11,7 +11,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -22,6 +24,7 @@ export default function LoginPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
+    setMessage('');
     setIsSubmitting(true);
 
     const result = await signIn('credentials', {
@@ -39,6 +42,27 @@ export default function LoginPage() {
     }
 
     router.replace('/');
+  }
+
+  async function handleForgotPassword() {
+    setError('');
+    setMessage('');
+    setIsResetting(true);
+
+    const response = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    setIsResetting(false);
+
+    if (!response.ok) {
+      setError('Password reset email is not available. Contact an administrator.');
+      return;
+    }
+
+    setMessage('If that email is active, a temporary password has been sent.');
   }
 
   return (
@@ -91,12 +115,26 @@ export default function LoginPage() {
           </div>
         )}
 
+        {message && (
+          <div className="mb-4 text-sm text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
+            {message}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={isSubmitting}
           className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-bold transition-colors"
         >
           {isSubmitting ? 'Signing in...' : 'Sign in'}
+        </button>
+        <button
+          type="button"
+          onClick={handleForgotPassword}
+          disabled={isResetting || !email}
+          className="mt-3 w-full py-2 rounded-xl text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50 transition-colors"
+        >
+          {isResetting ? 'Sending...' : 'Remember my password'}
         </button>
       </form>
     </main>

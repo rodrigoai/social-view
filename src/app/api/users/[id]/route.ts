@@ -19,6 +19,14 @@ const userSelect = {
   },
 };
 
+function normalizeEmail(email: unknown) {
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+}
+
+function incrementSessionVersion(data: any) {
+  data.sessionVersion = { increment: 1 };
+}
+
 async function assertCanRemoveAdmin(userId: string, nextRole?: string, nextStatus?: string) {
   const existing = await prisma.user.findUnique({
     where: { id: userId },
@@ -56,25 +64,34 @@ export async function PATCH(
     if (body.name !== undefined) {
       data.name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : null;
     }
+    if (body.email !== undefined) {
+      const normalizedEmail = normalizeEmail(body.email);
+      if (!normalizedEmail) {
+        return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+      }
+      data.email = normalizedEmail;
+      incrementSessionVersion(data);
+    }
     if (body.role !== undefined) {
       if (body.role !== 'ADMIN' && body.role !== 'CLIENT') {
         return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
       }
       data.role = body.role;
+      incrementSessionVersion(data);
     }
     if (body.status !== undefined) {
       if (body.status !== 'ACTIVE' && body.status !== 'DISABLED') {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
       }
       data.status = body.status;
-      data.sessionVersion = { increment: 1 };
+      incrementSessionVersion(data);
     }
     if (body.password !== undefined) {
       if (typeof body.password !== 'string' || body.password.length < 8) {
         return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
       }
       data.passwordHash = await bcrypt.hash(body.password, 12);
-      data.sessionVersion = { increment: 1 };
+      incrementSessionVersion(data);
     }
 
     await assertCanRemoveAdmin(id, data.role, data.status);
@@ -108,6 +125,34 @@ export async function PATCH(
     if (error?.message === 'LAST_ADMIN') {
       return NextResponse.json({ error: 'At least one active admin is required' }, { status: 400 });
     }
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
+    }
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+
+    await assertCanRemoveAdmin(id, 'CLIENT', 'DISABLED');
+    await prisma.user.delete({ where: { id }, select: { id: true } });
+
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    const authResponse = authzErrorResponse(error);
+    if (authResponse) return authResponse;
+    if (error?.message === 'LAST_ADMIN') {
+      return NextResponse.json({ error: 'At least one active admin is required' }, { status: 400 });
+    }
+    if (error?.code === 'P2025') {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
   }
 }

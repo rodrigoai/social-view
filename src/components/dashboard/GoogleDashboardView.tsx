@@ -312,6 +312,13 @@ export function GoogleDashboardView({
     return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(value);
   };
 
+  const formatConversion = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+
   const formatInteger = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value);
   };
@@ -603,7 +610,7 @@ export function GoogleDashboardView({
                     >
                       <MousePointerClick className="w-3.5 h-3.5" /> Conversions
                     </KpiLabel>
-                    <span className="text-xl font-bold text-foreground">{formatNumber(campaign.conversions)}</span>
+                    <span className="text-xl font-bold text-foreground">{formatConversion(campaign.conversions)}</span>
                   </div>
                   <div className="flex flex-col">
                     <KpiLabel

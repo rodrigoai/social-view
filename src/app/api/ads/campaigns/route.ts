@@ -107,15 +107,21 @@ export async function GET(request: Request) {
           })
       );
 
-      const formattedCampaigns = allCampaigns.flat().map(({ customerId, campaign }: any) => ({
-        id: `${customerId}:${campaign.campaign.id}`,
-        customerId,
-        name: campaign.campaign.name,
-        status: campaign.campaign.primary_status,
-        cost: (campaign.metrics.cost_micros || 0) / 1000000,
-        conversions: campaign.metrics.conversions || 0,
-        clicks: campaign.metrics.clicks || 0,
-      }));
+      const formattedCampaigns = allCampaigns.flat().map(({ customerId, campaign }: any) => {
+        const cost = (campaign.metrics.cost_micros || 0) / 1000000;
+        const conversions = campaign.metrics.conversions || 0;
+
+        return {
+          id: `${customerId}:${campaign.campaign.id}`,
+          customerId,
+          name: campaign.campaign.name,
+          status: campaign.campaign.primary_status,
+          cost,
+          conversions,
+          clicks: campaign.metrics.clicks || 0,
+          costPerConversion: conversions > 0 ? cost / conversions : 0,
+        };
+      });
 
       const totalCost = formattedCampaigns.reduce((acc, curr) => acc + curr.cost, 0);
       const totalConversions = formattedCampaigns.reduce((acc, curr) => acc + curr.conversions, 0);

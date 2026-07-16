@@ -595,7 +595,7 @@ export function GoogleDashboardView({
                     <p className="text-xs text-muted font-mono mt-0.5 opacity-70">ID: {campaign.id}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-4 text-right">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-4 text-right">
                   <div className="flex flex-col">
                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider inline-flex items-center justify-end gap-1.5">
                       <DollarSign className="w-3.5 h-3.5" /> Cost
@@ -621,6 +621,16 @@ export function GoogleDashboardView({
                       <MousePointerClick className="w-3.5 h-3.5" /> Clicks
                     </KpiLabel>
                     <span className="text-xl font-bold text-foreground">{formatInteger(campaign.clicks || 0)}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <KpiLabel
+                      kpiKey="campaignCostPerConversion"
+                      onOpen={onOpenKpi}
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1 uppercase tracking-wider justify-end"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" /> CPC
+                    </KpiLabel>
+                    <span className="text-xl font-bold text-foreground">{formatCurrency(campaign.costPerConversion || 0)}</span>
                   </div>
                 </div>
               </div>

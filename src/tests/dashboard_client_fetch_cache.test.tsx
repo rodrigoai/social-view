@@ -159,6 +159,45 @@ describe('dashboard views client cache', () => {
     await waitFor(() => expect(screen.getByText('Main website not configured')).toBeInTheDocument());
   });
 
+  it('shows cost per conversion in each Google Ads campaign', async () => {
+    writeDashboardCache(getDashboardCacheKey('google', 'acc1', filters), {
+      data: {
+        summary: { totalCost: 100, totalConversions: 4, totalClicks: 20 },
+        campaigns: [{
+          id: 'customer-1:campaign-1',
+          name: 'Search Campaign',
+          status: 'ELIGIBLE',
+          cost: 100,
+          conversions: 4,
+          clicks: 20,
+          costPerConversion: 25
+        }]
+      },
+      gaData: { properties: [] },
+      scData: { sites: [] },
+      adsError: null,
+      gaError: null,
+      scError: null
+    });
+    writePageSpeedCache(getPageSpeedCacheKey('acc1'), {
+      pageSpeedData: { configured: false, scores: [] }
+    });
+
+    render(
+      <GoogleDashboardView
+        selectedAccountId="acc1"
+        selectedAccount={{ id: 'acc1', name: 'Account' }}
+        onOpenKpi={() => {}}
+        filters={filters}
+        onFilterChange={() => {}}
+      />
+    );
+
+    await waitFor(() => expect(screen.getAllByText('Search Campaign')).toHaveLength(2));
+    expect(screen.getByText('CPC')).toBeInTheDocument();
+    expect(screen.getAllByText('R$ 25,00')).toHaveLength(2);
+  });
+
   it('shows dashboard skeletons while Google and Meta API calls are pending', () => {
     (global.fetch as jest.Mock).mockReturnValue(new Promise(() => {}));
 

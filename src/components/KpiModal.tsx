@@ -20,6 +20,7 @@ export type KpiKey =
   | 'campaignCost'
   | 'campaignConversions'
   | 'campaignClicks'
+  | 'campaignCostPerConversion'
   // Search Console
   | 'clicks'
   | 'impressions'
@@ -140,6 +141,12 @@ export const KPI_DEFINITIONS: Record<KpiKey, KpiDef> = {
     what: 'Número de cliques recebidos pelos anúncios desta campanha no Google Ads durante o período selecionado.',
     how: 'Compare com o custo e as conversões da campanha. Muitos cliques com poucas conversões podem indicar que o anúncio atrai interesse, mas a segmentação, a oferta ou a página de destino precisam melhorar.',
     tip: '💡 Cliques mostram volume de tráfego pago; conversões mostram se esse tráfego está gerando resultado.',
+  },
+  campaignCostPerConversion: {
+    label: 'Custo por Conversão da Campanha',
+    what: 'É o custo médio de cada conversão gerada por esta campanha no período selecionado. É calculado como: Custo da Campanha ÷ Conversões da Campanha.',
+    how: 'Compare este valor entre campanhas com o mesmo objetivo e com o valor que uma conversão representa para o negócio. Um custo menor geralmente indica maior eficiência.',
+    tip: '💡 Campanhas sem conversões exibem R$ 0,00 para evitar uma divisão sem resultado.',
   },
 
   // ── Search Console ─────────────────────────────────────────────────────────

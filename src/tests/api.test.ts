@@ -143,6 +143,8 @@ describe('API Routes', () => {
       expect(json.summary.totalCost).toBe(2520.75);
       expect(json.summary.totalClicks).toBe(350);
       expect(json.campaigns[0].clicks).toBe(100);
+      expect(json.campaigns[0].costPerConversion).toBe(200);
+      expect(json.campaigns[1].costPerConversion).toBe(100);
     });
 
     it('GET /api/ads/campaigns aggregates all selected Google Ads accounts', async () => {
@@ -181,6 +183,26 @@ describe('API Routes', () => {
         '123-456-7890',
         '999-888-7777'
       ]);
+      expect(json.campaigns.map((campaign: any) => campaign.costPerConversion)).toEqual([1, 1]);
+    });
+
+    it('returns zero cost per conversion for campaigns without conversions', async () => {
+      const { getAuthorizedClient } = require('@/lib/googleAuth');
+      (getAuthorizedClient as jest.Mock).mockResolvedValue({
+        getAccessToken: jest.fn().mockResolvedValue({ token: 'valid_token' }),
+        credentials: { refresh_token: 'refresh' }
+      });
+      (prisma.googleAdsConfig.findMany as jest.Mock).mockResolvedValue([{ customerId: '123-456-7890' }]);
+      (getCustomer as jest.Mock).mockReturnValueOnce({
+        report: jest.fn().mockResolvedValue([
+          { campaign: { id: '4', name: 'No conversions', primary_status: 'ELIGIBLE' }, metrics: { cost_micros: 50000000, conversions: 0, clicks: 10 } }
+        ])
+      });
+
+      const response = await getCampaigns(new Request('http://localhost/api/ads/campaigns?mainAccountId=123'));
+      const json = await response.json();
+
+      expect(json.campaigns[0].costPerConversion).toBe(0);
     });
   });
 });

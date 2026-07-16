@@ -6,8 +6,10 @@ import { GET as getFacebookPagesAccounts } from '@/app/api/meta/facebook-pages/a
 import { GET as getInstagramAccounts } from '@/app/api/meta/instagram/accounts/route';
 import { GET as getMetaAdsCampaigns } from '@/app/api/meta/ads/campaigns/route';
 import { GET as getInstagramDashboard } from '@/app/api/meta/instagram/dashboard/route';
+import { GET as refreshInstagramFollowers } from '@/app/api/meta/instagram/followers/route';
 import { GET as getFacebookPagesDashboard } from '@/app/api/meta/facebook-pages/dashboard/route';
 import { prisma } from '@/lib/prisma';
+import { getInstagramHistoryDate, serializeInstagramFollowersHistory } from '@/lib/instagramFollowers';
 
 const originalFetch = global.fetch;
 
@@ -291,6 +293,77 @@ describe('Meta authentication handling', () => {
     }));
   });
 
+  it('uses the Sao Paulo calendar date as a canonical UTC history key', () => {
+    expect(getInstagramHistoryDate(new Date('2026-07-16T02:59:59.000Z')).toISOString())
+      .toBe('2026-07-15T00:00:00.000Z');
+    expect(getInstagramHistoryDate(new Date('2026-07-16T03:00:00.000Z')).toISOString())
+      .toBe('2026-07-16T00:00:00.000Z');
+  });
+
+  it('collapses legacy follower history rows that render on the same date', () => {
+    const history = serializeInstagramFollowersHistory([
+      {
+        date: new Date('2026-07-14T00:00:00.000Z'),
+        followersCount: 100,
+        updatedAt: new Date('2026-07-14T12:00:00.000Z')
+      },
+      {
+        date: new Date('2026-07-14T03:00:00.000Z'),
+        followersCount: 101,
+        updatedAt: new Date('2026-07-14T14:00:00.000Z')
+      }
+    ]);
+
+    expect(history).toEqual([{ date: '2026-07-14', followers: 101 }]);
+  });
+
+  it('refreshes and stores followers through the lightweight endpoint', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-16T14:00:00.000Z'));
+    (prisma.metaCredential.findUnique as jest.Mock).mockResolvedValue({
+      longLivedToken: 'token',
+      expiresAt: Date.now() + 600_000
+    });
+    (prisma.instagramPageConfig.findMany as jest.Mock).mockResolvedValue([{
+      igAccountId: 'ig1',
+      igAccountName: 'socialview'
+    }]);
+    (prisma.instagramFollowersHistory.upsert as jest.Mock).mockResolvedValue({});
+    (prisma.instagramFollowersHistory.findMany as jest.Mock).mockResolvedValue([{
+      date: new Date('2026-07-16T00:00:00.000Z'),
+      followersCount: 777,
+      updatedAt: new Date('2026-07-16T14:00:00.000Z')
+    }]);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ username: 'socialview', followers_count: 777, media_count: 10 })
+    }) as jest.Mock;
+
+    try {
+      const res = await refreshInstagramFollowers(new Request(
+        'http://localhost/api/meta/instagram/followers?mainAccountId=acc1'
+      ));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(prisma.instagramFollowersHistory.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          igAccountId_date: {
+            igAccountId: 'ig1',
+            date: new Date('2026-07-16T00:00:00.000Z')
+          }
+        },
+        update: { followersCount: 777 }
+      }));
+      expect(json.accounts[0]).toMatchObject({
+        igAccountId: 'ig1',
+        followers: 777,
+        followersHistory: [{ date: '2026-07-16', followers: 777 }]
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('updates today Instagram followers history record when it already exists', async () => {
     (prisma.metaCredential.findUnique as jest.Mock).mockResolvedValue({
       longLivedToken: 'token',
@@ -399,8 +472,8 @@ describe('Meta authentication handling', () => {
     const json = await res.json();
     const findArgs = (prisma.instagramFollowersHistory.findMany as jest.Mock).mock.calls[0][0];
     const today = new Date();
-    const expectedStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    expectedStart.setDate(expectedStart.getDate() - 89);
+    const expectedStart = getInstagramHistoryDate(today);
+    expectedStart.setUTCDate(expectedStart.getUTCDate() - 89);
 
     expect(res.status).toBe(200);
     expect(findArgs).toEqual(expect.objectContaining({

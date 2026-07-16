@@ -9,6 +9,29 @@ import { DollarSign, MousePointerClick, TrendingUp, AlertCircle, Users, Activity
 import Link from 'next/link';
 import { clearDashboardCache, getDashboardCacheKey, readDashboardCache, writeDashboardCache } from '@/lib/dashboardClientCache';
 
+function mergeFreshInstagramFollowers(cachedIgData: any, freshIgData: any) {
+  if (!cachedIgData?.accounts || !freshIgData?.accounts) return cachedIgData;
+
+  const freshAccounts = new Map(
+    freshIgData.accounts.map((account: any) => [account.igAccountId, account])
+  );
+
+  return {
+    ...cachedIgData,
+    accounts: cachedIgData.accounts.map((account: any) => {
+      const freshAccount: any = freshAccounts.get(account.igAccountId);
+      if (!freshAccount) return account;
+
+      return {
+        ...account,
+        followers: freshAccount.followers,
+        followersHistory: freshAccount.followersHistory,
+        username: freshAccount.username || account.username
+      };
+    })
+  };
+}
+
 function TopContentList({ items, type }: { items: any[], type: 'ig' | 'fb' }) {
   if (!items || items.length === 0) return null;
 
@@ -181,10 +204,35 @@ export function MetaDashboardView({
         if (cached) {
           setData(cached.data);
           setFbData(cached.fbData);
-          setIgData(cached.igData);
+          let refreshedIgData = cached.igData;
+          setIgData(refreshedIgData);
           setAdsError(cached.adsError || null);
           setFbError(cached.fbError || null);
           setIgError(cached.igError || null);
+
+          try {
+            const followersRes = await fetch(
+              `/api/meta/instagram/followers?mainAccountId=${encodeURIComponent(selectedAccountId)}`,
+              { cache: 'no-store' }
+            );
+
+            if (followersRes.ok) {
+              const freshIgData = await followersRes.json();
+              refreshedIgData = mergeFreshInstagramFollowers(cached.igData, freshIgData);
+              setIgData(refreshedIgData);
+              setIgError(null);
+              writeDashboardCache(cacheKey, {
+                ...cached,
+                igData: refreshedIgData,
+                igError: null
+              });
+            } else {
+              const followersError = await followersRes.json().catch(() => ({}));
+              setIgError(followersError);
+            }
+          } catch (followersError) {
+            console.error('Instagram followers refresh failed:', followersError);
+          }
           return;
         }
 

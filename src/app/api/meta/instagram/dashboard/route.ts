@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
+import { syncInstagramFollowers } from '@/lib/instagramFollowers';
 
 function sumInsightValue(metricData: any) {
   if (!metricData) return 0;
@@ -15,10 +16,6 @@ function sumInsightValue(metricData: any) {
 
   const totalValue = metricData.total_value?.value;
   return typeof totalValue === 'number' ? totalValue : 0;
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 export async function GET(request: Request) {
@@ -62,45 +59,9 @@ export async function GET(request: Request) {
 
     for (const config of configs) {
       try {
-        // 1. Fetch Account Info (Followers)
-        const accountRes = await fetch(`https://graph.facebook.com/v25.0/${config.igAccountId}?fields=followers_count,media_count,username&access_token=${accessToken}`);
-        const accountInfo = await accountRes.json();
-        if (!accountRes.ok) {
-          throw createMetaApiError(accountInfo, 'Failed to fetch Instagram account info');
-        }
-        const followers = accountInfo.followers_count || 0;
-        const today = startOfDay(new Date());
-
-        await prisma.instagramFollowersHistory.upsert({
-          where: {
-            igAccountId_date: {
-              igAccountId: config.igAccountId,
-              date: today
-            }
-          },
-          update: {
-            followersCount: followers
-          },
-          create: {
-            igAccountId: config.igAccountId,
-            date: today,
-            followersCount: followers
-          }
-        });
-
-        const historyStartDate = startOfDay(new Date(today));
-        historyStartDate.setDate(historyStartDate.getDate() - 89);
-        const followersHistory = await prisma.instagramFollowersHistory.findMany({
-          where: {
-            igAccountId: config.igAccountId,
-            date: {
-              gte: historyStartDate
-            }
-          },
-          orderBy: {
-            date: 'asc'
-          }
-        });
+        // 1. Fetch Account Info and save today's follower count.
+        const { accountInfo, followers, followersHistory } =
+          await syncInstagramFollowers(config, accessToken);
 
         // 2. Fetch Insights (Fetch in 30-day chunks because IG has a limit)
         let reach = 0;
@@ -192,10 +153,7 @@ export async function GET(request: Request) {
             reach,
             profileViews
           },
-          followersHistory: followersHistory.map((entry) => ({
-            date: entry.date.toISOString().slice(0, 10),
-            followers: entry.followersCount
-          })),
+          followersHistory,
           topMedia
         });
 

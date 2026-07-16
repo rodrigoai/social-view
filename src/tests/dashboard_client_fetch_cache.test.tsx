@@ -229,15 +229,38 @@ describe('dashboard views client cache', () => {
     expect(document.querySelector('.animate-spin')).not.toBeInTheDocument();
   });
 
-  it('uses cached Meta dashboard data instead of fetching again', async () => {
+  it('reuses cached Meta metrics but refreshes Instagram followers on every visit', async () => {
     const cacheKey = getDashboardCacheKey('meta', 'acc1', filters);
     writeDashboardCache(cacheKey, {
       data: { summary: { totalCost: 0, totalConversions: 0, totalImpressions: 0 }, campaigns: [] },
       fbData: { pages: [] },
-      igData: { accounts: [] },
+      igData: {
+        accounts: [{
+          igAccountId: 'ig1',
+          igAccountName: 'socialview',
+          followers: 100,
+          followersHistory: [{ date: '2026-07-15', followers: 100 }],
+          stats: { reach: 0, impressions: 0, profileViews: 0 },
+          topMedia: []
+        }]
+      },
       adsError: null,
       fbError: null,
       igError: null
+    });
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        accounts: [{
+          igAccountId: 'ig1',
+          username: 'socialview',
+          followers: 101,
+          followersHistory: [
+            { date: '2026-07-15', followers: 100 },
+            { date: '2026-07-16', followers: 101 }
+          ]
+        }]
+      })
     });
 
     render(
@@ -249,8 +272,38 @@ describe('dashboard views client cache', () => {
       />
     );
 
+    await waitFor(() => expect(screen.getAllByText('101').length).toBeGreaterThan(0));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/meta/instagram/followers?mainAccountId=acc1',
+      { cache: 'no-store' }
+    );
+  });
+
+  it('keeps cached Meta metrics visible when the follower refresh fails', async () => {
+    writeDashboardCache(getDashboardCacheKey('meta', 'acc1', filters), {
+      data: { summary: { totalCost: 0, totalConversions: 0, totalImpressions: 0 }, campaigns: [] },
+      fbData: { pages: [] },
+      igData: { accounts: [] },
+      adsError: null,
+      fbError: null,
+      igError: null
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network unavailable'));
+
+    render(
+      <MetaDashboardView
+        selectedAccountId="acc1"
+        onOpenKpi={() => {}}
+        filters={filters}
+        onFilterChange={() => {}}
+      />
+    );
+
     await waitFor(() => expect(screen.getByText('Meta Ads')).toBeInTheDocument());
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(screen.queryByText('Dashboard Unavailable')).not.toBeInTheDocument();
+    (console.error as jest.Mock).mockRestore();
   });
 
   it('shows messaging conversations started in the Meta Leads summary and campaign', async () => {

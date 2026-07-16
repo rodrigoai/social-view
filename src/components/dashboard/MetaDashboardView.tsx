@@ -115,6 +115,7 @@ function FollowersHistoryChart({ history }: { history: Array<{ date: string; fol
   const lastPoint = history[history.length - 1];
   const delta = lastPoint.followers - firstPoint.followers;
   const formatCompact = (value: number) => new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+  const formatExact = (value: number) => new Intl.NumberFormat('pt-BR').format(value);
   const formatDate = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 
   return (
@@ -146,9 +147,26 @@ function FollowersHistoryChart({ history }: { history: Array<{ date: string; fol
             );
           })}
           <path d={path} fill="none" stroke="rgb(219 39 119)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          {points.map((point, index) => (
-            <circle key={`${point.date}-${index}`} cx={point.x} cy={point.y} r={index === points.length - 1 ? 4 : 2.5} fill="rgb(219 39 119)" />
-          ))}
+          {points.map((point, index) => {
+            const labelY = point.y <= paddingY + 12 ? point.y + 16 : point.y - 9;
+
+            return (
+              <g key={`${point.date}-${index}`}>
+                <circle cx={point.x} cy={point.y} r={index === points.length - 1 ? 4 : 2.5} fill="rgb(219 39 119)" />
+                <text
+                  data-testid="followers-history-value-label"
+                  x={point.x}
+                  y={labelY}
+                  textAnchor="middle"
+                  className="fill-foreground stroke-card text-[10px] font-semibold"
+                  strokeWidth="3"
+                  paintOrder="stroke"
+                >
+                  {formatExact(point.followers)}
+                </text>
+              </g>
+            );
+          })}
           <text x={paddingX} y={height - 3} className="fill-muted text-[11px]">{formatDate(firstPoint.date)}</text>
           <text x={width - paddingX} y={height - 3} textAnchor="end" className="fill-muted text-[11px]">{formatDate(lastPoint.date)}</text>
         </svg>

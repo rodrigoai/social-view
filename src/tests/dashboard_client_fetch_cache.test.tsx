@@ -273,6 +273,9 @@ describe('dashboard views client cache', () => {
     );
 
     await waitFor(() => expect(screen.getAllByText('101').length).toBeGreaterThan(0));
+    const dailyFollowerLabels = screen.getAllByTestId('followers-history-value-label');
+    expect(dailyFollowerLabels).toHaveLength(2);
+    expect(dailyFollowerLabels.map((label) => label.textContent)).toEqual(['100', '101']);
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/meta/instagram/followers?mainAccountId=acc1',

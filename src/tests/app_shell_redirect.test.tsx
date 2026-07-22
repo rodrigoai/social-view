@@ -47,17 +47,21 @@ describe('AppShell authentication redirects', () => {
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();
   });
 
-  it('does not redirect unauthenticated users already on login', async () => {
-    (usePathname as jest.Mock).mockReturnValue('/login');
+  it.each([
+    ['/login', 'Login form'],
+    ['/terms', 'Terms of Service'],
+    ['/privacy', 'Privacy Policy'],
+  ])('does not redirect unauthenticated users from public page %s', async (pathname, content) => {
+    (usePathname as jest.Mock).mockReturnValue(pathname);
     (useSession as jest.Mock).mockReturnValue({ status: 'unauthenticated', data: null });
 
     render(
       <AppShell>
-        <div>Login form</div>
+        <div>{content}</div>
       </AppShell>,
     );
 
-    expect(screen.getByText('Login form')).toBeInTheDocument();
+    expect(screen.getByText(content)).toBeInTheDocument();
     await waitFor(() => {
       expect(replace).not.toHaveBeenCalled();
     });

@@ -11,15 +11,15 @@ function ProtectedApp({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
-  const isLogin = pathname === '/login';
+  const isPublicPage = ['/login', '/terms', '/privacy'].includes(pathname);
 
   useEffect(() => {
-    if (!isLogin && status === 'unauthenticated') {
+    if (!isPublicPage && status === 'unauthenticated') {
       router.replace('/login');
     }
-  }, [isLogin, router, status]);
+  }, [isPublicPage, router, status]);
 
-  if (isLogin) return <>{children}</>;
+  if (isPublicPage) return <>{children}</>;
 
   if (status === 'loading' || status === 'unauthenticated') {
     return (

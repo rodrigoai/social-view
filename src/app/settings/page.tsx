@@ -429,75 +429,83 @@ function SettingsContent() {
       {success === 'meta_linked' && <Banner color="blue" message="Meta account successfully linked!" />}
       {error && <Banner color="red" message="Integration failed. Please try again." />}
 
-      <div className="mb-8 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] gap-6">
-        <Card>
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-foreground">Users</h2>
-          </div>
-          <input
-            aria-label="Search users"
-            value={userSearch}
-            onChange={(event) => setUserSearch(event.target.value)}
-            placeholder="Search users"
-            className="mb-3 w-full px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
-          />
-          <div className="space-y-3">
-            {filteredUsers.map((user) => {
-              const isStatusPending = pendingUserStatusIds.includes(user.id);
-              const isDeletePending = pendingUserDeleteIds.includes(user.id);
-              const isSelectedUser = selectedUserId === user.id;
-              const roleClassName = user.role === 'ADMIN'
-                ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300';
-              return (
-                <div key={user.id} className={`border rounded-xl p-3 transition-colors ${
-                  isSelectedUser
-                    ? 'border-blue-300 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-900/10'
-                    : 'border-border-custom'
-                }`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => selectUserForEdit(user)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <p className="font-semibold text-foreground truncate">{user.name || user.email}</p>
-                      <p className="text-xs text-muted truncate">{user.email}</p>
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs border rounded-lg px-2 py-1 font-semibold ${roleClassName}`}>
-                        {user.role === 'ADMIN' ? 'Admin' : 'Client'}
-                      </span>
-                      <button
-                        onClick={() => toggleUserStatus(user)}
-                        disabled={isStatusPending}
-                        className={`text-xs font-semibold px-2 py-1 rounded-lg disabled:opacity-60 ${
-                          user.status === 'ACTIVE'
-                            ? 'bg-red-700 text-white dark:bg-red-900/20 dark:text-red-300'
-                            : 'bg-emerald-700 text-white dark:bg-emerald-900/20 dark:text-emerald-300'
-                        }`}
-                      >
-                        {isStatusPending ? 'Saving...' : user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
-                      </button>
-                      <button
-                        onClick={() => deleteUser(user)}
-                        disabled={isDeletePending}
-                        className="p-1.5 rounded-lg text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60"
-                        title="Delete user"
-                        aria-label={`Delete ${user.email}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+      <div className="mb-8 grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+        <div className="min-w-0 xl:relative xl:h-full xl:min-h-0">
+          <Card className="xl:absolute xl:inset-0 xl:overflow-hidden xl:[&>div]:h-full">
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-bold text-foreground">Users</h2>
+              </div>
+              <input
+                aria-label="Search users"
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="Search users"
+                className="mb-3 w-full flex-shrink-0 px-3 py-2 rounded-xl border border-border-custom bg-background text-sm outline-none focus:border-blue-500"
+              />
+              <div
+                role="region"
+                aria-label="User list"
+                className="min-h-0 space-y-3 xl:flex-1 xl:overflow-y-auto xl:pr-1"
+              >
+                {filteredUsers.map((user) => {
+                  const isStatusPending = pendingUserStatusIds.includes(user.id);
+                  const isDeletePending = pendingUserDeleteIds.includes(user.id);
+                  const isSelectedUser = selectedUserId === user.id;
+                  const roleClassName = user.role === 'ADMIN'
+                    ? 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300';
+                  return (
+                    <div key={user.id} className={`border rounded-xl p-3 transition-colors ${
+                      isSelectedUser
+                        ? 'border-blue-300 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-900/10'
+                        : 'border-border-custom'
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => selectUserForEdit(user)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="font-semibold text-foreground truncate">{user.name || user.email}</p>
+                          <p className="text-xs text-muted truncate">{user.email}</p>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs border rounded-lg px-2 py-1 font-semibold ${roleClassName}`}>
+                            {user.role === 'ADMIN' ? 'Admin' : 'Client'}
+                          </span>
+                          <button
+                            onClick={() => toggleUserStatus(user)}
+                            disabled={isStatusPending}
+                            className={`text-xs font-semibold px-2 py-1 rounded-lg disabled:opacity-60 ${
+                              user.status === 'ACTIVE'
+                                ? 'bg-red-700 text-white dark:bg-red-900/20 dark:text-red-300'
+                                : 'bg-emerald-700 text-white dark:bg-emerald-900/20 dark:text-emerald-300'
+                            }`}
+                          >
+                            {isStatusPending ? 'Saving...' : user.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                          </button>
+                          <button
+                            onClick={() => deleteUser(user)}
+                            disabled={isDeletePending}
+                            className="p-1.5 rounded-lg text-muted hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60"
+                            title="Delete user"
+                            aria-label={`Delete ${user.email}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
+        </div>
 
-        <Card>
+        <Card className="self-start">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-blue-600" />
@@ -585,7 +593,7 @@ function SettingsContent() {
         <div className="flex gap-6 items-start">
 
           {/* ── Left: account list ─────────────────────────────────── */}
-          <div className="w-72 flex-shrink-0 bg-card border border-border-custom rounded-2xl p-2 sticky top-6 max-h-[calc(100vh-140px)] overflow-y-auto">
+          <div className="w-72 flex-shrink-0 bg-card border border-border-custom rounded-2xl p-2 sticky top-6">
             <div className="relative mb-2">
               <Search
                 aria-hidden="true"
@@ -600,7 +608,7 @@ function SettingsContent() {
                 className="w-full rounded-xl border border-border-custom bg-background py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-blue-500"
               />
             </div>
-            <div className="space-y-1">
+            <div role="region" aria-label="Client list" className="space-y-1">
               {filteredAccounts.map(acc => (
                 <AccountListItem
                   key={acc.id}

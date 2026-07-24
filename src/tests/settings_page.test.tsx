@@ -301,4 +301,11 @@ describe('Settings page', () => {
     expect(screen.getByRole('status')).toHaveTextContent('No clients found.');
     expect(screen.queryByRole('button', { name: /Contoso/i })).not.toBeInTheDocument();
   });
+
+  it('scrolls the user list without making the client list scrollable', () => {
+    render(<Settings />);
+
+    expect(screen.getByRole('region', { name: 'User list' })).toHaveClass('xl:overflow-y-auto');
+    expect(screen.getByRole('region', { name: 'Client list' })).not.toHaveClass('overflow-y-auto');
+  });
 });

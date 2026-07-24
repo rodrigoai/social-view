@@ -14,7 +14,8 @@ export async function GET(request: Request) {
 
   try {
     await requireAdmin();
-    const client = getGoogleOAuthClient();
+    const redirectUri = new URL('/api/auth/google/callback', request.url).toString();
+    const client = getGoogleOAuthClient(redirectUri);
     const { tokens } = await client.getToken(code);
     
     const updateData: any = {

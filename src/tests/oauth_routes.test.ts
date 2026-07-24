@@ -75,11 +75,14 @@ describe('OAuth routes', () => {
 
   it('starts Google OAuth with all required scopes and account state', async () => {
     const response = await startGoogleAuth(new Request(
-      'http://localhost/api/auth/google?mainAccountId=main-1',
+      'https://socialview.coyo.com.br/api/auth/google?mainAccountId=main-1',
     ));
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://accounts.google.com/o/oauth2/v2/auth?state=main-1');
+    expect(getGoogleOAuthClient).toHaveBeenCalledWith(
+      'https://socialview.coyo.com.br/api/auth/google/callback',
+    );
     expect(mockGenerateAuthUrl).toHaveBeenCalledWith({
       access_type: 'offline',
       scope: [
@@ -92,13 +95,27 @@ describe('OAuth routes', () => {
     });
   });
 
-  it('stores Google callback tokens and redirects to settings success', async () => {
-    const response = await handleGoogleCallback(new Request(
-      'http://localhost/api/auth/google/callback?code=oauth-code&state=main-1',
+  it('uses the Vercel origin when Google OAuth starts on the secondary domain', async () => {
+    const response = await startGoogleAuth(new Request(
+      'https://social-view-sand.vercel.app/api/auth/google?mainAccountId=main-1',
     ));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('http://localhost/settings?success=google_linked');
+    expect(getGoogleOAuthClient).toHaveBeenCalledWith(
+      'https://social-view-sand.vercel.app/api/auth/google/callback',
+    );
+  });
+
+  it('stores Google callback tokens and redirects to settings success', async () => {
+    const response = await handleGoogleCallback(new Request(
+      'https://socialview.coyo.com.br/api/auth/google/callback?code=oauth-code&state=main-1',
+    ));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://socialview.coyo.com.br/settings?success=google_linked');
+    expect(getGoogleOAuthClient).toHaveBeenCalledWith(
+      'https://socialview.coyo.com.br/api/auth/google/callback',
+    );
     expect(mockGetToken).toHaveBeenCalledWith('oauth-code');
     expect(prisma.googleCredential.upsert).toHaveBeenCalledWith({
       where: { mainAccountId: 'main-1' },

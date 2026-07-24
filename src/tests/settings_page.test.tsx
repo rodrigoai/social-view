@@ -252,4 +252,53 @@ describe('Settings page', () => {
     expect(screen.getAllByText('Admin').length).toBeGreaterThan(0);
     expect(screen.queryByText('Client User')).not.toBeInTheDocument();
   });
+
+  it('filters clients by account name or id', () => {
+    (useAccount as jest.Mock).mockReturnValue({
+      accounts: [
+        {
+          id: 'client-north-1',
+          name: 'Northwind',
+          googleAdsConfigs: [],
+          googleAnalyticsConfigs: [],
+          googleSearchConsoleConfigs: [],
+          metaAdsConfigs: [],
+          facebookPageConfigs: [],
+          instagramPageConfigs: [],
+        },
+        {
+          id: 'client-south-2',
+          name: 'Contoso',
+          googleAdsConfigs: [],
+          googleAnalyticsConfigs: [],
+          googleSearchConsoleConfigs: [],
+          metaAdsConfigs: [],
+          facebookPageConfigs: [],
+          instagramPageConfigs: [],
+        },
+      ],
+      refreshAccounts,
+      selectedAccountId: 'client-north-1',
+      setSelectedAccountId,
+    });
+
+    render(<Settings />);
+
+    expect(screen.getByRole('button', { name: /Northwind/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Contoso/i })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Search clients'), {
+      target: { value: 'south-2' },
+    });
+
+    expect(screen.queryByRole('button', { name: /Northwind/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Contoso/i })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Search clients'), {
+      target: { value: 'missing client' },
+    });
+
+    expect(screen.getByRole('status')).toHaveTextContent('No clients found.');
+    expect(screen.queryByRole('button', { name: /Contoso/i })).not.toBeInTheDocument();
+  });
 });

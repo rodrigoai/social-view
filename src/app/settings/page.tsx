@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { Card } from '@/components/Card';
 import {
   CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
-  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText
+  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText, Search
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccount } from '@/context/AccountContext';
@@ -146,6 +146,7 @@ function SettingsContent() {
   const [pendingUserDeleteIds, setPendingUserDeleteIds] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -169,6 +170,13 @@ function SettingsContent() {
         user.role === 'ADMIN' ? 'admin' : 'client',
       ].some((value) => value.toLowerCase().includes(normalizedUserSearch)))
     : users;
+  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+  const filteredAccounts = normalizedClientSearch
+    ? accounts.filter((account) => [
+        account.name,
+        account.id,
+      ].some((value) => value.toLowerCase().includes(normalizedClientSearch)))
+    : accounts;
   const selectedWebsiteHref = selectedAccount?.mainWebsiteUrl
     ? (/^https?:\/\//i.test(selectedAccount.mainWebsiteUrl) ? selectedAccount.mainWebsiteUrl : `https://${selectedAccount.mainWebsiteUrl}`)
     : null;
@@ -578,8 +586,22 @@ function SettingsContent() {
 
           {/* ── Left: account list ─────────────────────────────────── */}
           <div className="w-72 flex-shrink-0 bg-card border border-border-custom rounded-2xl p-2 sticky top-6 max-h-[calc(100vh-140px)] overflow-y-auto">
+            <div className="relative mb-2">
+              <Search
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted pointer-events-none"
+              />
+              <input
+                type="search"
+                aria-label="Search clients"
+                value={clientSearch}
+                onChange={(event) => setClientSearch(event.target.value)}
+                placeholder="Search clients"
+                className="w-full rounded-xl border border-border-custom bg-background py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-blue-500"
+              />
+            </div>
             <div className="space-y-1">
-              {accounts.map(acc => (
+              {filteredAccounts.map(acc => (
                 <AccountListItem
                   key={acc.id}
                   account={acc as Account}
@@ -587,6 +609,11 @@ function SettingsContent() {
                   onClick={() => setSelectedAccountId(acc.id)}
                 />
               ))}
+              {filteredAccounts.length === 0 && (
+                <p role="status" className="px-3 py-8 text-center text-sm text-muted">
+                  No clients found.
+                </p>
+              )}
             </div>
           </div>
 

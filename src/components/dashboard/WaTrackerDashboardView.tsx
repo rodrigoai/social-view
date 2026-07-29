@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { clearDashboardCache, getDashboardCacheKey, readDashboardCache, writeDashboardCache } from '@/lib/dashboardClientCache';
 import { WaTrackerLeadsTable } from '@/components/dashboard/WaTrackerLeadsTable';
 import { KpiLabel, type KpiKey } from '@/components/KpiModal';
+import { WaTrackerSummaryCharts } from '@/components/dashboard/WaTrackerSummaryCharts';
 
 type WaTrackerDashboardViewProps = {
   selectedAccountId: string;
@@ -188,6 +189,8 @@ export function WaTrackerDashboardView({ selectedAccountId, onOpenKpi, filters, 
             <p className="text-2xl font-bold text-foreground">{formatDecimal(data?.summary?.avgLeadsPerDay)}</p>
           </Card>
         </div>
+
+        <WaTrackerSummaryCharts groups={data?.campaigns || []} />
 
         <h3 className="text-lg font-bold text-foreground mb-4">Campaign Results</h3>
         <div className="grid grid-cols-1 gap-4">

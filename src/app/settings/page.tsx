@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { Card } from '@/components/Card';
 import {
   CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
-  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText, Search
+  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText, Search, Download
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccount } from '@/context/AccountContext';
@@ -805,6 +805,7 @@ function SettingsContent() {
                     </button>
                   </div>
                 )}
+
               </Card>
 
               {/* Main Website card */}
@@ -904,6 +905,24 @@ function SettingsContent() {
                     </button>
                   </div>
                 )}
+
+                <div className="flex items-center justify-between gap-3 pt-3 border-t border-border-custom">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Download className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">Agent integration skill</p>
+                      <p className="text-xs text-muted mt-0.5">Instructions for adding WA Tracker to websites and apps.</p>
+                    </div>
+                  </div>
+                  <a
+                    href="/skills/integrate-whatsapp-tracking/SKILL.md"
+                    download="SKILL.md"
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-900/20 dark:text-teal-400 transition-colors whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download Skill
+                  </a>
+                </div>
               </Card>
 
               {/* Meta Integrations card */}

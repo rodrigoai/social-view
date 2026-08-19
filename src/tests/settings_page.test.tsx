@@ -308,4 +308,14 @@ describe('Settings page', () => {
     expect(screen.getByRole('region', { name: 'User list' })).toHaveClass('xl:overflow-y-auto');
     expect(screen.getByRole('region', { name: 'Client list' })).not.toHaveClass('overflow-y-auto');
   });
+
+  it('offers the WA Tracker agent integration skill for download', () => {
+    render(<Settings />);
+
+    expect(screen.getByRole('link', { name: /Download Skill/i })).toHaveAttribute(
+      'href',
+      '/skills/integrate-whatsapp-tracking/SKILL.md',
+    );
+    expect(screen.getByRole('link', { name: /Download Skill/i })).toHaveAttribute('download', 'SKILL.md');
+  });
 });

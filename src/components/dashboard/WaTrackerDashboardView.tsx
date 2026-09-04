@@ -190,7 +190,11 @@ export function WaTrackerDashboardView({ selectedAccountId, onOpenKpi, filters, 
           </Card>
         </div>
 
-        <WaTrackerSummaryCharts groups={data?.campaigns || []} />
+        <WaTrackerSummaryCharts
+          groups={data?.campaigns || []}
+          dailyLeads={data?.dailyLeads || []}
+          average={data?.summary?.avgLeadsPerDay || 0}
+        />
 
         <h3 className="text-lg font-bold text-foreground mb-4">Campaign Results</h3>
         <div className="grid grid-cols-1 gap-4">

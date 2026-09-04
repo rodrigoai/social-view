@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { GET as getWaTrackerDashboard, getWaTrackerDateRange } from '@/app/api/wa-tracker/dashboard/route';
+import { buildDailyLeadSeries, GET as getWaTrackerDashboard, getWaTrackerDateRange } from '@/app/api/wa-tracker/dashboard/route';
 import { GET as getWaTrackerLeads } from '@/app/api/wa-tracker/leads/route';
 import { prisma } from '@/lib/prisma';
 
@@ -82,11 +82,13 @@ describe('WA Tracker dashboard API', () => {
       proposalRate: 5 / 31,
       salesRate: 1 / 31,
     });
-    expect(json.campaignOptions.map((campaign: any) => campaign.name)).toEqual([
+    expect(json.campaignOptions.map((campaign: { name: string }) => campaign.name)).toEqual([
       'Orgânico',
       '[CY] [PMax] Painel Acústico',
       'Orgânico',
     ]);
+    expect(json.dailyLeads).toHaveLength(7);
+    expect(json.dailyLeads.every((day: { leads: number }) => day.leads === 0)).toBe(true);
   });
 
   it('filters by campaign name after loading the full API response', async () => {
@@ -137,6 +139,83 @@ describe('WA Tracker dashboard API', () => {
       from: '2026-06-10',
       to: '2026-06-17',
     });
+  });
+
+  it('builds a zero-filled daily series and applies the campaign filter', () => {
+    const series = buildDailyLeadSeries('2026-06-11', '2026-06-14', [
+      { conversion_time: '2026-06-11T10:00:00.000Z', google_ads: { campaign_name: 'Search' } },
+      { conversion_time: '2026-06-11T11:00:00.000Z', google_ads: { campaign_name: 'Search' } },
+      { conversion_time: '2026-06-12T10:00:00.000Z', utm_campaign: 'Organic Campaign' },
+      { conversion_time: '2026-06-14T10:00:00.000Z', google_ads: { campaign_name: 'Search' } },
+    ], 'Search');
+
+    expect(series).toEqual([
+      { date: '2026-06-11', leads: 2 },
+      { date: '2026-06-12', leads: 0 },
+      { date: '2026-06-13', leads: 0 },
+      { date: '2026-06-14', leads: 1 },
+    ]);
+  });
+
+  it('paginates lead history for the filtered daily trend', async () => {
+    (prisma.mainAccount.findUnique as jest.Mock).mockResolvedValue({ waTrackerAccountId: 'wa-123' });
+    (global.fetch as jest.Mock).mockImplementation(async (input: string) => {
+      const url = String(input);
+
+      if (url.includes('/api/leads/summary')) {
+        return {
+          ok: true,
+          json: async () => ({
+            groups: [
+              { source: 'Google', campaign_id: 'search-1', campaign: 'Search', leads: 2, proposals: 0, sales: 0 },
+              { source: 'Google', campaign_id: 'pmax-1', campaign: 'PMax', leads: 1, proposals: 0, sales: 0 },
+            ],
+          }),
+          text: async () => '',
+        };
+      }
+
+      if (url.includes('cursor=next-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: [
+              { id: 'lead-3', conversion_time: '2026-06-13T12:00:00.000Z', google_ads: { campaign_id: 'search-1', campaign_name: 'Search' } },
+            ],
+            pagination: { next_cursor: null, has_more: false, page_size: 200 },
+          }),
+          text: async () => '',
+        };
+      }
+
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            { id: 'lead-1', conversion_time: '2026-06-11T12:00:00.000Z', google_ads: { campaign_id: 'search-1', campaign_name: 'Search' } },
+            { id: 'lead-2', conversion_time: '2026-06-12T12:00:00.000Z', google_ads: { campaign_id: 'pmax-1', campaign_name: 'PMax' } },
+          ],
+          pagination: { next_cursor: 'next-1', has_more: true, page_size: 200 },
+        }),
+        text: async () => '',
+      };
+    });
+
+    const response = await getWaTrackerDashboard(new Request(
+      'http://localhost/api/wa-tracker/dashboard?mainAccountId=main-1&period=custom&startDate=2026-06-11&endDate=2026-06-13&campaign=Search',
+    ));
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.dailyLeads).toEqual([
+      { date: '2026-06-11', leads: 1 },
+      { date: '2026-06-12', leads: 0 },
+      { date: '2026-06-13', leads: 1 },
+    ]);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://watracker.coyo.com.br/api/leads?account_id=wa-123&from=2026-06-11&to=2026-06-13&page_size=200&cursor=next-1',
+      expect.objectContaining({ cache: 'no-store' }),
+    );
   });
 
   it('lists leads with server-side account id, date, status, and campaign normalization', async () => {

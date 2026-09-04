@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 
 const WA_TRACKER_SUMMARY_ENDPOINT = 'https://watracker.coyo.com.br/api/leads/summary';
+const WA_TRACKER_LEADS_ENDPOINT = 'https://watracker.coyo.com.br/api/leads';
+const DAILY_LEADS_PAGE_SIZE = 200;
+const MAX_DAILY_LEADS_PAGES = 100;
 
 type WaTrackerGroup = {
   source?: string | null;
@@ -25,6 +28,21 @@ type NormalizedWaTrackerGroup = {
   sales: number;
   proposalRate: number;
   salesRate: number;
+};
+
+type WaTrackerDailyLead = {
+  id?: string | null;
+  conversion_time?: string | null;
+  utm_campaign?: string | null;
+  google_ads?: {
+    campaign_id?: string | null;
+    campaign_name?: string | null;
+  } | null;
+};
+
+export type WaTrackerDailyLeadDatum = {
+  date: string;
+  leads: number;
 };
 
 function formatDate(value: Date) {
@@ -94,6 +112,110 @@ function countInclusiveDays(from: string, to: string) {
 function isOrganicSource(source: string) {
   const normalized = source.trim().toLowerCase();
   return normalized === 'organic' || normalized === 'organico' || normalized === 'orgânico';
+}
+
+function normalizeCampaign(value?: string | null) {
+  return !value || value === '(sem campanha)' ? 'Orgânico' : value;
+}
+
+function matchesCampaign(lead: WaTrackerDailyLead, campaignFilter: string) {
+  if (campaignFilter === 'all') return true;
+
+  const googleAds = lead.google_ads || {};
+  return normalizeCampaign(googleAds.campaign_name || lead.utm_campaign) === campaignFilter
+    || googleAds.campaign_id === campaignFilter
+    || lead.utm_campaign === campaignFilter;
+}
+
+function getDateKey(value?: string | null) {
+  return value?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || null;
+}
+
+export function buildDailyLeadSeries(
+  from: string,
+  to: string,
+  leads: WaTrackerDailyLead[],
+  campaignFilter = 'all',
+): WaTrackerDailyLeadDatum[] {
+  const totals = new Map<string, number>();
+
+  leads.forEach((lead) => {
+    if (!matchesCampaign(lead, campaignFilter)) return;
+    const date = getDateKey(lead.conversion_time);
+    if (!date || date < from || date > to) return;
+    totals.set(date, (totals.get(date) || 0) + 1);
+  });
+
+  const series: WaTrackerDailyLeadDatum[] = [];
+  const cursor = new Date(`${from}T00:00:00.000Z`);
+  const lastDate = new Date(`${to}T00:00:00.000Z`);
+
+  while (cursor <= lastDate) {
+    const date = formatDate(cursor);
+    series.push({ date, leads: totals.get(date) || 0 });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return series;
+}
+
+async function fetchDailyLeads(
+  accountId: string,
+  token: string,
+  from: string,
+  to: string,
+  campaignFilter: string,
+) {
+  const leads: WaTrackerDailyLead[] = [];
+  const seenCursors = new Set<string>();
+  let nextCursor: string | null = null;
+
+  for (let page = 0; page < MAX_DAILY_LEADS_PAGES; page += 1) {
+    const apiUrl = new URL(WA_TRACKER_LEADS_ENDPOINT);
+    apiUrl.searchParams.set('account_id', accountId);
+    apiUrl.searchParams.set('from', from);
+    apiUrl.searchParams.set('to', to);
+    apiUrl.searchParams.set('page_size', String(DAILY_LEADS_PAGE_SIZE));
+    if (nextCursor) apiUrl.searchParams.set('cursor', nextCursor);
+
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return {
+        error: {
+          status: response.status,
+          details: await response.text().catch(() => ''),
+        },
+      };
+    }
+
+    const payload = await response.json();
+    if (Array.isArray(payload?.data)) leads.push(...payload.data);
+
+    const hasMore = Boolean(payload?.pagination?.has_more);
+    const cursor = typeof payload?.pagination?.next_cursor === 'string'
+      ? payload.pagination.next_cursor
+      : null;
+
+    if (!hasMore || !cursor) {
+      return { dailyLeads: buildDailyLeadSeries(from, to, leads, campaignFilter) };
+    }
+
+    if (seenCursors.has(cursor)) {
+      return { error: { status: 502, details: 'WA Tracker returned a repeated pagination cursor' } };
+    }
+
+    seenCursors.add(cursor);
+    nextCursor = cursor;
+  }
+
+  return { error: { status: 502, details: 'WA Tracker lead history exceeded the pagination safety limit' } };
 }
 
 export async function GET(request: Request) {
@@ -166,9 +288,25 @@ export async function GET(request: Request) {
       };
     }, { totalLeads: 0, totalOrganicLeads: 0, totalAdsLeads: 0, totalProposals: 0, totalSales: 0 });
     const days = countInclusiveDays(from, to);
+    const dailyResult = await fetchDailyLeads(
+      account.waTrackerAccountId,
+      token,
+      from,
+      to,
+      campaignFilter,
+    );
+
+    if (dailyResult.error) {
+      return NextResponse.json({
+        error: 'Failed to fetch WA Tracker daily leads',
+        status: dailyResult.error.status,
+        details: dailyResult.error.details,
+      }, { status: dailyResult.error.status >= 400 && dailyResult.error.status < 600 ? dailyResult.error.status : 502 });
+    }
 
     return NextResponse.json({
       dateRange: { from, to },
+      dailyLeads: dailyResult.dailyLeads,
       summary: {
         ...summary,
         avgLeadsPerDay: summary.totalLeads / days,
@@ -182,11 +320,11 @@ export async function GET(request: Request) {
         source: group.source,
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const authResponse = authzErrorResponse(error);
     if (authResponse) return authResponse;
 
-    const message = error?.message || 'Failed to fetch WA Tracker dashboard';
+    const message = error instanceof Error ? error.message : 'Failed to fetch WA Tracker dashboard';
     const status = message.includes('date') || message.includes('startDate') ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

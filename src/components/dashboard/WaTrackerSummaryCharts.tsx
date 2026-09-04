@@ -11,6 +11,11 @@ export type LeadChartDatum = {
   leads: number;
 };
 
+export type DailyLeadDatum = {
+  date: string;
+  leads: number;
+};
+
 const SOURCE_COLORS = [
   '#0d9488',
   '#14b8a6',
@@ -64,6 +69,15 @@ export function groupCampaignsForChart(campaigns: LeadChartDatum[], maxRows = 8)
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value);
+}
+
+function formatDecimal(value: number) {
+  return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
+}
+
+function formatChartDate(value: string) {
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' })
+    .format(new Date(`${value}T00:00:00`));
 }
 
 function SourceComparisonChart({ sources }: { sources: LeadChartDatum[] }) {
@@ -211,6 +225,158 @@ function CampaignLeadsChart({ campaigns, totalCampaigns }: { campaigns: LeadChar
   );
 }
 
+function DailyLeadsLineChart({ dailyLeads, average }: { dailyLeads: DailyLeadDatum[]; average: number }) {
+  const width = 960;
+  const height = 270;
+  const padding = { top: 18, right: 18, bottom: 34, left: 42 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const maxValue = Math.max(1, Math.ceil(average), ...dailyLeads.map((day) => day.leads));
+  const totalLeads = dailyLeads.reduce((total, day) => total + day.leads, 0);
+  const points = dailyLeads.map((day, index) => ({
+    ...day,
+    x: padding.left + (dailyLeads.length === 1 ? plotWidth / 2 : (index / (dailyLeads.length - 1)) * plotWidth),
+    y: padding.top + ((maxValue - day.leads) / maxValue) * plotHeight,
+  }));
+  const linePath = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  const areaPath = points.length > 0
+    ? `${linePath} L ${points.at(-1)!.x} ${padding.top + plotHeight} L ${points[0].x} ${padding.top + plotHeight} Z`
+    : '';
+  const averageY = padding.top + ((maxValue - average) / maxValue) * plotHeight;
+  const labelIndexes = Array.from(new Set([0, 0.25, 0.5, 0.75, 1].map((step) => (
+    Math.round((dailyLeads.length - 1) * step)
+  ))));
+  const ariaDescription = dailyLeads
+    .map((day) => `${formatChartDate(day.date)}: ${formatNumber(day.leads)}`)
+    .join(', ');
+
+  return (
+    <Card className="xl:col-span-2 border-teal-500/10 dark:border-teal-500/20 shadow-sm overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+        <div>
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Total Leads per Day</h3>
+          <p className="text-xs text-muted mt-1">Daily lead volume for the selected filters</p>
+        </div>
+        <div className="flex items-center gap-5 sm:text-right">
+          <div>
+            <p className="text-lg font-bold text-foreground tabular-nums">{formatNumber(totalLeads)}</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted">total leads</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-teal-700 dark:text-teal-400 tabular-nums">{formatDecimal(average)}</p>
+            <p className="text-[11px] uppercase tracking-wider text-muted">daily average</p>
+          </div>
+        </div>
+      </div>
+
+      {totalLeads > 0 ? (
+        <div className="w-full overflow-x-auto">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            role="img"
+            aria-label={`Total leads per day. Daily average ${formatDecimal(average)}. ${ariaDescription}`}
+            className="w-full min-w-[640px] h-auto"
+          >
+            <defs>
+              <linearGradient id="wa-daily-leads-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0d9488" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#0d9488" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+
+            {[0, 0.25, 0.5, 0.75, 1].map((step) => {
+              const y = padding.top + step * plotHeight;
+              const value = maxValue * (1 - step);
+
+              return (
+                <g key={step}>
+                  <line
+                    x1={padding.left}
+                    y1={y}
+                    x2={width - padding.right}
+                    y2={y}
+                    stroke="currentColor"
+                    className="text-border-custom"
+                    strokeDasharray={step === 1 ? undefined : '3 7'}
+                  />
+                  <text x={padding.left - 10} y={y + 4} textAnchor="end" className="fill-muted text-[11px]">
+                    {Number.isInteger(value) ? formatNumber(value) : formatDecimal(value)}
+                  </text>
+                </g>
+              );
+            })}
+
+            <path d={areaPath} fill="url(#wa-daily-leads-area)" aria-hidden="true" />
+            <line
+              x1={padding.left}
+              y1={averageY}
+              x2={width - padding.right}
+              y2={averageY}
+              stroke="currentColor"
+              className="text-teal-700/70 dark:text-teal-300/70"
+              strokeWidth="1.5"
+              strokeDasharray="7 6"
+              aria-hidden="true"
+            />
+            <text
+              x={width - padding.right}
+              y={Math.max(averageY - 7, 11)}
+              textAnchor="end"
+              className="fill-teal-700 dark:fill-teal-300 text-[11px] font-semibold"
+            >
+              Avg {formatDecimal(average)}
+            </text>
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#0d9488"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength="1"
+              className="wa-trend-line"
+            />
+
+            {points.map((point) => (
+              <circle
+                key={point.date}
+                cx={point.x}
+                cy={point.y}
+                r="3"
+                fill="#0d9488"
+                stroke="var(--card)"
+                strokeWidth="2"
+                className="transition-[r,opacity] duration-150 hover:opacity-80"
+              >
+                <title>{`${formatChartDate(point.date)}: ${formatNumber(point.leads)} leads`}</title>
+              </circle>
+            ))}
+
+            {labelIndexes.map((index) => {
+              const point = points[index];
+              if (!point) return null;
+
+              return (
+                <text
+                  key={point.date}
+                  x={point.x}
+                  y={height - 7}
+                  textAnchor={index === 0 ? 'start' : index === dailyLeads.length - 1 ? 'end' : 'middle'}
+                  className="fill-muted text-[11px]"
+                >
+                  {formatChartDate(point.date)}
+                </text>
+              );
+            })}
+          </svg>
+        </div>
+      ) : (
+        <ChartEmptyState />
+      )}
+    </Card>
+  );
+}
+
 function ChartEmptyState() {
   return (
     <div className="min-h-44 flex items-center justify-center rounded-xl border border-dashed border-border-custom bg-accent-custom/40">
@@ -219,7 +385,15 @@ function ChartEmptyState() {
   );
 }
 
-export function WaTrackerSummaryCharts({ groups }: { groups: WaTrackerLeadGroup[] }) {
+export function WaTrackerSummaryCharts({
+  groups,
+  dailyLeads = [],
+  average = 0,
+}: {
+  groups: WaTrackerLeadGroup[];
+  dailyLeads?: DailyLeadDatum[];
+  average?: number;
+}) {
   const sources = aggregateLeadsBySource(groups);
   const allCampaigns = aggregateLeadsByCampaign(groups);
   const campaigns = groupCampaignsForChart(allCampaigns);
@@ -228,6 +402,7 @@ export function WaTrackerSummaryCharts({ groups }: { groups: WaTrackerLeadGroup[
     <section aria-label="WA Tracker lead charts" className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
       <SourceComparisonChart sources={sources} />
       <CampaignLeadsChart campaigns={campaigns} totalCampaigns={allCampaigns.length} />
+      <DailyLeadsLineChart dailyLeads={dailyLeads} average={average} />
     </section>
   );
 }

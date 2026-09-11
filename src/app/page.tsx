@@ -8,10 +8,12 @@ import { GoogleDashboardView } from '@/components/dashboard/GoogleDashboardView'
 import { MetaDashboardView } from '@/components/dashboard/MetaDashboardView';
 import { WaTrackerDashboardView } from '@/components/dashboard/WaTrackerDashboardView';
 
+import { CoyoTasksDashboardView } from '@/components/dashboard/CoyoTasksDashboardView';
+
 export default function Dashboard() {
   const { selectedAccountId, selectedAccount, isLoading: accountsLoading } = useAccount();
   const [openKpi, setOpenKpi] = useState<KpiKey | null>(null);
-  const [activeTab, setActiveTab] = useState<'google' | 'meta' | 'wa-tracker'>('google');
+  const [activeTab, setActiveTab] = useState<'google' | 'meta' | 'wa-tracker' | 'coyo'>('google');
   const [filters, setFilters] = useState({ 
     period: '7d', 
     campaign: 'all',
@@ -40,7 +42,7 @@ export default function Dashboard() {
       </div>
 
       {/* Tab Switcher */}
-      <div className="grid grid-cols-3 p-1 mb-8 bg-card border border-border-custom rounded-xl w-full max-w-lg">
+      <div className="grid grid-cols-4 p-1 mb-8 bg-card border border-border-custom rounded-xl w-full max-w-2xl">
         <button
           onClick={() => setActiveTab('google')}
           className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
@@ -71,6 +73,7 @@ export default function Dashboard() {
         >
           WA Tracker
         </button>
+        <button onClick={() => setActiveTab('coyo')} className={`py-2 text-sm font-bold rounded-lg ${activeTab === 'coyo' ? 'bg-blue-600 text-white' : 'text-muted hover:bg-accent-custom'}`}>Coyô Tasks</button>
       </div>
 
       {activeTab === 'google' ? (
@@ -88,6 +91,8 @@ export default function Dashboard() {
           filters={filters}
           onFilterChange={setFilters}
         />
+      ) : activeTab === 'coyo' ? (
+        <CoyoTasksDashboardView key={selectedAccountId} selectedAccountId={selectedAccountId} />
       ) : (
         <WaTrackerDashboardView
           selectedAccountId={selectedAccountId}

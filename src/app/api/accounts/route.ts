@@ -22,7 +22,7 @@ export async function GET() {
         instagramPageConfigs: true,
       }
     });
-    return NextResponse.json({ accounts });
+    return NextResponse.json({ accounts: accounts.map(({ coyoTaskManagerKey, ...account }) => ({ ...account, hasCoyoTaskManagerKey: Boolean(coyoTaskManagerKey) })) });
   } catch (error) {
     const authResponse = authzErrorResponse(error);
     if (authResponse) return authResponse;
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     const account = await prisma.mainAccount.create({
       data: { name: name || 'My Business' }
     });
-    return NextResponse.json({ account });
+    const { coyoTaskManagerKey, ...safeAccount } = account;
+    return NextResponse.json({ account: { ...safeAccount, hasCoyoTaskManagerKey: Boolean(coyoTaskManagerKey) } });
   } catch (error) {
     const authResponse = authzErrorResponse(error);
     if (authResponse) return authResponse;

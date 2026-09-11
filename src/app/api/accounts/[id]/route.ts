@@ -11,6 +11,16 @@ export async function PATCH(
     await requireAdmin();
     const body = await request.json();
     const data: any = {};
+    if (body.coyoTaskManagerKey !== undefined) {
+      if (typeof body.coyoTaskManagerKey !== 'string' || body.coyoTaskManagerKey.length > 500) return NextResponse.json({ error: 'Invalid Coyô TaskManager Key' }, { status: 400 });
+      data.coyoTaskManagerKey = body.coyoTaskManagerKey.trim() || null;
+    }
+    if (body.coyoClientAcronym !== undefined) {
+      if (typeof body.coyoClientAcronym !== 'string' || body.coyoClientAcronym.trim().length > 100) {
+        return NextResponse.json({ error: 'Invalid Coyô client prefix' }, { status: 400 });
+      }
+      data.coyoClientAcronym = body.coyoClientAcronym.trim().toUpperCase() || null;
+    }
     if (body.name !== undefined) data.name = body.name;
     if (body.googleBusinessUrl !== undefined) data.googleBusinessUrl = body.googleBusinessUrl || null;
     if (body.mainWebsiteUrl !== undefined) data.mainWebsiteUrl = body.mainWebsiteUrl || null;
@@ -20,7 +30,8 @@ export async function PATCH(
       where: { id },
       data
     });
-    return NextResponse.json({ account });
+    const { coyoTaskManagerKey, ...safeAccount } = account;
+    return NextResponse.json({ account: { ...safeAccount, hasCoyoTaskManagerKey: Boolean(coyoTaskManagerKey) } });
   } catch (error) {
     const authResponse = authzErrorResponse(error);
     if (authResponse) return authResponse;

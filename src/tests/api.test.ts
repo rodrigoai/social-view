@@ -61,7 +61,7 @@ describe('API Routes', () => {
       const json = await response.json();
       
       expect(response.status).toBe(200);
-      expect(json.accounts).toEqual(mockAccounts);
+      expect(json.accounts).toEqual(mockAccounts.map(account => ({ ...account, hasCoyoTaskManagerKey: false })));
     });
 
     it('POST /api/accounts creates an account', async () => {
@@ -77,7 +77,7 @@ describe('API Routes', () => {
       const json = await response.json();
       
       expect(response.status).toBe(200);
-      expect(json.account).toEqual(mockAccount);
+      expect(json.account).toEqual({ ...mockAccount, hasCoyoTaskManagerKey: false });
     });
   });
 

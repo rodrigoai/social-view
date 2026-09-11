@@ -102,7 +102,7 @@ describe('app auth authorization', () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.accounts).toEqual(accounts);
+    expect(json.accounts).toEqual(accounts.map(account => ({ ...account, hasCoyoTaskManagerKey: false })));
     expect(prisma.mainAccount.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         clientAccesses: {

@@ -15,6 +15,8 @@ type Account = {
   name: string;
   googleBusinessUrl?: string | null;
   mainWebsiteUrl?: string | null;
+  hasCoyoTaskManagerKey?: boolean;
+  coyoClientAcronym?: string | null;
   waTrackerAccountId?: string | null;
   googleCredential?: any;
   googleAdsConfigs?: any[];
@@ -861,6 +863,26 @@ function SettingsContent() {
                 )}
               </Card>
 
+              <Card>
+                <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-3">Coyô Tasks</h3>
+                <form key={selectedAccount.id + selectedAccount.coyoClientAcronym} onSubmit={async (event) => {
+                  event.preventDefault();
+                  const form = event.currentTarget;
+                  const prefix = new FormData(form).get('coyoClientAcronym');
+                  const key = String(new FormData(form).get('coyoTaskManagerKey') || '').trim();
+                  const response = await fetch(`/api/accounts/${selectedAccount.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ coyoClientAcronym: prefix, ...(key ? { coyoTaskManagerKey: key } : {}) }) });
+                  if (response.ok) { form.reset(); await refreshAccounts(); } else { alert('Could not save Coyô client prefix. Please try again.'); }
+                }} className="flex flex-wrap items-end gap-3">
+                  <label className="text-sm flex-1">Coyô TaskManager Key
+                    <input name="coyoTaskManagerKey" type="password" autoComplete="new-password" placeholder={selectedAccount.hasCoyoTaskManagerKey ? 'Key saved · enter to replace' : 'Enter API key'} className="mt-1 block w-full rounded-lg border border-border-custom bg-card p-2" />
+                  </label>
+                  <label className="text-sm flex-1">Client prefix
+                    <input name="coyoClientAcronym" defaultValue={selectedAccount.coyoClientAcronym || ''} maxLength={100} placeholder="e.g. ACME" className="mt-1 block w-full rounded-lg border border-border-custom bg-card p-2" />
+                  </label>
+                  <button className="rounded-lg bg-blue-600 text-white px-4 py-2">Save connection</button>
+                </form>
+                <p className="text-xs text-muted mt-3">Use this customer's exact prefix from Coyô TaskManager.</p>
+              </Card>
               {/* WA Tracker card */}
               <Card>
                 <h3 className="text-sm font-bold text-muted uppercase tracking-wider mb-1">WA Tracker</h3>

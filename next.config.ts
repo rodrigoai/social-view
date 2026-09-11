@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: ['lvh.me', 'socialview.lvh.me'],
 };
 
 export default nextConfig;

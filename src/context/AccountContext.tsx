@@ -7,6 +7,8 @@ interface Account {
   name: string;
   googleBusinessUrl?: string | null;
   mainWebsiteUrl?: string | null;
+  hasCoyoTaskManagerKey?: boolean;
+  coyoClientAcronym?: string | null;
   waTrackerAccountId?: string | null;
   googleCredential?: any;
   googleAdsConfigs?: any[];

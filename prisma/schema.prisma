@@ -34,6 +34,17 @@ model MainAccount {
   clientAccesses        ClientMainAccountAccess[]
 }
 
+model AppConfiguration {
+  id                              String    @id @default("global")
+  googleDriveCredentialsEncrypted String?
+  googleDriveClientEmail          String?
+  googleDriveProjectId            String?
+  googleDrivePrivateKeyId         String?
+  googleDriveUpdatedAt            DateTime?
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+}
+
 enum UserRole {
   ADMIN
   CLIENT

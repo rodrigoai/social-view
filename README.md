@@ -2,6 +2,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Application secret encryption
+
+Set `APP_CONFIG_ENCRYPTION_KEY` to a random value of at least 32 characters in every deployed environment. SocialView uses it to encrypt application-wide credentials, including the Google Drive service-account JSON configured by an administrator in Settings. Keep this value stable across deployments; changing it makes existing encrypted configuration unreadable. `AUTH_SECRET` is used as a compatibility fallback, but a dedicated key is recommended.
+
 First, run the development server:
 
 ```bash

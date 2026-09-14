@@ -58,8 +58,21 @@ export function formatBrazilianDate(value: string | null | undefined) {
 }
 
 export function firstAttachmentLink(task: CoyoTask) {
+  return safeLink(task.driveLink);
+}
+
+export function taskAttachmentLinks(task: CoyoTask) {
   const direct = safeLink(task.driveLink);
-  if (direct) return direct;
-  const match = task.description?.match(/(?:href|src)=["']([^"']+)["']/i);
-  return safeLink(match?.[1] || null);
+  return direct ? [direct] : [];
+}
+
+export function extractGoogleDriveFileId(value: string) {
+  try {
+    const url = new URL(value, 'https://taskmanager.coyo.com.br');
+    let fileId: string | null = null;
+    if (url.hostname === 'taskmanager.coyo.com.br' && url.pathname === '/api/drive/media') fileId = url.searchParams.get('fileId');
+    if (url.hostname === 'drive.google.com') fileId = url.searchParams.get('id') || url.pathname.match(/\/file\/d\/([^/]+)/)?.[1] || url.pathname.match(/\/folders\/([^/]+)/)?.[1] || null;
+    if (url.hostname === 'docs.google.com') fileId = url.pathname.match(/\/(?:document|spreadsheets|presentation|drawings)\/d\/([^/]+)/)?.[1] || null;
+    return fileId && /^[A-Za-z0-9_-]{1,200}$/.test(fileId) ? fileId : null;
+  } catch { return null; }
 }

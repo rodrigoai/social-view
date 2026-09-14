@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { Card } from '@/components/Card';
 import {
   CheckCircle2, Link as LinkIcon, Plus, Trash2, Edit2, X, Check,
-  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText, Search, Download
+  Globe, MapPin, ExternalLink, ChevronRight, Building2, AlertCircle, Users, UserPlus, MessageSquareText, Search, Download,
+  HardDrive, ShieldCheck, Upload, LoaderCircle
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAccount } from '@/context/AccountContext';
@@ -18,14 +19,14 @@ type Account = {
   hasCoyoTaskManagerKey?: boolean;
   coyoClientAcronym?: string | null;
   waTrackerAccountId?: string | null;
-  googleCredential?: any;
-  googleAdsConfigs?: any[];
-  googleAnalyticsConfigs?: any[];
-  googleSearchConsoleConfigs?: any[];
-  metaCredential?: any;
-  metaAdsConfigs?: any[];
-  facebookPageConfigs?: any[];
-  instagramPageConfigs?: any[];
+  googleCredential?: unknown;
+  googleAdsConfigs?: unknown[];
+  googleAnalyticsConfigs?: unknown[];
+  googleSearchConsoleConfigs?: unknown[];
+  metaCredential?: unknown;
+  metaAdsConfigs?: unknown[];
+  facebookPageConfigs?: unknown[];
+  instagramPageConfigs?: unknown[];
 };
 
 type AppUser = {
@@ -35,6 +36,13 @@ type AppUser = {
   role: 'ADMIN' | 'CLIENT';
   status: 'ACTIVE' | 'DISABLED';
   clientMainAccountAccesses?: { mainAccountId: string; mainAccount: { id: string; name: string } }[];
+};
+
+type GoogleDriveServiceAccountConfig = {
+  configured: boolean;
+  clientEmail: string | null;
+  projectId: string | null;
+  updatedAt: string | null;
 };
 
 // ─── Integration row ──────────────────────────────────────────────────────────
@@ -156,6 +164,10 @@ function SettingsContent() {
     role: 'CLIENT' as 'ADMIN' | 'CLIENT',
     mainAccountIds: [] as string[],
   });
+  const [driveConfig, setDriveConfig] = useState<GoogleDriveServiceAccountConfig>({ configured: false, clientEmail: null, projectId: null, updatedAt: null });
+  const [driveCredentialFile, setDriveCredentialFile] = useState<File | null>(null);
+  const [driveConfigPending, setDriveConfigPending] = useState(false);
+  const [driveConfigMessage, setDriveConfigMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -204,10 +216,18 @@ function SettingsContent() {
     setUsers(data.users || []);
   };
 
+  const refreshDriveConfig = async () => {
+    const res = await fetch('/api/settings/google-drive-service-account');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.config) setDriveConfig(data.config);
+  };
+
   useEffect(() => {
-    if (session?.user?.role === 'ADMIN') {
-      void refreshUsers();
-    }
+    if (session?.user?.role !== 'ADMIN') return;
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) { void refreshUsers(); void refreshDriveConfig(); } });
+    return () => { cancelled = true; };
   }, [session?.user?.role]);
 
   if (status === 'loading' || session?.user?.role !== 'ADMIN') {
@@ -361,15 +381,6 @@ function SettingsContent() {
     await refreshUsers();
   };
 
-  const updateUser = async (id: string, payload: Partial<AppUser> & { mainAccountIds?: string[]; password?: string }) => {
-    const res = await fetch(`/api/users/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) await refreshUsers();
-  };
-
   const deleteUser = async (user: AppUser) => {
     if (!window.confirm(`Delete ${user.email}? This cannot be undone.`)) return;
 
@@ -407,6 +418,61 @@ function SettingsContent() {
     }
   };
 
+  const saveDriveConfig = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!driveCredentialFile) return;
+    setDriveConfigPending(true);
+    setDriveConfigMessage(null);
+    const form = event.currentTarget;
+    try {
+      const payload = new FormData();
+      payload.set('credentials', driveCredentialFile);
+      const response = await fetch('/api/settings/google-drive-service-account', { method: 'PUT', body: payload });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to save the service account.');
+      setDriveConfig(data.config);
+      setDriveCredentialFile(null);
+      form.reset();
+      setDriveConfigMessage({ tone: 'success', text: 'Credential validated, encrypted, and saved.' });
+    } catch (saveError) {
+      setDriveConfigMessage({ tone: 'error', text: saveError instanceof Error ? saveError.message : 'Unable to save the service account.' });
+    } finally {
+      setDriveConfigPending(false);
+    }
+  };
+
+  const testDriveConfig = async () => {
+    setDriveConfigPending(true);
+    setDriveConfigMessage(null);
+    try {
+      const response = await fetch('/api/settings/google-drive-service-account', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Google Drive connection failed.');
+      setDriveConfigMessage({ tone: 'success', text: 'Google Drive connection is working.' });
+    } catch (testError) {
+      setDriveConfigMessage({ tone: 'error', text: testError instanceof Error ? testError.message : 'Google Drive connection failed.' });
+    } finally {
+      setDriveConfigPending(false);
+    }
+  };
+
+  const removeDriveConfig = async () => {
+    if (!window.confirm('Remove the global Google Drive service account from SocialView? File previews will stop working.')) return;
+    setDriveConfigPending(true);
+    setDriveConfigMessage(null);
+    try {
+      const response = await fetch('/api/settings/google-drive-service-account', { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to remove the service account.');
+      setDriveConfig({ configured: false, clientEmail: null, projectId: null, updatedAt: null });
+      setDriveConfigMessage({ tone: 'success', text: 'Google Drive service account removed.' });
+    } catch (removeError) {
+      setDriveConfigMessage({ tone: 'error', text: removeError instanceof Error ? removeError.message : 'Unable to remove the service account.' });
+    } finally {
+      setDriveConfigPending(false);
+    }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="animate-in fade-in duration-500">
@@ -430,6 +496,35 @@ function SettingsContent() {
       {success === 'search_console_linked' && <Banner color="violet" message="Search Console sites successfully linked!" />}
       {success === 'meta_linked' && <Banner color="blue" message="Meta account successfully linked!" />}
       {error && <Banner color="red" message="Integration failed. Please try again." />}
+
+      <Card className="mb-8 overflow-hidden border-emerald-200 dark:border-emerald-900/70">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,420px)] lg:items-center">
+          <div className="min-w-0">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><HardDrive className="h-5 w-5" /></span>
+              <div><p className="text-xs font-semibold uppercase tracking-[.14em] text-emerald-700 dark:text-emerald-400">Application-wide integration</p><h2 className="text-lg font-bold text-foreground">Google Drive file previews</h2></div>
+            </div>
+            <p className="max-w-2xl text-sm leading-6 text-muted">One service account securely opens Coyô attachments for every SocialView customer. Share the source Drive folder with the email below using Viewer access.</p>
+            {driveConfig.configured ? <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-950/40">
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300"><ShieldCheck className="h-4 w-4" /> Connected</span>
+              <span className="break-all font-mono text-xs text-foreground">{driveConfig.clientEmail}</span>
+              {driveConfig.projectId && <span className="text-xs text-muted">Project: {driveConfig.projectId}</span>}
+            </div> : <div className="mt-5 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">Not configured. Upload a fresh, unmodified JSON key generated in Google Cloud.</div>}
+          </div>
+          <form onSubmit={saveDriveConfig} className="space-y-3 rounded-2xl bg-accent-custom/70 p-4">
+            <label className="block text-xs font-semibold text-muted">Service account JSON
+              <input type="file" accept="application/json,.json" aria-label="Service account JSON" onChange={event => setDriveCredentialFile(event.target.files?.[0] || null)} className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground hover:file:bg-border-custom" />
+            </label>
+            <p className="text-xs leading-5 text-muted">The private key is sent only to SocialView, encrypted before storage, and never displayed again.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" disabled={!driveCredentialFile || driveConfigPending} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{driveConfigPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{driveConfig.configured ? 'Validate & replace' : 'Validate & save'}</button>
+              {driveConfig.configured && <button type="button" disabled={driveConfigPending} onClick={testDriveConfig} className="rounded-xl border border-border-custom bg-card px-3.5 py-2 text-xs font-semibold text-foreground transition hover:bg-border-custom disabled:opacity-50">Test connection</button>}
+              {driveConfig.configured && <button type="button" disabled={driveConfigPending} onClick={removeDriveConfig} className="px-2 py-2 text-xs font-semibold text-red-600 transition hover:text-red-700 disabled:opacity-50">Remove</button>}
+            </div>
+            {driveConfigMessage && <p role={driveConfigMessage.tone === 'error' ? 'alert' : 'status'} className={`text-xs font-medium ${driveConfigMessage.tone === 'error' ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>{driveConfigMessage.text}</p>}
+          </form>
+        </div>
+      </Card>
 
       <div className="mb-8 grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
         <div className="min-w-0 xl:relative xl:h-full xl:min-h-0">
@@ -881,7 +976,7 @@ function SettingsContent() {
                   </label>
                   <button className="rounded-lg bg-blue-600 text-white px-4 py-2">Save connection</button>
                 </form>
-                <p className="text-xs text-muted mt-3">Use this customer's exact prefix from Coyô TaskManager.</p>
+                <p className="text-xs text-muted mt-3">Use this customer&apos;s exact prefix from Coyô TaskManager.</p>
               </Card>
               {/* WA Tracker card */}
               <Card>

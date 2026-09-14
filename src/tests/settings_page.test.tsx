@@ -59,6 +59,20 @@ describe('Settings page', () => {
     expect(setSelectedAccountId).toHaveBeenCalledWith('');
   });
 
+  it('uploads the global Google Drive service-account file', async () => {
+    (global.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === '/api/settings/google-drive-service-account' && init?.method === 'PUT') return { ok: true, json: async () => ({ config: { configured: true, clientEmail: 'drive@example.iam.gserviceaccount.com', projectId: 'project', updatedAt: '2026-09-11T12:00:00Z' } }) };
+      if (url === '/api/settings/google-drive-service-account') return { ok: true, json: async () => ({ config: { configured: false, clientEmail: null, projectId: null, updatedAt: null } }) };
+      return { ok: true, json: async () => ({ users: [] }), text: async () => '' };
+    });
+    render(<Settings />);
+    const file = new File(['{"type":"service_account"}'], 'fresh-service-account.json', { type: 'application/json' });
+    fireEvent.change(screen.getByLabelText('Service account JSON'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Validate & save' }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/settings/google-drive-service-account', expect.objectContaining({ method: 'PUT', body: expect.any(FormData) })));
+    expect(await screen.findByText('Credential validated, encrypted, and saved.')).toBeInTheDocument();
+  });
+
   it('disables an active user through the dynamic user route', async () => {
     let userStatus = 'ACTIVE';
     (global.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {

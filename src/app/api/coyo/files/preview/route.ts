@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 import { CoyoTasksError, fetchCoyoTasksForAccount } from '@/lib/coyoTasksServer';
-import { extractGoogleDriveFileId } from '@/lib/coyoTasks';
+import { extractGoogleDriveFileId, taskAttachmentLinks } from '@/lib/coyoTasks';
 import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 
 const GOOGLE_EXPORTS: Record<string, { mimeType: string; extension: string }> = {
@@ -56,17 +56,23 @@ export async function GET(request: Request) {
     const tasks = await fetchCoyoTasksForAccount(mainAccountId);
     const task = tasks.find(item => item.id === taskId);
     if (!task) return NextResponse.json({ error: 'Attachment not found for this account.' }, { status: 404 });
-    const rootFileId = task.driveLink ? extractGoogleDriveFileId(task.driveLink) : null;
+    const driveRootFileId = task.driveLink ? extractGoogleDriveFileId(task.driveLink) : null;
+    const backlogFileIds = task.status === 'BACKLOG' ? taskAttachmentLinks(task).map(extractGoogleDriveFileId).filter((id): id is string => Boolean(id)) : [];
+    const directBacklogFileId = requestedFileId ? (backlogFileIds.includes(requestedFileId) ? requestedFileId : null) : (!driveRootFileId ? backlogFileIds[0] : null);
+    const rootFileId = driveRootFileId || directBacklogFileId;
     if (!rootFileId) return NextResponse.json({ error: 'This item does not contain a supported Google Drive link.' }, { status: 404 });
 
     const drive = await getConfiguredGoogleDriveClient();
-    const rootResponse = await drive.files.get({ fileId: rootFileId, fields: 'id,mimeType,trashed', supportsAllDrives: true });
-    if (rootResponse.data.trashed) return NextResponse.json({ error: 'This Google Drive item is in the trash.' }, { status: 404 });
-    const rootIsFolder = rootResponse.data.mimeType === FOLDER_MIME_TYPE;
-    if (rootIsFolder && !requestedFileId) return NextResponse.json({ error: 'Select a file from this Drive folder.' }, { status: 400 });
-    if (!rootIsFolder && requestedFileId && requestedFileId !== rootFileId) return NextResponse.json({ error: 'This file is outside the linked Drive item.' }, { status: 403 });
-    const fileId = requestedFileId || rootFileId;
-    if (rootIsFolder && !await isDescendantOfLinkedFolder(drive, fileId, rootFileId)) return NextResponse.json({ error: 'This file is outside the linked Drive folder.' }, { status: 403 });
+    let fileId = directBacklogFileId;
+    if (!fileId) {
+      const rootResponse = await drive.files.get({ fileId: rootFileId, fields: 'id,mimeType,trashed', supportsAllDrives: true });
+      if (rootResponse.data.trashed) return NextResponse.json({ error: 'This Google Drive item is in the trash.' }, { status: 404 });
+      const rootIsFolder = rootResponse.data.mimeType === FOLDER_MIME_TYPE;
+      if (rootIsFolder && !requestedFileId) return NextResponse.json({ error: 'Select a file from this Drive folder.' }, { status: 400 });
+      if (!rootIsFolder && requestedFileId && requestedFileId !== rootFileId) return NextResponse.json({ error: 'This file is outside the linked Drive item.' }, { status: 403 });
+      fileId = requestedFileId || rootFileId;
+      if (rootIsFolder && !await isDescendantOfLinkedFolder(drive, fileId, rootFileId)) return NextResponse.json({ error: 'This file is outside the linked Drive folder.' }, { status: 403 });
+    }
     const metadataResponse = await drive.files.get({ fileId, fields: 'id,name,mimeType,size,trashed,capabilities(canDownload)', supportsAllDrives: true });
     const metadata = metadataResponse.data;
     if (metadata.trashed || metadata.capabilities?.canDownload === false) return NextResponse.json({ error: 'This Google Drive file cannot be previewed.' }, { status: 403 });

@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Image from 'next/image';
-import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, statuses, statusLabel, tagName, type CoyoPostFormat } from '@/lib/coyoTasks';
+import { Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, statuses, statusLabel, tagName, taskTextDescription, type CoyoPostFormat } from '@/lib/coyoTasks';
+import { NewCoyoTaskModal } from '@/components/dashboard/NewCoyoTaskModal';
 
 type Section = 'dash' | 'tasks' | 'social';
 type RangePreset = '7' | '30' | '60' | '90' | 'custom';
@@ -192,10 +194,10 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
   const activeFormat = formatGroups[formatIndex] || (fallbackFormat ? { format: fallbackFormat, files: manifest?.files || [] } : undefined);
   const files = activeFormat?.files || manifest?.files || [];
   const file = files[index];
-  const multiple = Boolean(manifest?.isFolder && files.length > 1);
+  const multiple = files.length > 1;
   const isStory = activeFormat?.format === 'Story';
   const move = (delta: number) => setIndex(current => (current + delta + files.length) % files.length);
-  const sourcePreviewUrl = file ? attachmentPreviewUrl(mainAccountId, task.id, manifest?.isFolder ? file.id : undefined) : '';
+  const sourcePreviewUrl = file ? attachmentPreviewUrl(mainAccountId, task.id, manifest?.isFolder || files.length > 1 ? file.id : undefined) : '';
   const supportsTemporaryCache = typeof URL.createObjectURL === 'function';
   const previewUrl = file?.mimeType.startsWith('image/') && supportsTemporaryCache
     ? imageCache[file.id] || (failedImageCache.has(file.id) ? sourcePreviewUrl : '')
@@ -227,18 +229,68 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
   </section>;
 }
 
-function DetailPanel({ task, mainAccountId, onClose }: { task: CoyoTask; mainAccountId: string; onClose: () => void }) {
+function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTask; mainAccountId: string; onClose: () => void; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState('');
   const postFormats = normalizePostFormats(task.postFormat, task.category);
   const isPost = task.category !== 'TASK' || postFormats.length > 0;
+  const isBacklog = task.status === 'BACKLOG';
   const attachment = firstAttachmentLink(task);
-  const description = task.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const description = taskTextDescription(task.description);
   const dates: [string, string | null][] = [['Created', task.createdAt], ['Delivery', task.deliveryDate], ...(isPost ? [['Post date', task.postDate], ['Execution', task.executionDate]] as [string, string | null][] : [])];
+
+  const updateTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setWorking(true);
+    setActionError('');
+    const formData = new FormData(event.currentTarget);
+    try {
+      const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mainAccountId,
+          title: formData.get('title'),
+          description: formData.get('description'),
+          dueDate: formData.get('dueDate'),
+          workspace: formData.get('workspace'),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Unable to update this task.');
+      onChanged();
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'Unable to update this task.');
+      setWorking(false);
+    }
+  };
+
+  const deleteTask = async () => {
+    setWorking(true);
+    setActionError('');
+    try {
+      const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}?mainAccountId=${encodeURIComponent(mainAccountId)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.error || 'Unable to delete this task.');
+      }
+      onChanged();
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'Unable to delete this task.');
+      setWorking(false);
+    }
+  };
+
   return <div className="coyo-panel-backdrop fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="coyo-detail-title" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <aside className="coyo-detail-panel h-dvh w-full overflow-y-auto border-l border-border-custom bg-card shadow-2xl sm:max-w-xl" data-testid="coyo-detail-panel">
-      <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><button onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-custom text-xl transition hover:scale-105 hover:bg-border-custom" aria-label="Close details">×</button></header>
+      <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><div className="flex shrink-0 items-center gap-1">{isBacklog && !editing && <><button type="button" onClick={() => { setEditing(true); setConfirmingDelete(false); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-accent-custom hover:text-foreground" aria-label="Edit task"><Pencil size={17} /></button><button type="button" onClick={() => { setConfirmingDelete(true); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40" aria-label="Delete task"><Trash2 size={17} /></button></>}<button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-accent-custom text-muted transition hover:scale-105 hover:bg-border-custom hover:text-foreground" aria-label="Close details"><X size={19} /></button></div></header>
       <div className="space-y-8 p-6">
         {attachment && <DrivePreview task={task} mainAccountId={mainAccountId} social={isPost} />}
-        <div className="min-w-0 space-y-7"><div className="flex flex-wrap items-center gap-2"><StatusTag status={task.status} /><span className="text-sm text-muted">{task.workspace}</span></div><div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">{dates.map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-sm font-semibold">{formatBrazilianDate(value)}</p></div>)}</div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tags</p><TagList task={task} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{description || 'No description.'}</p></div>{task.caption && <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Caption</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{task.caption}</p></div>}{attachment && <a href={attachment} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">Open in Drive ↗</a>}</div>
+        {confirmingDelete && <section aria-label="Confirm task deletion" className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/35"><h4 className="font-bold text-red-800 dark:text-red-200">Delete {task.displayId} permanently?</h4><p className="mt-1 text-sm leading-6 text-red-700 dark:text-red-300">This cannot be undone. Coyô will also remove files uploaded as this task’s attachments.</p><div className="mt-4 flex justify-end gap-2"><button type="button" disabled={working} onClick={() => setConfirmingDelete(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-card">Cancel</button><button type="button" disabled={working} onClick={deleteTask} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50">{working && <Loader2 size={15} className="animate-spin" />} Delete permanently</button></div></section>}
+        {actionError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">{actionError}</p>}
+        {editing ? <form onSubmit={updateTask} className="space-y-5"><label className="block text-xs font-medium text-muted">Title<input name="title" aria-label="Edit title" required maxLength={240} defaultValue={task.title} className={`${control} mt-1.5 block w-full`} /></label><label className="block text-xs font-medium text-muted">Description<textarea name="description" aria-label="Edit description" rows={6} defaultValue={description} className={`${control} mt-1.5 block w-full resize-y`} /></label><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-medium text-muted">Due date<input name="dueDate" aria-label="Edit due date" type="date" defaultValue={task.deliveryDate?.slice(0, 10) || ''} className={`${control} mt-1.5 block w-full`} /></label><label className="text-xs font-medium text-muted">Workspace<select name="workspace" aria-label="Edit workspace" defaultValue={task.workspace} className={`${control} mt-1.5 block w-full`}><option value="AGENCY">Agency</option><option value="SOFTWARE">Software</option></select></label></div><div className="flex justify-end gap-2 border-t border-border-custom pt-5"><button type="button" disabled={working} onClick={() => { setEditing(false); setActionError(''); }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-muted transition hover:bg-accent-custom">Cancel</button><button type="submit" disabled={working} className="inline-flex min-w-28 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{working ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : 'Save changes'}</button></div></form> : <div className="min-w-0 space-y-7"><div className="flex flex-wrap items-center gap-2"><StatusTag status={task.status} /><span className="text-sm text-muted">{task.workspace}</span></div><div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">{dates.map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-sm font-semibold">{formatBrazilianDate(value)}</p></div>)}</div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tags</p><TagList task={task} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{description || 'No description.'}</p></div>{task.caption && <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Caption</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{task.caption}</p></div>}{attachment && <a href={attachment} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">{task.driveLink ? 'Open in Drive' : 'Open attachment'} ↗</a>}</div>}
       </div>
     </aside>
   </div>;
@@ -268,7 +320,7 @@ function TasksTable({ tasks, social, showTags = false, onSelect }: { tasks: Coyo
   </table></div>;
 }
 
-export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountId: string }) {
+export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName = 'Selected client', selectedClientAcronym }: { selectedAccountId: string; selectedAccountName?: string; selectedClientAcronym?: string | null }) {
   const [tasks, setTasks] = useState<CoyoTask[]>([]), [error, setError] = useState('');
   const [loading, setLoading] = useState(true), [revision, setRevision] = useState(0);
   const [section, setSection] = useState<Section>('dash');
@@ -278,6 +330,7 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
   const [storageReady, setStorageReady] = useState(false), [view, setView] = useState('list');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [selected, setSelected] = useState<CoyoTask | null>(null);
+  const [creating, setCreating] = useState(false);
   const filters = filtersBySection[section];
   const update = (patch: Partial<TaskFilters>) => setFilters(current => ({ ...current, [section]: { ...current[section], ...patch } }));
 
@@ -312,7 +365,7 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
   const resetFilters = () => { setFilters(current => ({ ...current, [section]: defaultFilters()[section] })); setPresets(current => ({ ...current, [section]: '7' })); };
 
   return <section className="space-y-7" aria-label="Coyô Tasks">
-    <div className="flex items-center justify-between gap-4"><div><h2 className="text-2xl font-bold tracking-tight">Coyô Tasks</h2><p className="mt-1 text-sm text-muted">Customer work, delivery progress, and social planning.</p></div><button className={`${control} font-semibold`} disabled={loading} onClick={() => setRevision(value => value + 1)}>↻ Refresh</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-2xl font-bold tracking-tight">Coyô Tasks</h2><p className="mt-1 text-sm text-muted">Customer work, delivery progress, and social planning.</p></div><div className="flex items-center gap-2"><button className={`${control} font-semibold`} disabled={loading} onClick={() => setRevision(value => value + 1)}>↻ Refresh</button><button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"><Plus size={16} aria-hidden="true" /> New Task</button></div></div>
     <div className="flex gap-7 border-b border-border-custom" aria-label="Coyô sections">{(['dash', 'tasks', 'social'] as const).map(tab => <button key={tab} aria-pressed={section === tab} onClick={() => { setSection(tab); setSelected(null); }} className={`border-b-2 pb-3 font-semibold capitalize transition ${section === tab ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-muted hover:text-foreground'}`}>{tab}</button>)}</div>
     <div className="rounded-2xl bg-accent-custom/70 p-4"><div className="flex flex-wrap items-end gap-3">
       <label className="text-xs font-medium text-muted">Period<select aria-label="Period" className={`${control} mt-1 block min-w-36`} value={presets[section]} onChange={event => selectPreset(event.target.value as RangePreset)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option><option value="custom">Custom period</option></select></label>
@@ -331,6 +384,7 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">{filtered.length} {section === 'social' ? 'posts' : 'tasks'}</p>{section === 'social' && <div className="flex rounded-xl bg-accent-custom p-1">{['list', 'calendar'].map(mode => <button key={mode} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize transition ${view === mode ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted'}`} aria-pressed={view === mode} onClick={() => setView(mode)}>{mode}</button>)}</div>}</div>
       {section === 'social' && view === 'calendar' ? <><div className="flex items-center justify-between"><button className={control} aria-label="Previous month" onClick={() => changeMonth(-1)}>←</button><h3 className="font-semibold capitalize">{monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className={control} aria-label="Next month" onClick={() => changeMonth(1)}>→</button></div><div className="overflow-x-auto"><div className="grid min-w-[700px] grid-cols-7 overflow-hidden rounded-2xl border-l border-t border-border-custom">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(day => <div key={day} className="border-b border-r border-border-custom bg-accent-custom p-2 text-xs font-semibold text-muted">{day}</div>)}{Array.from({ length: Math.ceil((days + offset) / 7) * 7 }, (_, index) => { const day = index - offset + 1, date = `${month}-${String(day).padStart(2, '0')}`; return <div key={index} className="min-h-28 border-b border-r border-border-custom p-2">{day > 0 && day <= days && <><p className="mb-2 text-xs text-muted">{day}</p>{filtered.filter(task => task[filters.dateField]?.slice(0, 10) === date).map(task => <button key={task.id} onClick={() => setSelected(task)} className="mb-2 block w-full rounded-lg bg-accent-custom p-2 text-left text-xs transition hover:bg-emerald-100 dark:hover:bg-emerald-950"><span className="font-semibold">{task.title}</span><span className="mt-1 block"><StatusTag status={task.status} /></span></button>)}</>}</div>; })}</div></div><p className="text-sm text-muted">{filtered.filter(task => !task[filters.dateField]).length} posts have no {dateFields[filters.dateField].toLowerCase()}. Use List to see them.</p></> : filtered.length === 0 ? <p className="py-12 text-center text-muted">No {section === 'social' ? 'posts' : 'tasks'} match these filters.</p> : section === 'tasks' ? groupTasksByTags ? <div className="space-y-8">{taskGroups.map(group => <section key={group.key} aria-label={group.tags.length ? `Tasks tagged ${group.tags.join(', ')}` : 'Untagged tasks'}><div className="mb-3 flex items-center gap-3"><div className="flex flex-wrap gap-1.5">{group.tags.length ? group.tags.map(tag => <span key={tag} className="rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">{tag}</span>) : <span className="text-sm font-semibold text-muted">Untagged</span>}</div><span className="text-xs tabular-nums text-muted">{group.tasks.length}</span><span className="h-px flex-1 bg-border-custom" /></div><TasksTable tasks={group.tasks} social={false} onSelect={setSelected} /></section>)}</div> : <TasksTable tasks={filtered} social={false} showTags onSelect={setSelected} /> : <TasksTable tasks={filtered} social onSelect={setSelected} />}
     </>}
-    {selected && <DetailPanel task={selected} mainAccountId={selectedAccountId} onClose={() => setSelected(null)} />}
+    {selected && <DetailPanel task={selected} mainAccountId={selectedAccountId} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); setRevision(value => value + 1); }} />}
+    {creating && <NewCoyoTaskModal mainAccountId={selectedAccountId} clientName={selectedAccountName} clientAcronym={selectedClientAcronym} onClose={() => setCreating(false)} onCreated={() => setRevision(value => value + 1)} />}
   </section>;
 }

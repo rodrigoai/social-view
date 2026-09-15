@@ -45,6 +45,19 @@ describe('Coyô Google Drive manifest', () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it('lists attachments embedded by Coyô in a Backlog description', async () => {
+    (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([{ id: 'task-1', status: 'BACKLOG', driveLink: null, description: '<img src="/api/drive/media?fileId=image_1"><a href="/api/drive/media?fileId=brief_2">Brief</a>' }]);
+    const get = jest.fn()
+      .mockResolvedValueOnce({ data: { name: 'Artwork.png', mimeType: 'image/png', trashed: false } })
+      .mockResolvedValueOnce({ data: { name: 'Brief.pdf', mimeType: 'application/pdf', trashed: false } });
+    (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue({ files: { get, list: jest.fn() } });
+
+    expect(await (await GET(request)).json()).toEqual({ isFolder: false, name: 'Backlog attachments', files: [
+      { id: 'image_1', name: 'Artwork.png', mimeType: 'image/png' },
+      { id: 'brief_2', name: 'Brief.pdf', mimeType: 'application/pdf' },
+    ] });
+  });
+
   it('groups multiple post formats from named subfolders and keeps natural filename order', async () => {
     (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([{ id: 'task-1', category: 'POST', postFormat: ['Post', 'Story', 'Reels', 'Carousel'], driveLink: 'https://drive.google.com/drive/folders/folder_1' }]);
     const list = jest.fn().mockImplementation(({ q }: { q: string }) => {

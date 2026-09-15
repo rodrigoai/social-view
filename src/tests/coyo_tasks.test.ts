@@ -1,4 +1,4 @@
-import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, safeLink, TaskFilters } from '@/lib/coyoTasks';
+import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, safeLink, taskAttachmentLinks, TaskFilters } from '@/lib/coyoTasks';
 const filters: TaskFilters = { search: '', status: '', from: '', to: '', dateField: 'postDate' };
 const task = { id: '1', title: 'Campaign', displayId: 'AC-1', category: 'TASK', status: 'BACKLOG', createdAt: '2026-08-01', deliveryDate: '2026-09-01', postDate: null } as CoyoTask;
 const post = { ...task, id: '2', category: 'POST', postDate: '2026-09-10T23:59:00Z' };
@@ -24,6 +24,14 @@ it('matches any of multiple selected tags without case sensitivity', () => {
 it('rejects executable links and resolves relative resources', () => {
   expect(safeLink('javascript:alert(1)')).toBeNull();
   expect(safeLink('/api/drive/media?fileId=1')).toBe('https://taskmanager.coyo.com.br/api/drive/media?fileId=1');
+});
+it('extracts only trusted attachment links from Backlog descriptions', () => {
+  const backlog = { ...task, description: '<img src="/api/drive/media?fileId=image_1"><a href="https://taskmanager.coyo.com.br/api/drive/media?fileId=brief_2">Brief</a><a href="https://evil.example/file">Bad</a>' };
+  expect(taskAttachmentLinks(backlog)).toEqual([
+    'https://taskmanager.coyo.com.br/api/drive/media?fileId=image_1',
+    'https://taskmanager.coyo.com.br/api/drive/media?fileId=brief_2',
+  ]);
+  expect(taskAttachmentLinks({ ...backlog, status: 'IN_PROGRESS' })).toEqual([]);
 });
 it('normalizes single and multi-value post formats', () => {
   expect(normalizePostFormats('Story', 'POST')).toEqual(['Story']);

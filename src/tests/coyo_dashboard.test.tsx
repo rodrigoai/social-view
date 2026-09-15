@@ -7,6 +7,51 @@ Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: creat
 Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectUrl });
 beforeEach(() => { window.localStorage.clear(); objectUrlSequence = 0; createObjectUrl.mockClear(); revokeObjectUrl.mockClear(); });
 
+it('creates a Backlog task from the Coyô tab modal and refreshes the list', async () => {
+  (global.fetch as jest.Mock).mockImplementation(async (_input, init) => init?.method === 'POST'
+    ? { ok: true, status: 201, json: async () => ({ task: { id: 'new-task', displayId: 'AC-42', status: 'BACKLOG', attachments: [] } }) }
+    : { ok: true, json: async () => ({ tasks: [] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" selectedAccountName="Acme" selectedClientAcronym="AC" />);
+  await screen.findByText('Items by status');
+  fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+
+  expect(screen.getByRole('dialog', { name: 'Create a Coyô task' })).toBeInTheDocument();
+  expect(screen.getByLabelText('User')).toHaveValue('admin@example.com');
+  expect(screen.getByLabelText('Client')).toHaveValue('Acme (AC)');
+  const today = new Date();
+  const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  expect(screen.getByLabelText('Due date')).toHaveValue(todayValue);
+  fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Campaign brief' } });
+  fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Prepare the campaign assets.' } });
+  fireEvent.change(screen.getByLabelText('Due date'), { target: { value: '2026-09-30' } });
+  fireEvent.change(screen.getByLabelText('Workspace'), { target: { value: 'SOFTWARE' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+
+  expect(await screen.findByText('Task added to Backlog')).toBeInTheDocument();
+  expect(screen.getByText('AC-42')).toBeInTheDocument();
+  const postCall = (global.fetch as jest.Mock).mock.calls.find(([, init]) => init?.method === 'POST');
+  const body = postCall?.[1].body as FormData;
+  expect(Object.fromEntries(body.entries())).toEqual(expect.objectContaining({ mainAccountId: 'customer', title: 'Campaign brief', description: 'Prepare the campaign assets.', dueDate: '2026-09-30', workspace: 'SOFTWARE' }));
+  await waitFor(() => expect((global.fetch as jest.Mock).mock.calls.filter(([, init]) => !init?.method)).toHaveLength(2));
+});
+
+it('previews description attachments for Backlog tasks in the side panel', async () => {
+  const today = new Date().toISOString();
+  const backlog = { id: 'backlog-1', displayId: 'AC-50', title: 'New brief', description: '<p>Brief attached</p><img src="/api/drive/media?fileId=image_1">', status: 'BACKLOG', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/files?')
+    ? { ok: true, json: async () => ({ isFolder: false, name: 'Artwork.png', files: [{ id: 'image_1', name: 'Artwork.png', mimeType: 'image/png' }] }) }
+    : { ok: true, json: async () => ({ tasks: [backlog] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await screen.findByText('Items by status');
+  fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /AC-50 New brief/ }));
+
+  expect(await screen.findByText('Artwork.png')).toBeInTheDocument();
+  expect(await screen.findByRole('img', { name: 'Artwork.png' })).toHaveAttribute('src', '/api/coyo/files/preview?mainAccountId=customer&taskId=backlog-1');
+});
+
 it('preserves separate filters and switches Social to a calendar', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
@@ -53,6 +98,8 @@ it('groups exact tag sets, sorts tasks, and opens a localized detail side panel'
   expect(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(later);
   expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Edit task' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Delete task' })).not.toBeInTheDocument();
   expect(screen.getByTestId('coyo-detail-panel')).toHaveClass('h-dvh', 'sm:max-w-xl');
   expect(screen.getAllByText(new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(today))).length).toBeGreaterThan(0);
   expect(screen.getByRole('link', { name: /Open in Drive/ })).toHaveAttribute('href', 'https://drive.google.com/drive/folders/folder_1');
@@ -60,6 +107,51 @@ it('groups exact tag sets, sorts tasks, and opens a localized detail side panel'
   expect(await screen.findByRole('img', { name: '01.jpg' })).toHaveAttribute('src', '/api/coyo/files/preview?mainAccountId=customer&taskId=later&fileId=image_1');
   fireEvent.click(screen.getByRole('button', { name: 'Next Drive file' }));
   expect(await screen.findByRole('img', { name: '02.jpg' })).toBeInTheDocument();
+});
+
+it('shows edit and delete actions only for Backlog tasks and updates in place', async () => {
+  const today = new Date().toISOString();
+  const backlog = { id: 'backlog-edit', displayId: 'AC-60', title: 'Original title', description: '<p>Original description</p>', status: 'BACKLOG', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  (global.fetch as jest.Mock).mockImplementation(async (_input, init) => init?.method === 'PATCH'
+    ? { ok: true, json: async () => ({ task: { ...backlog, title: 'Updated title' } }) }
+    : { ok: true, json: async () => ({ tasks: [backlog] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await screen.findByText('Items by status');
+  fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /AC-60 Original title/ }));
+  expect(screen.getByRole('button', { name: 'Edit task' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Delete task' })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit task' }));
+  fireEvent.change(screen.getByLabelText('Edit title'), { target: { value: 'Updated title' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect((global.fetch as jest.Mock).mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true));
+  const patchCall = (global.fetch as jest.Mock).mock.calls.find(([, init]) => init?.method === 'PATCH');
+  expect(patchCall?.[0]).toBe('/api/coyo/tasks/backlog-edit');
+  expect(JSON.parse(patchCall?.[1].body)).toEqual(expect.objectContaining({ mainAccountId: 'customer', title: 'Updated title', description: 'Original description', workspace: 'AGENCY' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});
+
+it('requires explicit confirmation before deleting a Backlog task', async () => {
+  const today = new Date().toISOString();
+  const backlog = { id: 'backlog-delete', displayId: 'AC-61', title: 'Delete me', description: null, status: 'BACKLOG', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  (global.fetch as jest.Mock).mockImplementation(async (_input, init) => init?.method === 'DELETE'
+    ? { ok: true, status: 204 }
+    : { ok: true, json: async () => ({ tasks: [backlog] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await screen.findByText('Items by status');
+  fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /AC-61 Delete me/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete task' }));
+  expect(screen.getByRole('region', { name: 'Confirm task deletion' })).toHaveTextContent('This cannot be undone');
+  expect((global.fetch as jest.Mock).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
+  await waitFor(() => expect((global.fetch as jest.Mock).mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(true));
+  const deleteCall = (global.fetch as jest.Mock).mock.calls.find(([, init]) => init?.method === 'DELETE');
+  expect(deleteCall?.[0]).toBe('/api/coyo/tasks/backlog-delete?mainAccountId=customer');
 });
 
 it('filters tasks by multiple tags and can disable tag grouping', async () => {

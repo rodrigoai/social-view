@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 import { CoyoTasksError, fetchCoyoTasksForAccount } from '@/lib/coyoTasksServer';
-import { extractGoogleDriveFileId, normalizePostFormats, type CoyoPostFormat } from '@/lib/coyoTasks';
+import { extractGoogleDriveFileId, normalizePostFormats, taskAttachmentLinks, type CoyoPostFormat } from '@/lib/coyoTasks';
 import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 
 const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
@@ -49,9 +49,19 @@ export async function GET(request: Request) {
     const tasks = await fetchCoyoTasksForAccount(mainAccountId);
     const task = tasks.find(item => item.id === taskId);
     const rootFileId = task?.driveLink ? extractGoogleDriveFileId(task.driveLink) : null;
-    if (!task || !rootFileId) return NextResponse.json({ error: 'This item does not contain a supported Google Drive link.' }, { status: 404 });
+    const backlogFileIds = task?.status === 'BACKLOG' ? taskAttachmentLinks(task).map(extractGoogleDriveFileId).filter((id): id is string => Boolean(id)) : [];
+    if (!task || (!rootFileId && !backlogFileIds.length)) return NextResponse.json({ error: 'This item does not contain a supported Google Drive link.' }, { status: 404 });
 
     const drive = await getConfiguredGoogleDriveClient();
+    if (!rootFileId) {
+      const files = (await Promise.all(backlogFileIds.map(async fileId => {
+        const response = await drive.files.get({ fileId, fields: 'id,name,mimeType,trashed', supportsAllDrives: true });
+        const file = response.data;
+        return file.trashed ? null : { id: fileId, name: file.name || 'Attachment', mimeType: file.mimeType || 'application/octet-stream' };
+      }))).filter((file): file is DriveItem => Boolean(file));
+      if (!files.length) return NextResponse.json({ error: 'No previewable attachments were found.' }, { status: 404 });
+      return NextResponse.json({ isFolder: false, name: files.length === 1 ? files[0].name : 'Backlog attachments', files: naturalSort(files) });
+    }
     const rootResponse = await drive.files.get({ fileId: rootFileId, fields: 'id,name,mimeType,trashed', supportsAllDrives: true });
     const root = rootResponse.data;
     if (root.trashed) return NextResponse.json({ error: 'This Google Drive item is in the trash.' }, { status: 404 });

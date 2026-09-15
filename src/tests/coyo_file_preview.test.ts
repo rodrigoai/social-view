@@ -71,6 +71,19 @@ describe('Coyô Google Drive preview proxy', () => {
     expect(getConfiguredGoogleDriveClient).not.toHaveBeenCalled();
   });
 
+  it('previews an attachment embedded in a Backlog description', async () => {
+    (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([{ id: 'task-1', status: 'BACKLOG', driveLink: null, description: '<img src="/api/drive/media?fileId=image_1">' }]);
+    const get = jest.fn()
+      .mockResolvedValueOnce({ data: { name: 'Artwork.png', mimeType: 'image/png', size: '3', capabilities: { canDownload: true } } })
+      .mockResolvedValueOnce({ data: new Uint8Array([1, 2, 3]) });
+    (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue({ files: { get, export: jest.fn() } });
+
+    const response = await GET(request());
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('image/png');
+    expect(get).toHaveBeenNthCalledWith(1, { fileId: 'image_1', fields: 'id,name,mimeType,size,trashed,capabilities(canDownload)', supportsAllDrives: true });
+  });
+
   it('never accesses Drive when the task is outside the selected account', async () => {
     (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([]);
     const response = await GET(request());

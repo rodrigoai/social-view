@@ -35,6 +35,28 @@ export function safeLink(value: string | null) {
 }
 export function statusLabel(value: string) { return value.toLowerCase().replaceAll('_', ' '); }
 
+function trustedCoyoAttachmentLink(value: string) {
+  const link = safeLink(value);
+  if (!link) return null;
+  const url = new URL(link);
+  const fileId = url.searchParams.get('fileId');
+  return url.hostname === 'taskmanager.coyo.com.br' && url.pathname === '/api/drive/media' && fileId && /^[A-Za-z0-9_-]{1,200}$/.test(fileId) ? link : null;
+}
+
+const attachmentNodePattern = /<a\b[^>]*\bhref\s*=\s*["'][^"']*\/api\/drive\/media\?[^"']*["'][^>]*>[\s\S]*?<\/a>|<img\b[^>]*\bsrc\s*=\s*["'][^"']*\/api\/drive\/media\?[^"']*["'][^>]*\/?\s*>/gi;
+
+export function coyoAttachmentMarkup(description: string | null | undefined) {
+  if (!description) return '';
+  return [...description.matchAll(attachmentNodePattern)].flatMap(match => {
+    const attribute = match[0].match(/(?:href|src)\s*=\s*["']([^"']+)["']/i)?.[1];
+    return attribute && trustedCoyoAttachmentLink(attribute) ? [match[0]] : [];
+  }).join('\n');
+}
+
+export function taskTextDescription(description: string | null | undefined) {
+  return (description || '').replace(attachmentNodePattern, ' ').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export function normalizePostFormats(value: CoyoTask['postFormat'], category = ''): CoyoPostFormat[] {
   const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[,;|]/) : [];
   if (!values.length && category && category !== 'TASK') values.push(category);
@@ -76,12 +98,20 @@ export function formatBrazilianDate(value: string | null | undefined) {
 }
 
 export function firstAttachmentLink(task: CoyoTask) {
-  return safeLink(task.driveLink);
+  return taskAttachmentLinks(task)[0] || null;
 }
 
 export function taskAttachmentLinks(task: CoyoTask) {
   const direct = safeLink(task.driveLink);
-  return direct ? [direct] : [];
+  const links = direct ? [direct] : [];
+  if (task.status !== 'BACKLOG' || !task.description) return links;
+  const attributes = task.description.matchAll(/(?:href|src)\s*=\s*["']([^"']+)["']/gi);
+  for (const match of attributes) {
+    const link = trustedCoyoAttachmentLink(match[1]);
+    if (!link) continue;
+    links.push(link);
+  }
+  return [...new Set(links)];
 }
 
 export function extractGoogleDriveFileId(value: string) {

@@ -92,7 +92,7 @@ export default function Dashboard() {
           onFilterChange={setFilters}
         />
       ) : activeTab === 'coyo' ? (
-        <CoyoTasksDashboardView key={selectedAccountId} selectedAccountId={selectedAccountId} />
+        <CoyoTasksDashboardView key={selectedAccountId} selectedAccountId={selectedAccountId} selectedAccountName={selectedAccount?.name || 'Selected client'} selectedClientAcronym={selectedAccount?.coyoClientAcronym} />
       ) : (
         <WaTrackerDashboardView
           selectedAccountId={selectedAccountId}

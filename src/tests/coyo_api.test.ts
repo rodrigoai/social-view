@@ -1,7 +1,8 @@
 /** @jest-environment node */
-import { GET } from '@/app/api/coyo/tasks/route';
+import { GET, POST } from '@/app/api/coyo/tasks/route';
 import { prisma } from '@/lib/prisma';
 import { requireMainAccountAccess, AuthzError } from '@/lib/authz';
+import { deleteCoyoBacklogTaskForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
 jest.mock('@/lib/prisma', () => ({ prisma: { mainAccount: { findUnique: jest.fn() } } }));
 jest.mock('@/lib/authz', () => ({ ...jest.requireActual('@/lib/authz'), requireMainAccountAccess: jest.fn() }));
 beforeEach(() => {
@@ -29,5 +30,84 @@ it('does not query all customers when configuration is missing', async () => {
 it('does not retry rejected authentication', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 403 });
   expect((await GET(new Request('http://localhost/api/coyo/tasks?mainAccountId=1'))).status).toBe(502);
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it('creates a scoped Backlog task with every supported field', async () => {
+  (global.fetch as jest.Mock).mockResolvedValue({
+    ok: true,
+    status: 201,
+    json: async () => ({ id: 'task-1', displayId: 'AC-42', status: 'BACKLOG', attachments: [] }),
+  });
+  const form = new FormData();
+  form.set('mainAccountId', '1');
+  form.set('title', 'Campaign brief');
+  form.set('description', 'Prepare the campaign assets.');
+  form.set('dueDate', '2026-09-30');
+  form.set('workspace', 'software');
+  form.append('attachments', new File(['brief'], 'brief.txt', { type: 'text/plain' }));
+
+  const response = await POST(new Request('http://localhost/api/coyo/tasks', { method: 'POST', body: form }));
+  expect(response.status).toBe(201);
+  expect(await response.json()).toEqual({ task: { id: 'task-1', displayId: 'AC-42', status: 'BACKLOG', attachments: [] } });
+  const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+  const sent = options.body as FormData;
+  expect(url).toBe('https://taskmanager.coyo.com.br/api/external/tasks');
+  expect(options).toEqual(expect.objectContaining({ method: 'POST', headers: { Authorization: 'Bearer secret', Origin: 'https://example.com', Accept: 'application/json' } }));
+  expect(Object.fromEntries([...sent.entries()].filter(([key]) => key !== 'attachments'))).toEqual({ title: 'Campaign brief', clientAcronym: 'AC', description: 'Prepare the campaign assets.', dueDate: '2026-09-30', workspace: 'SOFTWARE' });
+  expect((sent.get('attachments') as File).name).toBe('brief.txt');
+});
+
+it('authorizes before creating and rejects unsupported workspace values', async () => {
+  const unauthorized = new FormData();
+  unauthorized.set('mainAccountId', '1');
+  unauthorized.set('title', 'Private task');
+  (requireMainAccountAccess as jest.Mock).mockRejectedValueOnce(new AuthzError('Forbidden', 403));
+  expect((await POST(new Request('http://localhost/api/coyo/tasks', { method: 'POST', body: unauthorized }))).status).toBe(403);
+
+  (requireMainAccountAccess as jest.Mock).mockResolvedValueOnce({});
+  const invalid = new FormData();
+  invalid.set('mainAccountId', '1');
+  invalid.set('title', 'Invalid task');
+  invalid.set('workspace', 'SOCIAL');
+  const response = await POST(new Request('http://localhost/api/coyo/tasks', { method: 'POST', body: invalid }));
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: 'Workspace must be AGENCY or SOFTWARE.' });
+  expect(global.fetch).not.toHaveBeenCalled();
+});
+
+it('rejects attachments larger than the application 5 MB limit', async () => {
+  const form = new FormData();
+  form.set('mainAccountId', '1');
+  form.set('title', 'Large attachment');
+  form.append('attachments', new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.bin'));
+  const response = await POST(new Request('http://localhost/api/coyo/tasks', { method: 'POST', body: form }));
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: 'large.bin exceeds the 5 MB attachment limit.' });
+  expect(global.fetch).not.toHaveBeenCalled();
+});
+
+it('updates a scoped Backlog task and preserves its attachment markup', async () => {
+  (global.fetch as jest.Mock)
+    .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'task-1', status: 'BACKLOG', client: { prefix: 'AC' }, description: '<p>Old copy</p><a href="/api/drive/media?fileId=brief_1">brief.pdf</a>' }] })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'task-1', status: 'BACKLOG', title: 'Updated title' }) });
+
+  await expect(updateCoyoBacklogTaskForAccount('1', 'task-1', { title: 'Updated title', description: 'New copy', dueDate: '2026-10-01', workspace: 'SOFTWARE' })).resolves.toEqual(expect.objectContaining({ id: 'task-1', title: 'Updated title' }));
+  const [url, options] = (global.fetch as jest.Mock).mock.calls[1];
+  expect(url).toBe('https://taskmanager.coyo.com.br/api/external/tasks/task-1');
+  expect(options.method).toBe('PATCH');
+  expect(JSON.parse(options.body)).toEqual({ title: 'Updated title', description: 'New copy\n<a href="/api/drive/media?fileId=brief_1">brief.pdf</a>', dueDate: '2026-10-01', workspace: 'SOFTWARE' });
+});
+
+it('deletes a scoped Backlog task but blocks mutations after it leaves Backlog', async () => {
+  (global.fetch as jest.Mock)
+    .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'task-1', status: 'BACKLOG', client: { prefix: 'AC' } }] })
+    .mockResolvedValueOnce({ ok: true, status: 204 });
+  await expect(deleteCoyoBacklogTaskForAccount('1', 'task-1')).resolves.toBeUndefined();
+  expect((global.fetch as jest.Mock).mock.calls[1][0]).toBe('https://taskmanager.coyo.com.br/api/external/tasks/task-1');
+  expect((global.fetch as jest.Mock).mock.calls[1][1].method).toBe('DELETE');
+
+  (global.fetch as jest.Mock).mockReset().mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'task-2', status: 'IN_PROGRESS', client: { prefix: 'AC' } }] });
+  await expect(deleteCoyoBacklogTaskForAccount('1', 'task-2')).rejects.toMatchObject({ status: 409 });
   expect(global.fetch).toHaveBeenCalledTimes(1);
 });

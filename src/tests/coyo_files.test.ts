@@ -44,4 +44,47 @@ describe('Coyô Google Drive manifest', () => {
     expect(await (await GET(request)).json()).toEqual({ isFolder: false, name: 'Artwork.png', files: [{ id: 'file_1', name: 'Artwork.png', mimeType: 'image/png' }] });
     expect(list).not.toHaveBeenCalled();
   });
+
+  it('groups multiple post formats from named subfolders and keeps natural filename order', async () => {
+    (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([{ id: 'task-1', category: 'POST', postFormat: ['Post', 'Story', 'Reels', 'Carousel'], driveLink: 'https://drive.google.com/drive/folders/folder_1' }]);
+    const list = jest.fn().mockImplementation(({ q }: { q: string }) => {
+      if (q.includes("'story_folder' in parents")) return Promise.resolve({ data: { files: [
+        { id: 'story_10', name: 'story 10.jpg', mimeType: 'image/jpeg' },
+        { id: 'story_2', name: 'STORY 2.mp4', mimeType: 'video/mp4' },
+      ] } });
+      if (q.includes("'carousel_folder' in parents")) return Promise.resolve({ data: { files: [
+        { id: 'slide_10', name: '10.jpg', mimeType: 'image/jpeg' },
+        { id: 'slide_2', name: '2.jpg', mimeType: 'image/jpeg' },
+      ] } });
+      if (q.includes("'reels_folder' in parents")) return Promise.resolve({ data: { files: [
+        { id: 'reel_cover', name: 'cover.jpg', mimeType: 'image/jpeg' },
+        { id: 'unprefixed_video', name: 'launch.mp4', mimeType: 'video/mp4' },
+        { id: 'post_video', name: 'post-video.mp4', mimeType: 'video/mp4' },
+        { id: 'story_video', name: 'STORY-video.mp4', mimeType: 'video/mp4' },
+        { id: 'video_1', name: 'Video-launch.mp4', mimeType: 'video/mp4' },
+        { id: 'reel_1', name: 'reel-launch.mp4', mimeType: 'video/mp4' },
+        { id: 'reels_1', name: 'REELS-launch.mp4', mimeType: 'video/mp4' },
+      ] } });
+      return Promise.resolve({ data: { files: [
+        { id: 'story_folder', name: 'sToRy', mimeType: 'application/vnd.google-apps.folder' },
+        { id: 'carousel_folder', name: 'Carousel', mimeType: 'application/vnd.google-apps.folder' },
+        { id: 'reels_folder', name: 'Reels', mimeType: 'application/vnd.google-apps.folder' },
+        { id: 'post_1', name: 'cover.jpg', mimeType: 'image/jpeg' },
+      ] } });
+    });
+    const get = jest.fn().mockResolvedValue({ data: { name: 'Campaign', mimeType: 'application/vnd.google-apps.folder', trashed: false } });
+    (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue({ files: { get, list } });
+
+    const body = await (await GET(request)).json();
+    expect(body.formats).toEqual([
+      { format: 'Post', files: [{ id: 'post_1', name: 'cover.jpg', mimeType: 'image/jpeg' }] },
+      { format: 'Story', files: [{ id: 'story_2', name: 'STORY 2.mp4', mimeType: 'video/mp4' }, { id: 'story_10', name: 'story 10.jpg', mimeType: 'image/jpeg' }] },
+      { format: 'Reels', files: [
+        { id: 'reel_1', name: 'reel-launch.mp4', mimeType: 'video/mp4' },
+        { id: 'reels_1', name: 'REELS-launch.mp4', mimeType: 'video/mp4' },
+        { id: 'video_1', name: 'Video-launch.mp4', mimeType: 'video/mp4' },
+      ] },
+      { format: 'Carousel', files: [{ id: 'slide_2', name: '2.jpg', mimeType: 'image/jpeg' }, { id: 'slide_10', name: '10.jpg', mimeType: 'image/jpeg' }] },
+    ]);
+  });
 });

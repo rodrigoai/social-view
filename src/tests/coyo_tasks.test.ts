@@ -1,4 +1,4 @@
-import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, safeLink, TaskFilters } from '@/lib/coyoTasks';
+import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, safeLink, TaskFilters } from '@/lib/coyoTasks';
 const filters: TaskFilters = { search: '', status: '', from: '', to: '', dateField: 'postDate' };
 const task = { id: '1', title: 'Campaign', displayId: 'AC-1', category: 'TASK', status: 'BACKLOG', createdAt: '2026-08-01', deliveryDate: '2026-09-01', postDate: null } as CoyoTask;
 const post = { ...task, id: '2', category: 'POST', postDate: '2026-09-10T23:59:00Z' };
@@ -15,9 +15,20 @@ it('combines search and status and retains undated items with no date bounds', (
   expect(filterTasks([task], { ...filters, search: 'ac-1', status: 'BACKLOG' }, 'tasks')).toEqual([task]);
   expect(filterTasks([task], { ...filters, status: 'FINISHED' }, 'tasks')).toEqual([]);
 });
+it('matches any of multiple selected tags without case sensitivity', () => {
+  const design = { ...task, id: 'design', tags: ['Design'] };
+  const copy = { ...task, id: 'copy', tags: [{ name: 'COPY' }] };
+  const untagged = { ...task, id: 'untagged', tags: [] };
+  expect(filterTasks([design, copy, untagged], { ...filters, tags: ['design', 'Copy'] }, 'tasks')).toEqual([design, copy]);
+});
 it('rejects executable links and resolves relative resources', () => {
   expect(safeLink('javascript:alert(1)')).toBeNull();
   expect(safeLink('/api/drive/media?fileId=1')).toBe('https://taskmanager.coyo.com.br/api/drive/media?fileId=1');
+});
+it('normalizes single and multi-value post formats', () => {
+  expect(normalizePostFormats('Story', 'POST')).toEqual(['Story']);
+  expect(normalizePostFormats(['Post', 'REELS', 'Carrossel'], 'POST')).toEqual(['Post', 'Reels', 'Carousel']);
+  expect(normalizePostFormats(null, 'STORY')).toEqual(['Story']);
 });
 it('formats dates for Brazil and groups only identical tag sets', () => {
   expect(formatBrazilianDate('2026-09-10T23:59:00Z')).toBe('10/09/2026');

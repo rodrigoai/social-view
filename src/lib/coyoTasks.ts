@@ -4,19 +4,23 @@ export type DateField = keyof typeof dateFields;
 export type CoyoTag = string | { id?: string; name: string; color?: string | null };
 export type CoyoTask = {
   id: string; displayId: string; title: string; description: string | null; status: string; category: string;
-  workspace: string; tags?: CoyoTag[]; caption: string | null; driveLink: string | null;
+  workspace: string; tags?: CoyoTag[]; caption: string | null; driveLink: string | null; postFormat?: string | string[] | null;
   client: { id: string; name: string; prefix: string };
   deliveryDate: string | null; createdAt: string; postDate: string | null; executionDate: string | null; updatedAt: string;
 };
-export type TaskFilters = { search: string; status: string; from: string; to: string; dateField: DateField };
+export type CoyoPostFormat = 'Post' | 'Story' | 'Reels' | 'Carousel';
+export type TaskFilters = { search: string; status: string; from: string; to: string; dateField: DateField; tags?: string[] };
 export function filterTasks(tasks: CoyoTask[], filters: TaskFilters, section: string) {
   return tasks.filter(task => {
     if (section === 'tasks' && task.category !== 'TASK') return false;
     if (section === 'social' && task.category === 'TASK') return false;
     const date = task[filters.dateField]?.slice(0, 10);
+    const selectedTags = filters.tags || [];
+    const taskTags = new Set((task.tags || []).map(tagName).map(name => name.toLocaleLowerCase('pt-BR')));
     return (!filters.status || task.status === filters.status)
       && (!filters.from || (!!date && date >= filters.from))
       && (!filters.to || (!!date && date <= filters.to))
+      && (!selectedTags.length || selectedTags.some(tag => taskTags.has(tag.toLocaleLowerCase('pt-BR'))))
       && `${task.displayId} ${task.title} ${task.caption || ''}`.toLowerCase().includes(filters.search.toLowerCase());
   }).sort((a, b) => section === 'tasks'
     ? compareDate(a.deliveryDate, b.deliveryDate) || compareDate(a.createdAt, b.createdAt)
@@ -30,6 +34,20 @@ export function safeLink(value: string | null) {
   try { const url = new URL(value, 'https://taskmanager.coyo.com.br'); return ['http:', 'https:'].includes(url.protocol) ? url.href : null; } catch { return null; }
 }
 export function statusLabel(value: string) { return value.toLowerCase().replaceAll('_', ' '); }
+
+export function normalizePostFormats(value: CoyoTask['postFormat'], category = ''): CoyoPostFormat[] {
+  const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[,;|]/) : [];
+  if (!values.length && category && category !== 'TASK') values.push(category);
+  const formats = values.flatMap(raw => {
+    const normalized = raw.trim().toUpperCase();
+    if (normalized.includes('STOR')) return ['Story' as const];
+    if (normalized.includes('REEL')) return ['Reels' as const];
+    if (normalized.includes('CAROUSEL') || normalized.includes('CARROSSEL')) return ['Carousel' as const];
+    if (normalized.includes('POST')) return ['Post' as const];
+    return [];
+  });
+  return [...new Set(formats)];
+}
 
 export function tagName(tag: CoyoTag) { return typeof tag === 'string' ? tag : tag.name; }
 

@@ -24,6 +24,25 @@ function previewHeaders(fileName: string, mimeType: string) {
   };
 }
 
+async function isDescendantOfLinkedFolder(drive: Awaited<ReturnType<typeof getConfiguredGoogleDriveClient>>, fileId: string, rootFileId: string) {
+  let pending = [fileId];
+  const visited = new Set<string>();
+  for (let depth = 0; pending.length && depth < 10 && visited.size < 50; depth += 1) {
+    const next: string[] = [];
+    for (const id of pending) {
+      if (visited.has(id)) continue;
+      visited.add(id);
+      const response = await drive.files.get({ fileId: id, fields: 'id,parents,trashed', supportsAllDrives: true });
+      if (response.data.trashed) return false;
+      const parents = response.data.parents || [];
+      if (parents.includes(rootFileId)) return true;
+      next.push(...parents.filter(parent => parent !== rootFileId));
+    }
+    pending = next;
+  }
+  return false;
+}
+
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const mainAccountId = params.get('mainAccountId');
@@ -47,10 +66,7 @@ export async function GET(request: Request) {
     if (rootIsFolder && !requestedFileId) return NextResponse.json({ error: 'Select a file from this Drive folder.' }, { status: 400 });
     if (!rootIsFolder && requestedFileId && requestedFileId !== rootFileId) return NextResponse.json({ error: 'This file is outside the linked Drive item.' }, { status: 403 });
     const fileId = requestedFileId || rootFileId;
-    if (rootIsFolder) {
-      const childResponse = await drive.files.get({ fileId, fields: 'id,parents,trashed', supportsAllDrives: true });
-      if (childResponse.data.trashed || !childResponse.data.parents?.includes(rootFileId)) return NextResponse.json({ error: 'This file is outside the linked Drive folder.' }, { status: 403 });
-    }
+    if (rootIsFolder && !await isDescendantOfLinkedFolder(drive, fileId, rootFileId)) return NextResponse.json({ error: 'This file is outside the linked Drive folder.' }, { status: 403 });
     const metadataResponse = await drive.files.get({ fileId, fields: 'id,name,mimeType,size,trashed,capabilities(canDownload)', supportsAllDrives: true });
     const metadata = metadataResponse.data;
     if (metadata.trashed || metadata.capabilities?.canDownload === false) return NextResponse.json({ error: 'This Google Drive file cannot be previewed.' }, { status: 403 });

@@ -52,6 +52,18 @@ describe('Coyô Google Drive preview proxy', () => {
     expect(get).toHaveBeenNthCalledWith(2, { fileId: 'child_1', fields: 'id,parents,trashed', supportsAllDrives: true });
   });
 
+  it('allows files nested in a format subfolder of the linked folder', async () => {
+    const get = jest.fn()
+      .mockResolvedValueOnce({ data: { mimeType: 'application/vnd.google-apps.folder', trashed: false } })
+      .mockResolvedValueOnce({ data: { parents: ['story_folder'], trashed: false } })
+      .mockResolvedValueOnce({ data: { parents: ['file_123'], trashed: false } })
+      .mockResolvedValueOnce({ data: { name: 'story.mp4', mimeType: 'video/mp4', size: '3', capabilities: { canDownload: true } } })
+      .mockResolvedValueOnce({ data: new Uint8Array([7, 8, 9]) });
+    (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue({ files: { get, export: jest.fn() } });
+    expect((await GET(request('nested_story'))).status).toBe(200);
+    expect(get).toHaveBeenNthCalledWith(3, { fileId: 'story_folder', fields: 'id,parents,trashed', supportsAllDrives: true });
+  });
+
   it('ignores attachment links found only in the description', async () => {
     (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([{ ...task, driveLink: null }]);
     const response = await GET(request());

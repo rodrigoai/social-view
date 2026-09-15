@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, statuses, statusLabel, tagName } from '@/lib/coyoTasks';
+import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, statuses, statusLabel, tagName, type CoyoPostFormat } from '@/lib/coyoTasks';
 
 type Section = 'dash' | 'tasks' | 'social';
 type RangePreset = '7' | '30' | '60' | '90' | 'custom';
@@ -35,7 +35,7 @@ function presetDates(days: number) {
 
 function defaultFilters(): FiltersState {
   const dates = presetDates(7);
-  const base = { search: '', status: '', ...dates };
+  const base = { search: '', status: '', tags: [], ...dates };
   return { dash: { ...base, dateField: 'deliveryDate' }, tasks: { ...base, dateField: 'deliveryDate' }, social: { ...base, dateField: 'postDate' } };
 }
 
@@ -43,9 +43,30 @@ function StatusTag({ status }: { status: string }) {
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize leading-none ${statusStyles[status] || statusStyles.BACKLOG}`}>{statusLabel(status)}</span>;
 }
 
+function PostTypeTags({ task }: { task: CoyoTask }) {
+  const postTypes = normalizePostFormats(task.postFormat, task.category);
+  if (!postTypes.length) return <span className="text-muted">—</span>;
+  return <span className="inline-flex flex-wrap gap-1.5">{postTypes.map(postType => <span key={postType} className="rounded-md bg-accent-custom px-2 py-1 text-xs font-semibold text-foreground">{postType}</span>)}</span>;
+}
+
 function TagList({ task }: { task: CoyoTask }) {
   if (!task.tags?.length) return <span className="text-muted">No tags</span>;
   return <span className="inline-flex flex-wrap gap-1.5">{task.tags.map((tag, index) => <span key={`${tagName(tag)}-${index}`} className="rounded-md bg-accent-custom px-2 py-1 text-xs font-medium">{tagName(tag)}</span>)}</span>;
+}
+
+function TagFilter({ options, selected, onChange }: { options: string[]; selected: string[]; onChange: (tags: string[]) => void }) {
+  const toggle = (tag: string) => onChange(selected.includes(tag) ? selected.filter(item => item !== tag) : [...selected, tag]);
+
+  return <div className="relative text-xs font-medium text-muted">
+    <span>Tags</span>
+    <details className="relative mt-1">
+      <summary aria-label="Tag filters" className={`${control} min-w-40 cursor-pointer list-none pr-9 text-foreground marker:content-none`}>{selected.length ? `${selected.length} selected` : 'All tags'}<span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">⌄</span></summary>
+      <div className="absolute left-0 top-[calc(100%+.4rem)] z-30 w-64 rounded-xl border border-border-custom bg-card p-2 text-foreground shadow-xl">
+        {options.length ? <div className="max-h-64 overflow-y-auto">{options.map(tag => <label key={tag} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition hover:bg-accent-custom"><input type="checkbox" aria-label={`Filter by tag ${tag}`} checked={selected.includes(tag)} onChange={() => toggle(tag)} className="h-4 w-4 accent-emerald-600" /><span className="truncate">{tag}</span></label>)}</div> : <p className="px-2.5 py-2 text-sm text-muted">No tags available</p>}
+        {selected.length > 0 && <button type="button" onClick={() => onChange([])} className="mt-1 w-full border-t border-border-custom px-2.5 pt-2 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400">Clear tag filters</button>}
+      </div>
+    </details>
+  </div>;
 }
 
 function weekStart(value: string) {
@@ -91,14 +112,6 @@ function WeeklyChart({ tasks, filters }: { tasks: CoyoTask[]; filters: TaskFilte
   </div>;
 }
 
-function socialFormat(category: string) {
-  const value = category.toUpperCase();
-  if (value.includes('REEL')) return 'Reel';
-  if (value.includes('STOR')) return 'Story';
-  if (value.includes('CAROUSEL') || value.includes('CARROSSEL')) return 'Carousel';
-  return 'Post';
-}
-
 function driveManifestUrl(mainAccountId: string, taskId: string) {
   return `/api/coyo/files?mainAccountId=${encodeURIComponent(mainAccountId)}&taskId=${encodeURIComponent(taskId)}`;
 }
@@ -109,23 +122,25 @@ function attachmentPreviewUrl(mainAccountId: string, taskId: string, fileId?: st
 }
 
 type DriveFile = { id: string; name: string; mimeType: string };
-type DriveManifest = { isFolder: boolean; name: string; files: DriveFile[] };
+type DriveFormatGroup = { format: CoyoPostFormat; files: DriveFile[] };
+type DriveManifest = { isFolder: boolean; name: string; files: DriveFile[]; formats?: DriveFormatGroup[] };
 
-function DriveFileContent({ file, src, title }: { file: DriveFile; src: string; title: string }) {
-  if (file.mimeType.startsWith('image/')) return <Image src={src} alt={file.name} fill unoptimized sizes="(max-width: 1024px) 100vw, 42vw" className="object-contain" />;
-  if (file.mimeType.startsWith('video/')) return <video src={src} controls playsInline preload="metadata" className="block h-full w-full object-contain" />;
-  if (file.mimeType.startsWith('audio/')) return <audio src={src} controls preload="metadata" className="w-[min(34rem,86%)]" />;
+function DriveFileContent({ file, src, title, cover = false }: { file: DriveFile; src: string; title: string; cover?: boolean }) {
+  if (file.mimeType.startsWith('image/')) return <Image src={src} alt={file.name} fill unoptimized sizes="(max-width: 1024px) 100vw, 42vw" className={cover ? 'object-cover' : 'object-contain'} />;
+  if (file.mimeType.startsWith('video/')) return <video src={src} title={title} controls playsInline preload="metadata" className={`block h-full w-full ${cover ? 'object-cover' : 'object-contain'}`} />;
+  if (file.mimeType.startsWith('audio/')) return <audio src={src} title={title} controls preload="metadata" className="w-[min(34rem,86%)]" />;
   const canEmbed = file.mimeType === 'application/pdf' || file.mimeType.startsWith('text/') || file.mimeType.startsWith('application/vnd.google-apps.');
   if (canEmbed) return <iframe src={src} title={title} className="block h-full w-full border-0 bg-white" referrerPolicy="no-referrer" sandbox="" />;
   return <div className="max-w-sm px-6 text-center"><p className="font-semibold">Preview unavailable</p><p className="mt-2 text-sm text-muted">Open this file in Drive to view its contents.</p></div>;
 }
 
-function DriveMediaCanvas({ file, previewUrl, manifest, error, multiple, move, className }: { file?: DriveFile; previewUrl: string; manifest: DriveManifest | null; error: string; multiple: boolean; move: (delta: number) => void; className: string }) {
+function DriveMediaCanvas({ file, previewUrl, manifest, error, multiple, move, className, cover = false }: { file?: DriveFile; previewUrl: string; manifest: DriveManifest | null; error: string; multiple: boolean; move: (delta: number) => void; className: string; cover?: boolean }) {
   return <div className={`relative grid min-w-0 place-items-center overflow-hidden bg-accent-custom ${className}`} tabIndex={multiple ? 0 : undefined} onKeyDown={event => { if (event.key === 'ArrowLeft') move(-1); if (event.key === 'ArrowRight') move(1); }}>
     {!manifest && !error && <div className="text-sm text-muted">Loading preview…</div>}
     {error && <div className="max-w-sm px-6 text-center"><p className="font-semibold">Preview unavailable</p><p className="mt-2 text-sm text-muted">{error}</p></div>}
     {manifest && !file && <div className="max-w-sm px-6 text-center"><p className="font-semibold">This folder is empty</p><p className="mt-2 text-sm text-muted">No previewable files were found in the linked folder.</p></div>}
-    {file && <DriveFileContent file={file} src={previewUrl} title={`Drive preview: ${file.name}`} />}
+    {file && !previewUrl && <div className="text-sm text-muted">Caching image…</div>}
+    {file && previewUrl && <DriveFileContent file={file} src={previewUrl} title={`Drive preview: ${file.name}`} cover={cover} />}
     {multiple && <><button type="button" onClick={() => move(-1)} aria-label="Previous Drive file" className="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-slate-950/65 text-xl text-white shadow-lg backdrop-blur transition hover:bg-slate-950/85">‹</button><button type="button" onClick={() => move(1)} aria-label="Next Drive file" className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-slate-950/65 text-xl text-white shadow-lg backdrop-blur transition hover:bg-slate-950/85">›</button></>}
   </div>;
 }
@@ -134,6 +149,9 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
   const [manifest, setManifest] = useState<DriveManifest | null>(null);
   const [error, setError] = useState('');
   const [index, setIndex] = useState(0);
+  const [formatIndex, setFormatIndex] = useState(0);
+  const [imageCache, setImageCache] = useState<Record<string, string>>({});
+  const [failedImageCache, setFailedImageCache] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -144,36 +162,80 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
     return () => controller.abort();
   }, [mainAccountId, task.id]);
 
-  const files = manifest?.files || [];
+  useEffect(() => {
+    if (!manifest || typeof URL.createObjectURL !== 'function') return;
+    const controller = new AbortController();
+    const objectUrls: string[] = [];
+    const allFiles = [...manifest.files, ...(manifest.formats || []).flatMap(group => group.files)];
+    const images = [...new Map(allFiles.filter(item => item.mimeType.startsWith('image/')).map(item => [item.id, item])).values()];
+    images.forEach(async imageFile => {
+      const source = attachmentPreviewUrl(mainAccountId, task.id, manifest.isFolder ? imageFile.id : undefined);
+      try {
+        const response = await fetch(source, { signal: controller.signal });
+        if (!response.ok) throw new Error('Unable to cache image.');
+        const objectUrl = URL.createObjectURL(await response.blob());
+        if (controller.signal.aborted) { URL.revokeObjectURL(objectUrl); return; }
+        objectUrls.push(objectUrl);
+        setImageCache(current => ({ ...current, [imageFile.id]: objectUrl }));
+      } catch {
+        if (!controller.signal.aborted) setFailedImageCache(current => new Set(current).add(imageFile.id));
+      }
+    });
+    return () => {
+      controller.abort();
+      objectUrls.forEach(objectUrl => URL.revokeObjectURL(objectUrl));
+    };
+  }, [mainAccountId, manifest, task.id]);
+
+  const formatGroups = manifest?.formats || [];
+  const fallbackFormat = normalizePostFormats(task.postFormat, task.category)[0];
+  const activeFormat = formatGroups[formatIndex] || (fallbackFormat ? { format: fallbackFormat, files: manifest?.files || [] } : undefined);
+  const files = activeFormat?.files || manifest?.files || [];
   const file = files[index];
   const multiple = Boolean(manifest?.isFolder && files.length > 1);
+  const isStory = activeFormat?.format === 'Story';
   const move = (delta: number) => setIndex(current => (current + delta + files.length) % files.length);
-  const previewUrl = file ? attachmentPreviewUrl(mainAccountId, task.id, manifest?.isFolder ? file.id : undefined) : '';
+  const sourcePreviewUrl = file ? attachmentPreviewUrl(mainAccountId, task.id, manifest?.isFolder ? file.id : undefined) : '';
+  const supportsTemporaryCache = typeof URL.createObjectURL === 'function';
+  const previewUrl = file?.mimeType.startsWith('image/') && supportsTemporaryCache
+    ? imageCache[file.id] || (failedImageCache.has(file.id) ? sourcePreviewUrl : '')
+    : sourcePreviewUrl;
   const indicators = multiple && <div className="flex justify-center gap-1.5" aria-label="Drive folder files">{files.map((item, itemIndex) => <button key={item.id} type="button" onClick={() => setIndex(itemIndex)} aria-label={`Show ${item.name}`} aria-current={itemIndex === index ? 'true' : undefined} className={`h-1.5 rounded-full transition-all ${itemIndex === index ? 'w-6 bg-emerald-600' : 'w-1.5 bg-slate-300 hover:bg-slate-400'}`} />)}</div>;
 
   return <section className="min-w-0" aria-label="Google Drive preview">
     <div className="mb-3 flex min-w-0 items-center justify-between gap-4"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted">Drive preview</p><p className="mt-1 truncate text-sm font-semibold" title={file?.name || manifest?.name}>{file?.name || manifest?.name || 'Loading Drive content…'}</p></div>{multiple && <span className="shrink-0 text-xs tabular-nums text-muted">{index + 1} / {files.length}</span>}</div>
-    {social ? <div className="mx-auto aspect-[9/19.5] w-full max-w-[332px] rounded-[2.6rem] bg-slate-950 p-[7px] shadow-2xl" data-testid="social-post-preview">
+    {formatGroups.length > 1 && <div className="mb-4 flex flex-wrap justify-center gap-1 rounded-xl bg-accent-custom p-1" aria-label="Post formats">{formatGroups.map((group, groupIndex) => <button key={group.format} type="button" aria-pressed={groupIndex === formatIndex} onClick={() => { setFormatIndex(groupIndex); setIndex(0); }} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${groupIndex === formatIndex ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted hover:text-foreground'}`}>{group.format}</button>)}</div>}
+    {social ? <div className="mx-auto aspect-[9/19.5] w-full max-w-[332px] rounded-[2.6rem] bg-slate-950 p-[7px] shadow-2xl" data-testid={isStory ? 'story-preview' : 'social-post-preview'}>
       <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[2.15rem] bg-white text-slate-950">
-        <div className="flex h-7 shrink-0 items-center justify-between px-5 text-[10px] font-semibold"><span>9:41</span><span>● ◒ ▰</span></div>
-        <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-slate-100 px-3"><div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-[10px] font-black text-white">{task.client?.prefix?.slice(0, 1) || 'C'}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold">{task.client?.name || 'Coyô'}</p><p className="text-[9px] text-slate-500">Sponsored post preview</p></div><span className="text-sm font-bold">•••</span></div>
-        <DriveMediaCanvas file={file} previewUrl={previewUrl} manifest={manifest} error={error} multiple={multiple} move={move} className="aspect-[4/5] w-full shrink-0 bg-slate-100 text-slate-950" />
-        <div className="flex h-10 shrink-0 items-center justify-between px-3 text-xl"><span aria-hidden="true">♡　◯　⌁</span><span aria-hidden="true">⌑</span></div>
-        <div className="min-h-0 flex-1 overflow-hidden px-3 pb-2 text-[11px] leading-relaxed"><p className="font-semibold">Liked by your audience</p><p className="mt-1 line-clamp-3"><strong className="mr-1">{task.client?.prefix?.toLowerCase() || 'coyo'}</strong>{task.caption || task.title}</p>{multiple && <div className="mt-2">{indicators}</div>}</div>
-        <div className="grid h-10 shrink-0 grid-cols-5 place-items-center border-t border-slate-100 text-base" aria-hidden="true"><span>⌂</span><span>⌕</span><span>＋</span><span>♢</span><span className="grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-[8px] text-white">{task.client?.prefix?.slice(0, 1) || 'C'}</span></div>
+        {isStory ? <div className="relative h-full min-h-0 bg-slate-950 text-white">
+          <DriveMediaCanvas file={file} previewUrl={previewUrl} manifest={manifest} error={error} multiple={multiple} move={move} cover className="absolute inset-0 h-full w-full bg-slate-950 text-white" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-28 bg-gradient-to-b from-black/65 to-transparent" />
+          <div className="absolute inset-x-3 top-3 z-30 flex gap-1">{files.map((item, itemIndex) => <button key={item.id} type="button" onClick={() => setIndex(itemIndex)} aria-label={`Show ${item.name}`} className={`h-0.5 flex-1 rounded-full ${itemIndex <= index ? 'bg-white' : 'bg-white/40'}`} />)}</div>
+          <div className="pointer-events-none absolute inset-x-4 top-7 z-30 flex items-center gap-2.5"><div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-[10px] font-black text-white">{task.client?.prefix?.slice(0, 1) || 'C'}</div><p className="text-xs font-bold text-white">{task.client?.name || 'Coyô'} <span className="ml-1 font-normal text-white/70">now</span></p></div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32 bg-gradient-to-t from-black/65 to-transparent" />
+          <div className="absolute inset-x-5 bottom-5 z-30 rounded-full border border-white/70 px-4 py-2 text-center text-xs font-medium text-white">Send message</div>
+        </div> : <>
+          <div className="flex h-7 shrink-0 items-center justify-between px-5 text-[10px] font-semibold"><span>9:41</span><span>● ◒ ▰</span></div>
+          <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-slate-100 px-3"><div className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-[10px] font-black text-white">{task.client?.prefix?.slice(0, 1) || 'C'}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold">{task.client?.name || 'Coyô'}</p><p className="text-[9px] text-slate-500">{activeFormat?.format || 'Post'} preview</p></div><span className="text-sm font-bold">•••</span></div>
+          <DriveMediaCanvas file={file} previewUrl={previewUrl} manifest={manifest} error={error} multiple={multiple} move={move} className="aspect-[4/5] w-full shrink-0 bg-slate-100 text-slate-950" />
+          <div className="flex h-10 shrink-0 items-center justify-between px-3 text-xl"><span aria-hidden="true">♡　◯　⌁</span><span aria-hidden="true">⌑</span></div>
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pb-2 text-[11px] leading-relaxed"><p className="font-semibold">Liked by your audience</p><p className="mt-1 line-clamp-3"><strong className="mr-1">{task.client?.prefix?.toLowerCase() || 'coyo'}</strong>{task.caption || task.title}</p>{multiple && <div className="mt-2">{indicators}</div>}</div>
+          <div className="grid h-10 shrink-0 grid-cols-5 place-items-center border-t border-slate-100 text-base" aria-hidden="true"><span>⌂</span><span>⌕</span><span>＋</span><span>♢</span><span className="grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-[8px] text-white">{task.client?.prefix?.slice(0, 1) || 'C'}</span></div>
+        </>}
       </div>
     </div> : <><DriveMediaCanvas file={file} previewUrl={previewUrl} manifest={manifest} error={error} multiple={multiple} move={move} className="h-[min(48vh,480px)] min-h-[300px] w-full rounded-2xl border border-border-custom" />{multiple && <div className="mt-3">{indicators}</div>}</>}
   </section>;
 }
 
 function DetailPanel({ task, mainAccountId, onClose }: { task: CoyoTask; mainAccountId: string; onClose: () => void }) {
-  const isPost = task.category !== 'TASK';
+  const postFormats = normalizePostFormats(task.postFormat, task.category);
+  const isPost = task.category !== 'TASK' || postFormats.length > 0;
   const attachment = firstAttachmentLink(task);
   const description = task.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const dates: [string, string | null][] = [['Created', task.createdAt], ['Delivery', task.deliveryDate], ...(isPost ? [['Post date', task.postDate], ['Execution', task.executionDate]] as [string, string | null][] : [])];
   return <div className="coyo-panel-backdrop fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="coyo-detail-title" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <aside className="coyo-detail-panel h-dvh w-full overflow-y-auto border-l border-border-custom bg-card shadow-2xl sm:max-w-xl" data-testid="coyo-detail-panel">
-      <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? socialFormat(task.category) : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><button onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-custom text-xl transition hover:scale-105 hover:bg-border-custom" aria-label="Close details">×</button></header>
+      <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><button onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-custom text-xl transition hover:scale-105 hover:bg-border-custom" aria-label="Close details">×</button></header>
       <div className="space-y-8 p-6">
         {attachment && <DrivePreview task={task} mainAccountId={mainAccountId} social={isPost} />}
         <div className="min-w-0 space-y-7"><div className="flex flex-wrap items-center gap-2"><StatusTag status={task.status} /><span className="text-sm text-muted">{task.workspace}</span></div><div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">{dates.map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-sm font-semibold">{formatBrazilianDate(value)}</p></div>)}</div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tags</p><TagList task={task} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{description || 'No description.'}</p></div>{task.caption && <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Caption</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{task.caption}</p></div>}{attachment && <a href={attachment} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">Open in Drive ↗</a>}</div>
@@ -182,8 +244,28 @@ function DetailPanel({ task, mainAccountId, onClose }: { task: CoyoTask; mainAcc
   </div>;
 }
 
-function TasksTable({ tasks, social, onSelect }: { tasks: CoyoTask[]; social: boolean; onSelect: (task: CoyoTask) => void }) {
-  return <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="border-b border-border-custom text-xs uppercase tracking-wide text-muted"><tr>{['Item', 'Status', 'Created', 'Delivery', ...(social ? ['Post date', 'Execution'] : []), 'Resources'].map(label => <th className="px-3 py-3 font-semibold" key={label}>{label}</th>)}</tr></thead><tbody>{tasks.map(task => { const attachment = firstAttachmentLink(task); return <tr key={task.id} className="group border-b border-border-custom transition hover:bg-accent-custom/70"><td className="px-3 py-4"><button onClick={() => onSelect(task)} className="max-w-sm text-left font-semibold leading-snug transition group-hover:text-emerald-700 dark:group-hover:text-emerald-400"><span className="mb-1 block text-[11px] font-medium text-muted">{task.displayId}</span>{task.title}</button></td><td className="px-3"><StatusTag status={task.status} /></td>{[task.createdAt, task.deliveryDate, ...(social ? [task.postDate, task.executionDate] : [])].map((date, index) => <td key={index} className="whitespace-nowrap px-3 tabular-nums">{formatBrazilianDate(date)}</td>)}<td className="px-3">{attachment ? <a href={attachment} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 hover:underline dark:text-emerald-400">Open ↗</a> : '—'}</td></tr>; })}</tbody></table></div>;
+function TasksTable({ tasks, social, showTags = false, onSelect }: { tasks: CoyoTask[]; social: boolean; showTags?: boolean; onSelect: (task: CoyoTask) => void }) {
+  const columns = ['Item', 'Status', ...(showTags ? ['Tags'] : []), 'Created', 'Delivery', ...(social ? ['Post type', 'Post date'] : [])];
+
+  return <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+    <thead className="border-b border-border-custom text-xs uppercase tracking-wide text-muted"><tr>{columns.map(label => <th className={`px-3 py-3 font-semibold ${label === 'Post date' ? 'bg-emerald-50/80 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300' : ''}`} key={label}>{label}</th>)}</tr></thead>
+    <tbody>{tasks.map(task => <tr
+      key={task.id}
+      role="button"
+      tabIndex={0}
+      aria-label={`${task.displayId} ${task.title}`}
+      onClick={() => onSelect(task)}
+      onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(task); } }}
+      className="group cursor-pointer border-b border-border-custom transition hover:bg-accent-custom/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+    >
+      <td className="px-3 py-4"><div className="max-w-sm text-left font-semibold leading-snug transition group-hover:text-emerald-700 dark:group-hover:text-emerald-400"><span className="mb-1 block text-[11px] font-medium text-muted">{task.displayId}</span>{task.title}</div></td>
+      <td className="px-3"><StatusTag status={task.status} /></td>
+      {showTags && <td className="px-3"><TagList task={task} /></td>}
+      <td className="whitespace-nowrap px-3 tabular-nums">{formatBrazilianDate(task.createdAt)}</td>
+      <td className="whitespace-nowrap px-3 tabular-nums">{formatBrazilianDate(task.deliveryDate)}</td>
+      {social && <><td className="px-3"><PostTypeTags task={task} /></td><td className="whitespace-nowrap bg-emerald-50/80 px-3 font-bold tabular-nums text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-300">{formatBrazilianDate(task.postDate)}</td></>}
+    </tr>)}</tbody>
+  </table></div>;
 }
 
 export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountId: string }) {
@@ -192,6 +274,7 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
   const [section, setSection] = useState<Section>('dash');
   const [filtersBySection, setFilters] = useState<FiltersState>(defaultFilters);
   const [presets, setPresets] = useState<PresetsState>({ dash: '7', tasks: '7', social: '7' });
+  const [groupTasksByTags, setGroupTasksByTags] = useState(true);
   const [storageReady, setStorageReady] = useState(false), [view, setView] = useState('list');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [selected, setSelected] = useState<CoyoTask | null>(null);
@@ -202,12 +285,12 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      try { const saved = window.localStorage.getItem(STORAGE_KEY); if (saved) { const parsed = JSON.parse(saved); if (parsed.filtersBySection) setFilters(parsed.filtersBySection); if (parsed.presets) setPresets(parsed.presets); } } catch { /* Invalid or unavailable browser storage. */ }
+      try { const saved = window.localStorage.getItem(STORAGE_KEY); if (saved) { const parsed = JSON.parse(saved); if (parsed.filtersBySection) setFilters(parsed.filtersBySection); if (parsed.presets) setPresets(parsed.presets); if (typeof parsed.groupTasksByTags === 'boolean') setGroupTasksByTags(parsed.groupTasksByTags); } } catch { /* Invalid or unavailable browser storage. */ }
       setStorageReady(true);
     });
     return () => { cancelled = true; };
   }, []);
-  useEffect(() => { if (storageReady) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ filtersBySection, presets })); }, [filtersBySection, presets, storageReady]);
+  useEffect(() => { if (storageReady) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ filtersBySection, presets, groupTasksByTags })); }, [filtersBySection, presets, groupTasksByTags, storageReady]);
   useEffect(() => {
     const controller = new AbortController();
     queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(''); setTasks([]); setSelected(null); } });
@@ -219,6 +302,10 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
   const invalidRange = !!filters.from && !!filters.to && filters.from > filters.to;
   const filtered = invalidRange ? [] : filterTasks(tasks, filters, section);
   const taskGroups = section === 'tasks' ? groupTasksByExactTags(filtered) : [];
+  const availableTaskTags = useMemo(() => [...new Set([
+    ...tasks.filter(task => task.category === 'TASK').flatMap(task => (task.tags || []).map(tagName).filter(Boolean)),
+    ...(filtersBySection.tasks.tags || []),
+  ])].sort((a, b) => a.localeCompare(b, 'pt-BR')), [tasks, filtersBySection.tasks.tags]);
   const monthDate = new Date(`${month}-01T00:00:00Z`), days = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth() + 1, 0)).getUTCDate(), offset = monthDate.getUTCDay();
   const changeMonth = (delta: number) => { const date = new Date(monthDate); date.setUTCMonth(date.getUTCMonth() + delta); setMonth(date.toISOString().slice(0, 7)); };
   const selectPreset = (value: RangePreset) => { setPresets(current => ({ ...current, [section]: value })); if (value !== 'custom') update(presetDates(Number(value))); };
@@ -227,13 +314,22 @@ export function CoyoTasksDashboardView({ selectedAccountId }: { selectedAccountI
   return <section className="space-y-7" aria-label="Coyô Tasks">
     <div className="flex items-center justify-between gap-4"><div><h2 className="text-2xl font-bold tracking-tight">Coyô Tasks</h2><p className="mt-1 text-sm text-muted">Customer work, delivery progress, and social planning.</p></div><button className={`${control} font-semibold`} disabled={loading} onClick={() => setRevision(value => value + 1)}>↻ Refresh</button></div>
     <div className="flex gap-7 border-b border-border-custom" aria-label="Coyô sections">{(['dash', 'tasks', 'social'] as const).map(tab => <button key={tab} aria-pressed={section === tab} onClick={() => { setSection(tab); setSelected(null); }} className={`border-b-2 pb-3 font-semibold capitalize transition ${section === tab ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-muted hover:text-foreground'}`}>{tab}</button>)}</div>
-    <div className="rounded-2xl bg-accent-custom/70 p-4"><div className="flex flex-wrap items-end gap-3"><label className="text-xs font-medium text-muted">Period<select aria-label="Period" className={`${control} mt-1 block min-w-36`} value={presets[section]} onChange={event => selectPreset(event.target.value as RangePreset)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option><option value="custom">Custom period</option></select></label>{presets[section] === 'custom' && <><label className="text-xs font-medium text-muted">From<input aria-label="From" type="date" className={`${control} mt-1 block`} value={filters.from} onChange={event => update({ from: event.target.value })} /></label><label className="text-xs font-medium text-muted">To<input aria-label="To" type="date" className={`${control} mt-1 block`} value={filters.to} onChange={event => update({ to: event.target.value })} /></label></>}<label className="text-xs font-medium text-muted">Date type<select aria-label="Date type" className={`${control} mt-1 block`} value={filters.dateField} onChange={event => update({ dateField: event.target.value as DateField })}>{Object.entries(dateFields).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="text-xs font-medium text-muted">Status<select aria-label="Status" className={`${control} mt-1 block`} value={filters.status} onChange={event => update({ status: event.target.value })}><option value="">All statuses</option>{statuses.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></label><label className="min-w-52 flex-1 text-xs font-medium text-muted">Search<input aria-label="Search" type="search" className={`${control} mt-1 block w-full`} placeholder="Title, code, or caption" value={filters.search} onChange={event => update({ search: event.target.value })} /></label><button className={`${control} bg-transparent`} onClick={resetFilters}>Reset</button></div><p className="mt-3 text-xs text-muted">{formatBrazilianDate(filters.from)} — {formatBrazilianDate(filters.to)} · Saved automatically on this device.</p></div>
+    <div className="rounded-2xl bg-accent-custom/70 p-4"><div className="flex flex-wrap items-end gap-3">
+      <label className="text-xs font-medium text-muted">Period<select aria-label="Period" className={`${control} mt-1 block min-w-36`} value={presets[section]} onChange={event => selectPreset(event.target.value as RangePreset)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="60">Last 60 days</option><option value="90">Last 90 days</option><option value="custom">Custom period</option></select></label>
+      {presets[section] === 'custom' && <><label className="text-xs font-medium text-muted">From<input aria-label="From" type="date" className={`${control} mt-1 block`} value={filters.from} onChange={event => update({ from: event.target.value })} /></label><label className="text-xs font-medium text-muted">To<input aria-label="To" type="date" className={`${control} mt-1 block`} value={filters.to} onChange={event => update({ to: event.target.value })} /></label></>}
+      <label className="text-xs font-medium text-muted">Date type<select aria-label="Date type" className={`${control} mt-1 block`} value={filters.dateField} onChange={event => update({ dateField: event.target.value as DateField })}>{Object.entries(dateFields).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <label className="text-xs font-medium text-muted">Status<select aria-label="Status" className={`${control} mt-1 block`} value={filters.status} onChange={event => update({ status: event.target.value })}><option value="">All statuses</option>{statuses.map(status => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></label>
+      {section === 'tasks' && <TagFilter options={availableTaskTags} selected={filters.tags || []} onChange={tags => update({ tags })} />}
+      <label className="min-w-52 flex-1 text-xs font-medium text-muted">Search<input aria-label="Search" type="search" className={`${control} mt-1 block w-full`} placeholder="Title, code, or caption" value={filters.search} onChange={event => update({ search: event.target.value })} /></label>
+      {section === 'tasks' && <label className={`${control} flex cursor-pointer items-center gap-2 bg-transparent`}><input type="checkbox" aria-label="Group by tags" checked={groupTasksByTags} onChange={event => setGroupTasksByTags(event.target.checked)} className="h-4 w-4 accent-emerald-600" /><span>Group by tags</span></label>}
+      <button className={`${control} bg-transparent`} onClick={resetFilters}>Reset</button>
+    </div><p className="mt-3 text-xs text-muted">{formatBrazilianDate(filters.from)} — {formatBrazilianDate(filters.to)} · Saved automatically on this device.</p></div>
     {invalidRange && <p role="alert" className="text-sm font-medium text-red-600">From must be on or before To.</p>}
     {loading ? <p role="status" className="py-12 text-muted">Loading Coyô tasks…</p> : error ? <p role="alert" className="py-8 text-red-600">{error}</p> : section === 'dash' ? <>
       <div className="flex flex-wrap gap-x-14 gap-y-6 border-b border-border-custom pb-7">{[['Total items', filtered.length], ['Tasks', filtered.filter(task => task.category === 'TASK').length], ['Social posts', filtered.filter(task => task.category !== 'TASK').length]].map(([label, count]) => <div key={label}><p className="text-sm text-muted">{label}</p><p className="mt-1 text-4xl font-bold tracking-tight tabular-nums">{count}</p></div>)}</div><WeeklyChart tasks={filtered} filters={filters} /><div><h3 className="font-semibold">Items by status</h3><div className="mt-5 space-y-4">{statuses.map(status => { const count = filtered.filter(task => task.status === status).length; return <div key={status} className="grid grid-cols-[155px_1fr_40px] items-center gap-4 text-sm"><StatusTag status={status} /><div className="h-2 overflow-hidden rounded-full bg-accent-custom"><div className="h-full rounded-full bg-emerald-600 transition-all duration-700" style={{ width: `${filtered.length ? count / filtered.length * 100 : 0}%` }} /></div><span className="text-right tabular-nums">{count}</span></div>; })}</div></div>
     </> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">{filtered.length} {section === 'social' ? 'posts' : 'tasks'}</p>{section === 'social' && <div className="flex rounded-xl bg-accent-custom p-1">{['list', 'calendar'].map(mode => <button key={mode} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize transition ${view === mode ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted'}`} aria-pressed={view === mode} onClick={() => setView(mode)}>{mode}</button>)}</div>}</div>
-      {section === 'social' && view === 'calendar' ? <><div className="flex items-center justify-between"><button className={control} aria-label="Previous month" onClick={() => changeMonth(-1)}>←</button><h3 className="font-semibold capitalize">{monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className={control} aria-label="Next month" onClick={() => changeMonth(1)}>→</button></div><div className="overflow-x-auto"><div className="grid min-w-[700px] grid-cols-7 overflow-hidden rounded-2xl border-l border-t border-border-custom">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(day => <div key={day} className="border-b border-r border-border-custom bg-accent-custom p-2 text-xs font-semibold text-muted">{day}</div>)}{Array.from({ length: Math.ceil((days + offset) / 7) * 7 }, (_, index) => { const day = index - offset + 1, date = `${month}-${String(day).padStart(2, '0')}`; return <div key={index} className="min-h-28 border-b border-r border-border-custom p-2">{day > 0 && day <= days && <><p className="mb-2 text-xs text-muted">{day}</p>{filtered.filter(task => task[filters.dateField]?.slice(0, 10) === date).map(task => <button key={task.id} onClick={() => setSelected(task)} className="mb-2 block w-full rounded-lg bg-accent-custom p-2 text-left text-xs transition hover:bg-emerald-100 dark:hover:bg-emerald-950"><span className="font-semibold">{task.title}</span><span className="mt-1 block"><StatusTag status={task.status} /></span></button>)}</>}</div>; })}</div></div><p className="text-sm text-muted">{filtered.filter(task => !task[filters.dateField]).length} posts have no {dateFields[filters.dateField].toLowerCase()}. Use List to see them.</p></> : filtered.length === 0 ? <p className="py-12 text-center text-muted">No {section === 'social' ? 'posts' : 'tasks'} match these filters.</p> : section === 'tasks' ? <div className="space-y-8">{taskGroups.map(group => <section key={group.key} aria-label={group.tags.length ? `Tasks tagged ${group.tags.join(', ')}` : 'Untagged tasks'}><div className="mb-3 flex items-center gap-3"><div className="flex flex-wrap gap-1.5">{group.tags.length ? group.tags.map(tag => <span key={tag} className="rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">{tag}</span>) : <span className="text-sm font-semibold text-muted">Untagged</span>}</div><span className="text-xs tabular-nums text-muted">{group.tasks.length}</span><span className="h-px flex-1 bg-border-custom" /></div><TasksTable tasks={group.tasks} social={false} onSelect={setSelected} /></section>)}</div> : <TasksTable tasks={filtered} social onSelect={setSelected} />}
+      {section === 'social' && view === 'calendar' ? <><div className="flex items-center justify-between"><button className={control} aria-label="Previous month" onClick={() => changeMonth(-1)}>←</button><h3 className="font-semibold capitalize">{monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className={control} aria-label="Next month" onClick={() => changeMonth(1)}>→</button></div><div className="overflow-x-auto"><div className="grid min-w-[700px] grid-cols-7 overflow-hidden rounded-2xl border-l border-t border-border-custom">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(day => <div key={day} className="border-b border-r border-border-custom bg-accent-custom p-2 text-xs font-semibold text-muted">{day}</div>)}{Array.from({ length: Math.ceil((days + offset) / 7) * 7 }, (_, index) => { const day = index - offset + 1, date = `${month}-${String(day).padStart(2, '0')}`; return <div key={index} className="min-h-28 border-b border-r border-border-custom p-2">{day > 0 && day <= days && <><p className="mb-2 text-xs text-muted">{day}</p>{filtered.filter(task => task[filters.dateField]?.slice(0, 10) === date).map(task => <button key={task.id} onClick={() => setSelected(task)} className="mb-2 block w-full rounded-lg bg-accent-custom p-2 text-left text-xs transition hover:bg-emerald-100 dark:hover:bg-emerald-950"><span className="font-semibold">{task.title}</span><span className="mt-1 block"><StatusTag status={task.status} /></span></button>)}</>}</div>; })}</div></div><p className="text-sm text-muted">{filtered.filter(task => !task[filters.dateField]).length} posts have no {dateFields[filters.dateField].toLowerCase()}. Use List to see them.</p></> : filtered.length === 0 ? <p className="py-12 text-center text-muted">No {section === 'social' ? 'posts' : 'tasks'} match these filters.</p> : section === 'tasks' ? groupTasksByTags ? <div className="space-y-8">{taskGroups.map(group => <section key={group.key} aria-label={group.tags.length ? `Tasks tagged ${group.tags.join(', ')}` : 'Untagged tasks'}><div className="mb-3 flex items-center gap-3"><div className="flex flex-wrap gap-1.5">{group.tags.length ? group.tags.map(tag => <span key={tag} className="rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">{tag}</span>) : <span className="text-sm font-semibold text-muted">Untagged</span>}</div><span className="text-xs tabular-nums text-muted">{group.tasks.length}</span><span className="h-px flex-1 bg-border-custom" /></div><TasksTable tasks={group.tasks} social={false} onSelect={setSelected} /></section>)}</div> : <TasksTable tasks={filtered} social={false} showTags onSelect={setSelected} /> : <TasksTable tasks={filtered} social onSelect={setSelected} />}
     </>}
     {selected && <DetailPanel task={selected} mainAccountId={selectedAccountId} onClose={() => setSelected(null)} />}
   </section>;

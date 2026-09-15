@@ -53,6 +53,14 @@ export function coyoAttachmentMarkup(description: string | null | undefined) {
   }).join('\n');
 }
 
+export function removeCoyoAttachmentMarkup(description: string | null | undefined, fileId: string) {
+  if (!description) return '';
+  return description.replace(attachmentNodePattern, node => {
+    const attribute = node.match(/(?:href|src)\s*=\s*["']([^"']+)["']/i)?.[1];
+    return attribute && extractGoogleDriveFileId(attribute) === fileId ? '' : node;
+  }).replace(/<li>\s*<\/li>/gi, '').replace(/<(?:ul|ol)>\s*<\/(?:ul|ol)>/gi, '').trim();
+}
+
 export function taskTextDescription(description: string | null | undefined) {
   return (description || '').replace(attachmentNodePattern, ' ').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
 }

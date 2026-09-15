@@ -2,9 +2,11 @@
 import { GET, POST } from '@/app/api/coyo/tasks/route';
 import { prisma } from '@/lib/prisma';
 import { requireMainAccountAccess, AuthzError } from '@/lib/authz';
-import { deleteCoyoBacklogTaskForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
+import { deleteCoyoBacklogTaskForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
+import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 jest.mock('@/lib/prisma', () => ({ prisma: { mainAccount: { findUnique: jest.fn() } } }));
 jest.mock('@/lib/authz', () => ({ ...jest.requireActual('@/lib/authz'), requireMainAccountAccess: jest.fn() }));
+jest.mock('@/lib/googleDriveServiceAccount', () => ({ getConfiguredGoogleDriveClient: jest.fn() }));
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.COYO_EXTERNAL_API_ORIGIN = 'https://example.com';
@@ -97,6 +99,43 @@ it('updates a scoped Backlog task and preserves its attachment markup', async ()
   expect(url).toBe('https://taskmanager.coyo.com.br/api/external/tasks/task-1');
   expect(options.method).toBe('PATCH');
   expect(JSON.parse(options.body)).toEqual({ title: 'Updated title', description: 'New copy\n<a href="/api/drive/media?fileId=brief_1">brief.pdf</a>', dueDate: '2026-10-01', workspace: 'SOFTWARE' });
+});
+
+it('uploads new edit attachments to the task folder and appends their markup', async () => {
+  const drive = { files: {
+    get: jest.fn().mockResolvedValue({ data: { parents: ['task-folder'] } }),
+    create: jest.fn().mockResolvedValue({ data: { id: 'image_2', name: 'new.png', mimeType: 'image/png' } }),
+    update: jest.fn(),
+  } };
+  (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue(drive);
+  (global.fetch as jest.Mock)
+    .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'task-1', displayId: 'AC-42', status: 'BACKLOG', client: { prefix: 'AC' }, description: '<p>Copy</p><img src="/api/drive/media?fileId=image_1">' }] })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'task-1', status: 'BACKLOG' }) });
+
+  await updateCoyoBacklogTaskForAccount('1', 'task-1', {
+    title: 'Updated', description: 'Copy', dueDate: null, workspace: 'AGENCY',
+    attachments: [new File(['pixels'], 'new.png', { type: 'image/png' })],
+  });
+
+  expect(drive.files.get).toHaveBeenCalledWith(expect.objectContaining({ fileId: 'image_1' }));
+  expect(drive.files.create).toHaveBeenCalledWith(expect.objectContaining({ requestBody: { name: 'new.png', parents: ['task-folder'] } }));
+  expect(JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body).description).toBe('Copy\n<img src="/api/drive/media?fileId=image_1">\n<img src="/api/drive/media?fileId=image_2" alt="new.png">');
+});
+
+it('moves a selected attachment to Drive trash and removes only its task markup', async () => {
+  const drive = { files: {
+    get: jest.fn().mockResolvedValue({ data: { trashed: false, capabilities: { canTrash: true } } }),
+    update: jest.fn().mockResolvedValue({ data: {} }),
+  } };
+  (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue(drive);
+  (global.fetch as jest.Mock)
+    .mockResolvedValueOnce({ ok: true, json: async () => [{ id: 'task-1', displayId: 'AC-42', status: 'BACKLOG', client: { prefix: 'AC' }, description: '<p>Copy</p><img src="/api/drive/media?fileId=image_1"><a href="/api/drive/media?fileId=brief_2">brief.pdf</a>' }] })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'task-1', status: 'BACKLOG' }) });
+
+  await removeCoyoBacklogAttachmentForAccount('1', 'task-1', 'image_1');
+
+  expect(drive.files.update).toHaveBeenCalledWith({ fileId: 'image_1', requestBody: { trashed: true }, supportsAllDrives: true });
+  expect(JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body)).toEqual({ description: '<p>Copy</p><a href="/api/drive/media?fileId=brief_2">brief.pdf</a>' });
 });
 
 it('deletes a scoped Backlog task but blocks mutations after it leaves Backlog', async () => {

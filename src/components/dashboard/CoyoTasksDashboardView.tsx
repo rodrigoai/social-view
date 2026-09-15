@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Image from 'next/image';
-import { Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, statuses, statusLabel, tagName, taskTextDescription, type CoyoPostFormat } from '@/lib/coyoTasks';
 import { NewCoyoTaskModal } from '@/components/dashboard/NewCoyoTaskModal';
 
@@ -147,13 +147,16 @@ function DriveMediaCanvas({ file, previewUrl, manifest, error, multiple, move, c
   </div>;
 }
 
-function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAccountId: string; social: boolean }) {
+function DrivePreview({ task, mainAccountId, social, editable = false, onAttachmentsChanged }: { task: CoyoTask; mainAccountId: string; social: boolean; editable?: boolean; onAttachmentsChanged?: () => void }) {
   const [manifest, setManifest] = useState<DriveManifest | null>(null);
   const [error, setError] = useState('');
   const [index, setIndex] = useState(0);
   const [formatIndex, setFormatIndex] = useState(0);
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [failedImageCache, setFailedImageCache] = useState<Set<string>>(() => new Set());
+  const [removeCandidate, setRemoveCandidate] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,7 +174,7 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
     const allFiles = [...manifest.files, ...(manifest.formats || []).flatMap(group => group.files)];
     const images = [...new Map(allFiles.filter(item => item.mimeType.startsWith('image/')).map(item => [item.id, item])).values()];
     images.forEach(async imageFile => {
-      const source = attachmentPreviewUrl(mainAccountId, task.id, manifest.isFolder ? imageFile.id : undefined);
+      const source = attachmentPreviewUrl(mainAccountId, task.id, manifest.isFolder || manifest.files.length > 1 ? imageFile.id : undefined);
       try {
         const response = await fetch(source, { signal: controller.signal });
         if (!response.ok) throw new Error('Unable to cache image.');
@@ -204,6 +207,23 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
     : sourcePreviewUrl;
   const indicators = multiple && <div className="flex justify-center gap-1.5" aria-label="Drive folder files">{files.map((item, itemIndex) => <button key={item.id} type="button" onClick={() => setIndex(itemIndex)} aria-label={`Show ${item.name}`} aria-current={itemIndex === index ? 'true' : undefined} className={`h-1.5 rounded-full transition-all ${itemIndex === index ? 'w-6 bg-emerald-600' : 'w-1.5 bg-slate-300 hover:bg-slate-400'}`} />)}</div>;
 
+  const removeAttachment = async (attachment: DriveFile) => {
+    setRemovingId(attachment.id);
+    setAttachmentError('');
+    try {
+      const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}/attachments/${encodeURIComponent(attachment.id)}?mainAccountId=${encodeURIComponent(mainAccountId)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.error || 'Unable to remove this attachment.');
+      }
+      onAttachmentsChanged?.();
+    } catch (cause) {
+      setAttachmentError(cause instanceof Error ? cause.message : 'Unable to remove this attachment.');
+      setRemovingId(null);
+      setRemoveCandidate(null);
+    }
+  };
+
   return <section className="min-w-0" aria-label="Google Drive preview">
     <div className="mb-3 flex min-w-0 items-center justify-between gap-4"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wider text-muted">Drive preview</p><p className="mt-1 truncate text-sm font-semibold" title={file?.name || manifest?.name}>{file?.name || manifest?.name || 'Loading Drive content…'}</p></div>{multiple && <span className="shrink-0 text-xs tabular-nums text-muted">{index + 1} / {files.length}</span>}</div>
     {formatGroups.length > 1 && <div className="mb-4 flex flex-wrap justify-center gap-1 rounded-xl bg-accent-custom p-1" aria-label="Post formats">{formatGroups.map((group, groupIndex) => <button key={group.format} type="button" aria-pressed={groupIndex === formatIndex} onClick={() => { setFormatIndex(groupIndex); setIndex(0); }} className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${groupIndex === formatIndex ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted hover:text-foreground'}`}>{group.format}</button>)}</div>}
@@ -226,6 +246,8 @@ function DrivePreview({ task, mainAccountId, social }: { task: CoyoTask; mainAcc
         </>}
       </div>
     </div> : <><DriveMediaCanvas file={file} previewUrl={previewUrl} manifest={manifest} error={error} multiple={multiple} move={move} className="h-[min(48vh,480px)] min-h-[300px] w-full rounded-2xl border border-border-custom" />{multiple && <div className="mt-3">{indicators}</div>}</>}
+    {manifest && files.length > 0 && <div className="mt-5" aria-label="Attachments"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wider text-muted">Attachments</p><span className="text-xs tabular-nums text-muted">{files.length} {files.length === 1 ? 'file' : 'files'}</span></div><div className="divide-y divide-border-custom overflow-hidden rounded-xl border border-border-custom">{files.map((item, itemIndex) => <div key={item.id} className={`px-3 py-2.5 transition ${itemIndex === index ? 'bg-emerald-50/70 dark:bg-emerald-950/25' : 'bg-card'}`}>{removeCandidate === item.id ? <div className="flex flex-wrap items-center justify-between gap-3"><p className="min-w-0 flex-1 text-xs text-red-700 dark:text-red-300">Remove <strong>{item.name}</strong> from this task and move it to Drive trash?</p><div className="flex gap-1"><button type="button" disabled={Boolean(removingId)} onClick={() => setRemoveCandidate(null)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-card">Cancel</button><button type="button" disabled={Boolean(removingId)} onClick={() => removeAttachment(item)} className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{removingId === item.id && <Loader2 size={13} className="animate-spin" />} Remove</button></div></div> : <div className="flex items-center gap-3"><button type="button" onClick={() => setIndex(itemIndex)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-custom text-muted transition hover:text-foreground" aria-label={`Preview ${item.name}`}><FileText size={15} /></button><button type="button" onClick={() => setIndex(itemIndex)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-semibold">{item.name}</span><span className="block truncate text-[11px] text-muted">{item.mimeType}</span></button><a href={attachmentPreviewUrl(mainAccountId, task.id, item.id)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-accent-custom hover:text-foreground"><ExternalLink size={15} /></a>{editable && <button type="button" onClick={() => setRemoveCandidate(item.id)} aria-label={`Remove ${item.name}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"><Trash2 size={15} /></button>}</div>}</div>)}</div></div>}
+    {attachmentError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{attachmentError}</p>}
   </section>;
 }
 
@@ -234,6 +256,7 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
   const postFormats = normalizePostFormats(task.postFormat, task.category);
   const isPost = task.category !== 'TASK' || postFormats.length > 0;
   const isBacklog = task.status === 'BACKLOG';
@@ -246,17 +269,16 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
     setWorking(true);
     setActionError('');
     const formData = new FormData(event.currentTarget);
+    formData.delete('attachments');
+    pendingAttachments.forEach(file => formData.append('attachments', file, file.name));
+    const attachments = pendingAttachments;
+    const oversized = attachments.find(file => file.size > 5 * 1024 * 1024);
+    if (oversized) { setActionError(`${oversized.name} exceeds the 5 MB attachment limit.`); setWorking(false); return; }
+    formData.set('mainAccountId', mainAccountId);
     try {
       const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mainAccountId,
-          title: formData.get('title'),
-          description: formData.get('description'),
-          dueDate: formData.get('dueDate'),
-          workspace: formData.get('workspace'),
-        }),
+        body: formData,
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Unable to update this task.');
@@ -287,10 +309,10 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
     <aside className="coyo-detail-panel h-dvh w-full overflow-y-auto border-l border-border-custom bg-card shadow-2xl sm:max-w-xl" data-testid="coyo-detail-panel">
       <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><div className="flex shrink-0 items-center gap-1">{isBacklog && !editing && <><button type="button" onClick={() => { setEditing(true); setConfirmingDelete(false); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-accent-custom hover:text-foreground" aria-label="Edit task"><Pencil size={17} /></button><button type="button" onClick={() => { setConfirmingDelete(true); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40" aria-label="Delete task"><Trash2 size={17} /></button></>}<button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-accent-custom text-muted transition hover:scale-105 hover:bg-border-custom hover:text-foreground" aria-label="Close details"><X size={19} /></button></div></header>
       <div className="space-y-8 p-6">
-        {attachment && <DrivePreview task={task} mainAccountId={mainAccountId} social={isPost} />}
+        {attachment && <DrivePreview task={task} mainAccountId={mainAccountId} social={isPost} editable={editing && isBacklog} onAttachmentsChanged={onChanged} />}
         {confirmingDelete && <section aria-label="Confirm task deletion" className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/35"><h4 className="font-bold text-red-800 dark:text-red-200">Delete {task.displayId} permanently?</h4><p className="mt-1 text-sm leading-6 text-red-700 dark:text-red-300">This cannot be undone. Coyô will also remove files uploaded as this task’s attachments.</p><div className="mt-4 flex justify-end gap-2"><button type="button" disabled={working} onClick={() => setConfirmingDelete(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-card">Cancel</button><button type="button" disabled={working} onClick={deleteTask} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50">{working && <Loader2 size={15} className="animate-spin" />} Delete permanently</button></div></section>}
         {actionError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">{actionError}</p>}
-        {editing ? <form onSubmit={updateTask} className="space-y-5"><label className="block text-xs font-medium text-muted">Title<input name="title" aria-label="Edit title" required maxLength={240} defaultValue={task.title} className={`${control} mt-1.5 block w-full`} /></label><label className="block text-xs font-medium text-muted">Description<textarea name="description" aria-label="Edit description" rows={6} defaultValue={description} className={`${control} mt-1.5 block w-full resize-y`} /></label><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-medium text-muted">Due date<input name="dueDate" aria-label="Edit due date" type="date" defaultValue={task.deliveryDate?.slice(0, 10) || ''} className={`${control} mt-1.5 block w-full`} /></label><label className="text-xs font-medium text-muted">Workspace<select name="workspace" aria-label="Edit workspace" defaultValue={task.workspace} className={`${control} mt-1.5 block w-full`}><option value="AGENCY">Agency</option><option value="SOFTWARE">Software</option></select></label></div><div className="flex justify-end gap-2 border-t border-border-custom pt-5"><button type="button" disabled={working} onClick={() => { setEditing(false); setActionError(''); }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-muted transition hover:bg-accent-custom">Cancel</button><button type="submit" disabled={working} className="inline-flex min-w-28 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{working ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : 'Save changes'}</button></div></form> : <div className="min-w-0 space-y-7"><div className="flex flex-wrap items-center gap-2"><StatusTag status={task.status} /><span className="text-sm text-muted">{task.workspace}</span></div><div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">{dates.map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-sm font-semibold">{formatBrazilianDate(value)}</p></div>)}</div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tags</p><TagList task={task} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{description || 'No description.'}</p></div>{task.caption && <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Caption</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{task.caption}</p></div>}{attachment && <a href={attachment} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">{task.driveLink ? 'Open in Drive' : 'Open attachment'} ↗</a>}</div>}
+        {editing ? <form onSubmit={updateTask} className="space-y-5"><label className="block text-xs font-medium text-muted">Title<input name="title" aria-label="Edit title" required maxLength={240} defaultValue={task.title} className={`${control} mt-1.5 block w-full`} /></label><label className="block text-xs font-medium text-muted">Description<textarea name="description" aria-label="Edit description" rows={6} defaultValue={description} className={`${control} mt-1.5 block w-full resize-y`} /></label><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-medium text-muted">Due date<input name="dueDate" aria-label="Edit due date" type="date" defaultValue={task.deliveryDate?.slice(0, 10) || ''} className={`${control} mt-1.5 block w-full`} /></label><label className="text-xs font-medium text-muted">Workspace<select name="workspace" aria-label="Edit workspace" defaultValue={task.workspace} className={`${control} mt-1.5 block w-full`}><option value="AGENCY">Agency</option><option value="SOFTWARE">Software</option></select></label></div><label className="block rounded-xl border border-dashed border-border-custom bg-accent-custom/60 px-4 py-3 text-sm transition hover:border-emerald-500"><span className="flex items-center gap-2 font-semibold"><Paperclip size={16} aria-hidden="true" /> Add attachments</span><span className="mt-1 block text-xs text-muted">Up to 10 total files, 5 MB each.</span><input name="attachments" aria-label="Add attachments" type="file" multiple onChange={event => setPendingAttachments(Array.from(event.target.files || []))} className="mt-3 block w-full text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground" />{pendingAttachments.length > 0 && <ul className="mt-3 space-y-1.5">{pendingAttachments.map((file, index) => <li key={`${file.name}-${index}`} className="flex items-center gap-3 text-xs"><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="shrink-0 tabular-nums text-muted">{(file.size / 1024 / 1024).toFixed(1)} MB</span><button type="button" onClick={() => setPendingAttachments(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove selected ${file.name}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"><X size={14} /></button></li>)}</ul>}</label><div className="flex justify-end gap-2 border-t border-border-custom pt-5"><button type="button" disabled={working} onClick={() => { setEditing(false); setActionError(''); setPendingAttachments([]); }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-muted transition hover:bg-accent-custom">Cancel</button><button type="submit" disabled={working} className="inline-flex min-w-28 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{working ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : 'Save changes'}</button></div></form> : <div className="min-w-0 space-y-7"><div className="flex flex-wrap items-center gap-2"><StatusTag status={task.status} /><span className="text-sm text-muted">{task.workspace}</span></div><div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">{dates.map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-sm font-semibold">{formatBrazilianDate(value)}</p></div>)}</div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tags</p><TagList task={task} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{description || 'No description.'}</p></div>{task.caption && <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Caption</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{task.caption}</p></div>}</div>}
       </div>
     </aside>
   </div>;

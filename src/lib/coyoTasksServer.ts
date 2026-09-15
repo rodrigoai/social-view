@@ -1,5 +1,7 @@
+import { Readable } from 'node:stream';
 import { prisma } from '@/lib/prisma';
-import { coyoAttachmentMarkup, type CoyoTask } from '@/lib/coyoTasks';
+import { coyoAttachmentMarkup, extractGoogleDriveFileId, removeCoyoAttachmentMarkup, taskAttachmentLinks, type CoyoTask } from '@/lib/coyoTasks';
+import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 
 export class CoyoTasksError extends Error {
   status: number;
@@ -19,7 +21,13 @@ export type UpdateCoyoTaskInput = {
   description: string;
   dueDate: string | null;
   workspace: 'AGENCY' | 'SOFTWARE';
+  attachments?: File[];
 };
+
+const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+
+function escapeDriveQuery(value: string) { return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'"); }
+function escapeHtml(value: string) { return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;'); }
 
 async function getCoyoAccountConfig(mainAccountId: string) {
   const account = await prisma.mainAccount.findUnique({
@@ -105,15 +113,11 @@ async function taskMutationError(response: Response) {
   return new CoyoTasksError(message, response.status === 400 || response.status === 404 ? response.status : 502);
 }
 
-export async function updateCoyoBacklogTaskForAccount(mainAccountId: string, taskId: string, input: UpdateCoyoTaskInput) {
-  const currentTask = await requireScopedBacklogTask(mainAccountId, taskId);
-  const { token, origin } = await getCoyoAccountConfig(mainAccountId);
-  const attachmentMarkup = coyoAttachmentMarkup(currentTask.description);
-  const description = [input.description, attachmentMarkup].filter(Boolean).join('\n');
+async function patchCoyoTask(taskId: string, token: string, origin: string, fields: Record<string, unknown>) {
   const response = await fetch(`https://taskmanager.coyo.com.br/api/external/tasks/${encodeURIComponent(taskId)}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, Origin: origin, Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: input.title, description, dueDate: input.dueDate, workspace: input.workspace }),
+    body: JSON.stringify(fields),
     cache: 'no-store',
     signal: AbortSignal.timeout(30000),
   });
@@ -121,6 +125,98 @@ export async function updateCoyoBacklogTaskForAccount(mainAccountId: string, tas
   const task = await response.json();
   if (!task?.id || task.id !== taskId) throw new CoyoTasksError('Coyô returned an invalid task response.', 502);
   return task as CoyoTask;
+}
+
+async function findAttachmentFolder(task: CoyoTask, drive: Awaited<ReturnType<typeof getConfiguredGoogleDriveClient>>) {
+  const existingFileId = taskAttachmentLinks(task).map(extractGoogleDriveFileId).find((id): id is string => Boolean(id));
+  if (existingFileId) {
+    const response = await drive.files.get({ fileId: existingFileId, fields: 'parents', supportsAllDrives: true });
+    if (response.data.parents?.[0]) return response.data.parents[0];
+  }
+
+  const taskFolder = await drive.files.list({
+    q: `name = '${escapeDriveQuery(task.displayId)}' and mimeType = '${FOLDER_MIME_TYPE}' and trashed = false`,
+    fields: 'files(id,name)', pageSize: 10, spaces: 'drive', corpora: 'allDrives', supportsAllDrives: true, includeItemsFromAllDrives: true,
+  });
+  if (taskFolder.data.files?.[0]?.id) return taskFolder.data.files[0].id;
+
+  const roots = await drive.files.list({
+    q: `name = 'TaskAttachments' and mimeType = '${FOLDER_MIME_TYPE}' and trashed = false`,
+    fields: 'files(id,name)', pageSize: 10, spaces: 'drive', corpora: 'allDrives', supportsAllDrives: true, includeItemsFromAllDrives: true,
+  });
+  const rootId = roots.data.files?.[0]?.id;
+  if (!rootId) throw new CoyoTasksError('The Coyô TaskAttachments folder is not available to SocialView.', 503);
+  const created = await drive.files.create({ requestBody: { name: task.displayId, mimeType: FOLDER_MIME_TYPE, parents: [rootId] }, fields: 'id', supportsAllDrives: true });
+  if (!created.data.id) throw new CoyoTasksError('Unable to create this task’s attachment folder.', 502);
+  return created.data.id;
+}
+
+type UploadedAttachment = { id: string; name: string; mimeType: string };
+
+async function trashFiles(drive: Awaited<ReturnType<typeof getConfiguredGoogleDriveClient>>, fileIds: string[], trashed = true) {
+  await Promise.allSettled(fileIds.map(fileId => drive.files.update({ fileId, requestBody: { trashed }, supportsAllDrives: true })));
+}
+
+async function uploadAttachments(task: CoyoTask, files: File[]) {
+  if (!files.length) return { drive: null, uploaded: [] as UploadedAttachment[] };
+  const drive = await getConfiguredGoogleDriveClient();
+  const folderId = await findAttachmentFolder(task, drive);
+  const uploaded: UploadedAttachment[] = [];
+  try {
+    for (const file of files) {
+      const response = await drive.files.create({
+        requestBody: { name: file.name, parents: [folderId] },
+        media: { mimeType: file.type || 'application/octet-stream', body: Readable.from(Buffer.from(await file.arrayBuffer())) },
+        fields: 'id,name,mimeType', supportsAllDrives: true,
+      });
+      if (!response.data.id) throw new Error('DRIVE_UPLOAD_FAILED');
+      uploaded.push({ id: response.data.id, name: response.data.name || file.name, mimeType: response.data.mimeType || file.type || 'application/octet-stream' });
+    }
+    return { drive, uploaded };
+  } catch (error) {
+    await trashFiles(drive, uploaded.map(file => file.id));
+    throw error;
+  }
+}
+
+function attachmentMarkup(files: UploadedAttachment[]) {
+  return files.map(file => {
+    const url = `/api/drive/media?fileId=${encodeURIComponent(file.id)}`;
+    return file.mimeType.startsWith('image/') ? `<img src="${url}" alt="${escapeHtml(file.name)}">` : `<a href="${url}">${escapeHtml(file.name)}</a>`;
+  }).join('\n');
+}
+
+export async function updateCoyoBacklogTaskForAccount(mainAccountId: string, taskId: string, input: UpdateCoyoTaskInput) {
+  const currentTask = await requireScopedBacklogTask(mainAccountId, taskId);
+  if (taskAttachmentLinks(currentTask).length + (input.attachments?.length || 0) > 10) throw new CoyoTasksError('A task can contain up to 10 attachments.', 400);
+  const { token, origin } = await getCoyoAccountConfig(mainAccountId);
+  const { drive, uploaded } = await uploadAttachments(currentTask, input.attachments || []);
+  const existingMarkup = coyoAttachmentMarkup(currentTask.description);
+  const description = [input.description, existingMarkup, attachmentMarkup(uploaded)].filter(Boolean).join('\n');
+  try {
+    return await patchCoyoTask(taskId, token, origin, { title: input.title, description, dueDate: input.dueDate, workspace: input.workspace });
+  } catch (error) {
+    if (drive) await trashFiles(drive, uploaded.map(file => file.id));
+    throw error;
+  }
+}
+
+export async function removeCoyoBacklogAttachmentForAccount(mainAccountId: string, taskId: string, fileId: string) {
+  const currentTask = await requireScopedBacklogTask(mainAccountId, taskId);
+  const linkedFileIds = taskAttachmentLinks(currentTask).map(extractGoogleDriveFileId).filter((id): id is string => Boolean(id));
+  if (!linkedFileIds.includes(fileId)) throw new CoyoTasksError('Attachment not found for this task.', 404);
+  const { token, origin } = await getCoyoAccountConfig(mainAccountId);
+  const drive = await getConfiguredGoogleDriveClient();
+  const metadata = await drive.files.get({ fileId, fields: 'trashed,capabilities(canTrash)', supportsAllDrives: true });
+  if (metadata.data.trashed) throw new CoyoTasksError('Attachment not found for this task.', 404);
+  if (metadata.data.capabilities?.canTrash === false) throw new CoyoTasksError('SocialView cannot remove this Drive attachment.', 403);
+  await drive.files.update({ fileId, requestBody: { trashed: true }, supportsAllDrives: true });
+  try {
+    return await patchCoyoTask(taskId, token, origin, { description: removeCoyoAttachmentMarkup(currentTask.description, fileId) });
+  } catch (error) {
+    await trashFiles(drive, [fileId], false);
+    throw error;
+  }
 }
 
 export async function deleteCoyoBacklogTaskForAccount(mainAccountId: string, taskId: string) {

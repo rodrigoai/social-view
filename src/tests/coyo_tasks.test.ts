@@ -1,4 +1,4 @@
-import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, safeLink, taskAttachmentLinks, TaskFilters } from '@/lib/coyoTasks';
+import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, removeCoyoAttachmentMarkup, safeLink, taskAttachmentLinks, TaskFilters } from '@/lib/coyoTasks';
 const filters: TaskFilters = { search: '', status: '', from: '', to: '', dateField: 'postDate' };
 const task = { id: '1', title: 'Campaign', displayId: 'AC-1', category: 'TASK', status: 'BACKLOG', createdAt: '2026-08-01', deliveryDate: '2026-09-01', postDate: null } as CoyoTask;
 const post = { ...task, id: '2', category: 'POST', postDate: '2026-09-10T23:59:00Z' };
@@ -32,6 +32,11 @@ it('extracts only trusted attachment links from Backlog descriptions', () => {
     'https://taskmanager.coyo.com.br/api/drive/media?fileId=brief_2',
   ]);
   expect(taskAttachmentLinks({ ...backlog, status: 'IN_PROGRESS' })).toEqual([]);
+});
+it('removes only the selected attachment markup from a description', () => {
+  const description = '<p>Brief</p><img src="/api/drive/media?fileId=image_1" alt="First"><a href="/api/drive/media?fileId=brief_2">Second</a>';
+  expect(removeCoyoAttachmentMarkup(description, 'image_1')).toBe('<p>Brief</p><a href="/api/drive/media?fileId=brief_2">Second</a>');
+  expect(removeCoyoAttachmentMarkup(description, 'missing')).toBe(description);
 });
 it('normalizes single and multi-value post formats', () => {
   expect(normalizePostFormats('Story', 'POST')).toEqual(['Story']);

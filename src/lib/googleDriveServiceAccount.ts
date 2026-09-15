@@ -3,7 +3,7 @@ import { google } from 'googleapis';
 import { prisma } from '@/lib/prisma';
 import { decryptSecret } from '@/lib/appSecrets';
 
-export const DRIVE_READONLY_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 
 export type GoogleServiceAccountCredentials = {
   type: 'service_account';
@@ -45,7 +45,7 @@ export function parseServiceAccountCredentials(value: string): GoogleServiceAcco
 }
 
 export function createGoogleDriveClient(credentials: GoogleServiceAccountCredentials) {
-  const auth = new google.auth.GoogleAuth({ credentials, scopes: [DRIVE_READONLY_SCOPE] });
+  const auth = new google.auth.GoogleAuth({ credentials, scopes: [DRIVE_SCOPE] });
   return google.drive({ version: 'v3', auth });
 }
 

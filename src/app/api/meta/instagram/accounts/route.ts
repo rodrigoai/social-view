@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+import { getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 import { authzErrorResponse, requireAdmin } from '@/lib/authz';
+import { fetchAllMetaConnectionPages } from '@/lib/metaGraph';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,15 +15,14 @@ export async function GET(request: Request) {
     await requireAdmin();
     const accessToken = await getMetaAccessToken(mainAccountId);
 
-    const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=instagram_business_account{id,username},name&access_token=${accessToken}`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw createMetaApiError(data, 'Failed to fetch Instagram accounts');
-    }
+    const endpoint = new URL('https://graph.facebook.com/v25.0/me/accounts');
+    endpoint.searchParams.set('fields', 'instagram_business_account{id,username},name');
+    endpoint.searchParams.set('limit', '100');
+    endpoint.searchParams.set('access_token', accessToken);
+    const data = await fetchAllMetaConnectionPages<any>(endpoint, 'Failed to fetch Instagram accounts');
 
     const accounts: any[] = [];
-    data.data.forEach((page: any) => {
+    data.forEach((page: any) => {
       if (page.instagram_business_account) {
         accounts.push({
           id: page.instagram_business_account.id,

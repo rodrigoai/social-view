@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card } from '@/components/Card';
 import { AlertCircle, ArrowRight, Building2, ShieldCheck } from 'lucide-react';
-
-import { Suspense } from 'react';
+import { MetaAccountSearch } from '@/components/MetaAccountSearch';
+import { filterMetaAccounts } from '@/lib/metaAccountSearch';
 
 function MetaAdsSelectContent() {
   const router = useRouter();
@@ -16,6 +15,8 @@ function MetaAdsSelectContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<any>(null);
   const [selecting, setSelecting] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const filteredAccounts = useMemo(() => filterMetaAccounts(accounts, query), [accounts, query]);
 
   useEffect(() => {
     if (!mainAccountId) {
@@ -102,8 +103,17 @@ function MetaAdsSelectContent() {
         <p className="text-muted mt-2 text-lg">We found {accounts.length} accounts accessible with your login.</p>
       </div>
 
+      {accounts.length > 0 && (
+        <MetaAccountSearch
+          label="Search Meta Ad accounts"
+          placeholder="Search by account name or ID"
+          query={query}
+          onQueryChange={setQuery}
+        />
+      )}
+
       <div className="grid gap-4">
-        {accounts.map((acc) => (
+        {filteredAccounts.map((acc) => (
           <button
             key={acc.id}
             onClick={() => selectAccount(acc)}
@@ -149,6 +159,12 @@ function MetaAdsSelectContent() {
             >
               Try a different login
             </button>
+          </div>
+        )}
+
+        {accounts.length > 0 && filteredAccounts.length === 0 && (
+          <div role="status" className="text-center p-12 border-2 border-dashed border-border-custom rounded-3xl bg-card">
+            <p className="text-muted">No Meta Ad accounts match “{query.trim()}”.</p>
           </div>
         )}
       </div>

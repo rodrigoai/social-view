@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+import { getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 import { authzErrorResponse, requireAdmin } from '@/lib/authz';
+import { fetchAllMetaConnectionPages } from '@/lib/metaGraph';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,14 +15,13 @@ export async function GET(request: Request) {
     await requireAdmin();
     const accessToken = await getMetaAccessToken(mainAccountId);
 
-    const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=name,access_token,id&access_token=${accessToken}`);
-    const data = await res.json();
+    const endpoint = new URL('https://graph.facebook.com/v25.0/me/accounts');
+    endpoint.searchParams.set('fields', 'name,access_token,id');
+    endpoint.searchParams.set('limit', '100');
+    endpoint.searchParams.set('access_token', accessToken);
+    const data = await fetchAllMetaConnectionPages<any>(endpoint, 'Failed to fetch Facebook pages');
 
-    if (!res.ok) {
-      throw createMetaApiError(data, 'Failed to fetch Facebook pages');
-    }
-
-    const accounts = data.data.map((page: any) => ({
+    const accounts = data.map((page: any) => ({
       id: page.id,
       name: page.name,
       accessToken: page.access_token

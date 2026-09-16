@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createMetaApiError, getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
+import { getMetaAccessToken, isMetaAuthError } from '@/lib/metaAuth';
 import { authzErrorResponse, requireAdmin } from '@/lib/authz';
+import { fetchAllMetaConnectionPages } from '@/lib/metaGraph';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,15 +15,13 @@ export async function GET(request: Request) {
     await requireAdmin();
     const accessToken = await getMetaAccessToken(mainAccountId);
 
-    const res = await fetch(`https://graph.facebook.com/v25.0/me/adaccounts?fields=name,account_id,currency,account_status&access_token=${accessToken}`);
-    const data = await res.json();
+    const endpoint = new URL('https://graph.facebook.com/v25.0/me/adaccounts');
+    endpoint.searchParams.set('fields', 'name,account_id,currency,account_status');
+    endpoint.searchParams.set('limit', '100');
+    endpoint.searchParams.set('access_token', accessToken);
+    const data = await fetchAllMetaConnectionPages<any>(endpoint, 'Failed to fetch ad accounts');
 
-    if (!res.ok) {
-      throw createMetaApiError(data, 'Failed to fetch ad accounts');
-    }
-
-    // data.data contains the ad accounts
-    const accounts = data.data.map((acc: any) => ({
+    const accounts = data.map((acc: any) => ({
       id: acc.account_id, // e.g. "act_123456789" is usually just the ID but often returned with act_ prefix or without, account_id is numeric.
       actId: `act_${acc.account_id}`,
       name: acc.name || `Account ${acc.account_id}`,

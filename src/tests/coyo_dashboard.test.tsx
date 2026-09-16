@@ -41,7 +41,7 @@ it('previews description attachments for Backlog tasks in the side panel', async
   const backlog = { id: 'backlog-1', displayId: 'AC-50', title: 'New brief', description: '<p>Brief attached</p><img src="/api/drive/media?fileId=image_1"><img src="/api/drive/media?fileId=image_2">', status: 'BACKLOG', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
   (global.fetch as jest.Mock).mockImplementation(async input => {
     const url = String(input);
-    if (url.startsWith('/api/coyo/files?')) return { ok: true, json: async () => ({ isFolder: false, name: 'Artwork.png', files: [{ id: 'image_1', name: 'Artwork.png', mimeType: 'image/png' }, { id: 'image_2', name: 'Brief.png', mimeType: 'image/png' }] }) };
+    if (url.startsWith('/api/coyo/files?')) return { ok: true, json: async () => ({ isFolder: false, name: 'Artwork.png', driveUrl: 'https://drive.google.com/drive/folders/backlog_folder', files: [{ id: 'image_1', name: 'Artwork.png', mimeType: 'image/png' }, { id: 'image_2', name: 'Brief.png', mimeType: 'image/png' }] }) };
     if (url.startsWith('/api/coyo/files/preview?')) return { ok: true, blob: async () => new Blob([url]) };
     return { ok: true, json: async () => ({ tasks: [backlog] }) };
   });
@@ -53,6 +53,7 @@ it('previews description attachments for Backlog tasks in the side panel', async
 
   expect(await screen.findByRole('button', { name: 'Preview Artwork.png' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Preview Brief.png' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open in Google Drive' })).toHaveAttribute('href', 'https://drive.google.com/drive/folders/backlog_folder');
   await waitFor(() => expect(createObjectUrl).toHaveBeenCalledTimes(2));
   const previewRequests = (global.fetch as jest.Mock).mock.calls.map(([input]) => String(input)).filter(url => url.startsWith('/api/coyo/files/preview?'));
   expect(previewRequests).toEqual(expect.arrayContaining([
@@ -113,6 +114,7 @@ it('groups exact tag sets, sorts tasks, and opens a localized detail side panel'
   expect(screen.queryByRole('button', { name: 'Delete task' })).not.toBeInTheDocument();
   expect(screen.getByTestId('coyo-detail-panel')).toHaveClass('h-dvh', 'sm:max-w-xl');
   expect(screen.getAllByText(new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(today))).length).toBeGreaterThan(0);
+  expect(screen.getByRole('link', { name: 'Open in Google Drive' })).toHaveAttribute('href', 'https://drive.google.com/drive/folders/folder_1');
   expect(await screen.findByRole('link', { name: 'Open 01.jpg' })).toHaveAttribute('href', '/api/coyo/files/preview?mainAccountId=customer&taskId=later&fileId=image_1');
   expect(await screen.findByRole('button', { name: 'Next Drive file' })).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: '01.jpg' })).toHaveAttribute('src', '/api/coyo/files/preview?mainAccountId=customer&taskId=later&fileId=image_1');
@@ -266,6 +268,7 @@ it('renders social details as a phone-proportioned post in the side panel', asyn
   expect(screen.getByText('Post preview')).toBeInTheDocument();
   expect(screen.getAllByText('A launch caption')).toHaveLength(2);
   expect(await screen.findByRole('img', { name: 'post.jpg' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Open in Google Drive' })).toHaveAttribute('href', 'https://drive.google.com/drive/folders/folder_1');
   fireEvent.click(screen.getByRole('button', { name: 'Story' }));
   expect(screen.getByTestId('story-preview')).toHaveClass('aspect-[9/19.5]');
   expect(screen.getByText('Send message')).toBeInTheDocument();

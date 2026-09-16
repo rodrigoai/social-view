@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Image from 'next/image';
 import { ExternalLink, FileText, Loader2, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, statuses, statusLabel, tagName, taskTextDescription, type CoyoPostFormat } from '@/lib/coyoTasks';
+import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, safeLink, statuses, statusLabel, tagName, taskTextDescription, type CoyoPostFormat } from '@/lib/coyoTasks';
 import { NewCoyoTaskModal } from '@/components/dashboard/NewCoyoTaskModal';
 
 type Section = 'dash' | 'tasks' | 'social';
@@ -125,7 +125,7 @@ function attachmentPreviewUrl(mainAccountId: string, taskId: string, fileId?: st
 
 type DriveFile = { id: string; name: string; mimeType: string };
 type DriveFormatGroup = { format: CoyoPostFormat; files: DriveFile[] };
-type DriveManifest = { isFolder: boolean; name: string; files: DriveFile[]; formats?: DriveFormatGroup[] };
+type DriveManifest = { isFolder: boolean; name: string; files: DriveFile[]; driveUrl?: string; formats?: DriveFormatGroup[] };
 
 function DriveFileContent({ file, src, title, cover = false }: { file: DriveFile; src: string; title: string; cover?: boolean }) {
   if (file.mimeType.startsWith('image/')) return <Image src={src} alt={file.name} fill unoptimized sizes="(max-width: 1024px) 100vw, 42vw" className={cover ? 'object-cover' : 'object-contain'} />;
@@ -201,6 +201,7 @@ function DrivePreview({ task, mainAccountId, social, editable = false, onAttachm
   const isStory = activeFormat?.format === 'Story';
   const move = (delta: number) => setIndex(current => (current + delta + files.length) % files.length);
   const sourcePreviewUrl = file ? attachmentPreviewUrl(mainAccountId, task.id, manifest?.isFolder || files.length > 1 ? file.id : undefined) : '';
+  const taskDriveLink = safeLink(task.driveLink) || safeLink(manifest?.driveUrl || null);
   const supportsTemporaryCache = typeof URL.createObjectURL === 'function';
   const previewUrl = file?.mimeType.startsWith('image/') && supportsTemporaryCache
     ? imageCache[file.id] || (failedImageCache.has(file.id) ? sourcePreviewUrl : '')
@@ -247,6 +248,7 @@ function DrivePreview({ task, mainAccountId, social, editable = false, onAttachm
       </div>
     </div> : <><DriveMediaCanvas file={file} previewUrl={previewUrl} manifest={manifest} error={error} multiple={multiple} move={move} className="h-[min(48vh,480px)] min-h-[300px] w-full rounded-2xl border border-border-custom" />{multiple && <div className="mt-3">{indicators}</div>}</>}
     {manifest && files.length > 0 && <div className="mt-5" aria-label="Attachments"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wider text-muted">Attachments</p><span className="text-xs tabular-nums text-muted">{files.length} {files.length === 1 ? 'file' : 'files'}</span></div><div className="divide-y divide-border-custom overflow-hidden rounded-xl border border-border-custom">{files.map((item, itemIndex) => <div key={item.id} className={`px-3 py-2.5 transition ${itemIndex === index ? 'bg-emerald-50/70 dark:bg-emerald-950/25' : 'bg-card'}`}>{removeCandidate === item.id ? <div className="flex flex-wrap items-center justify-between gap-3"><p className="min-w-0 flex-1 text-xs text-red-700 dark:text-red-300">Remove <strong>{item.name}</strong> from this task and move it to Drive trash?</p><div className="flex gap-1"><button type="button" disabled={Boolean(removingId)} onClick={() => setRemoveCandidate(null)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted hover:bg-card">Cancel</button><button type="button" disabled={Boolean(removingId)} onClick={() => removeAttachment(item)} className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50">{removingId === item.id && <Loader2 size={13} className="animate-spin" />} Remove</button></div></div> : <div className="flex items-center gap-3"><button type="button" onClick={() => setIndex(itemIndex)} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-custom text-muted transition hover:text-foreground" aria-label={`Preview ${item.name}`}><FileText size={15} /></button><button type="button" onClick={() => setIndex(itemIndex)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-semibold">{item.name}</span><span className="block truncate text-[11px] text-muted">{item.mimeType}</span></button><a href={attachmentPreviewUrl(mainAccountId, task.id, item.id)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-accent-custom hover:text-foreground"><ExternalLink size={15} /></a>{editable && <button type="button" onClick={() => setRemoveCandidate(item.id)} aria-label={`Remove ${item.name}`} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"><Trash2 size={15} /></button>}</div>}</div>)}</div></div>}
+    {taskDriveLink && <a href={taskDriveLink} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border-custom px-3.5 py-3 text-sm font-semibold text-foreground transition hover:border-emerald-500 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20" aria-label="Open in Google Drive"><span>Open in Google Drive</span><ExternalLink size={16} className="shrink-0 text-emerald-600" aria-hidden="true" /></a>}
     {attachmentError && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{attachmentError}</p>}
   </section>;
 }

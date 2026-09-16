@@ -54,13 +54,16 @@ export async function GET(request: Request) {
 
     const drive = await getConfiguredGoogleDriveClient();
     if (!rootFileId) {
-      const files = (await Promise.all(backlogFileIds.map(async fileId => {
-        const response = await drive.files.get({ fileId, fields: 'id,name,mimeType,trashed', supportsAllDrives: true });
+      const attachments = (await Promise.all(backlogFileIds.map(async fileId => {
+        const response = await drive.files.get({ fileId, fields: 'id,name,mimeType,parents,trashed', supportsAllDrives: true });
         const file = response.data;
-        return file.trashed ? null : { id: fileId, name: file.name || 'Attachment', mimeType: file.mimeType || 'application/octet-stream' };
-      }))).filter((file): file is DriveItem => Boolean(file));
+        return file.trashed ? null : { id: fileId, name: file.name || 'Attachment', mimeType: file.mimeType || 'application/octet-stream', parentId: file.parents?.[0] || null };
+      }))).filter((file): file is DriveItem & { parentId: string | null } => Boolean(file));
+      const files = naturalSort(attachments.map(({ parentId: _parentId, ...file }) => file));
       if (!files.length) return NextResponse.json({ error: 'No previewable attachments were found.' }, { status: 404 });
-      return NextResponse.json({ isFolder: false, name: files.length === 1 ? files[0].name : 'Backlog attachments', files: naturalSort(files) });
+      const parentId = attachments.find(file => file.parentId)?.parentId;
+      const driveUrl = parentId ? `https://drive.google.com/drive/folders/${encodeURIComponent(parentId)}` : `https://drive.google.com/file/d/${encodeURIComponent(files[0].id)}/view`;
+      return NextResponse.json({ isFolder: false, name: files.length === 1 ? files[0].name : 'Backlog attachments', files, driveUrl });
     }
     const rootResponse = await drive.files.get({ fileId: rootFileId, fields: 'id,name,mimeType,trashed', supportsAllDrives: true });
     const root = rootResponse.data;
@@ -69,7 +72,7 @@ export async function GET(request: Request) {
     const formats = normalizePostFormats(task.postFormat, task.category);
     if (root.mimeType !== FOLDER_MIME_TYPE) {
       const files = [{ id: rootFileId, name: root.name || 'Drive file', mimeType: root.mimeType || 'application/octet-stream' }];
-      return NextResponse.json({ isFolder: false, name: root.name || 'Drive file', files, ...(formats.length ? { formats: formats.map(format => ({ format, files: filesInFormatFolder(files, format) })) } : {}) });
+      return NextResponse.json({ isFolder: false, name: root.name || 'Drive file', files, driveUrl: task.driveLink, ...(formats.length ? { formats: formats.map(format => ({ format, files: filesInFormatFolder(files, format) })) } : {}) });
     }
 
     const folderResponse = await drive.files.list({
@@ -96,7 +99,7 @@ export async function GET(request: Request) {
       return { format, files: naturalSort(filesInFormatFolder(files, format)) };
     }));
     const files = formats.length ? naturalSort([...new Map(formatGroups.flatMap(group => group.files).map(file => [file.id, file])).values()]) : rootFiles;
-    return NextResponse.json({ isFolder: true, name: root.name || 'Drive folder', files, ...(formats.length ? { formats: formatGroups } : {}) });
+    return NextResponse.json({ isFolder: true, name: root.name || 'Drive folder', files, driveUrl: task.driveLink, ...(formats.length ? { formats: formatGroups } : {}) });
   } catch (error) {
     const authResponse = authzErrorResponse(error);
     if (authResponse) return authResponse;

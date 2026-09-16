@@ -28,7 +28,7 @@ describe('Coyô Google Drive manifest', () => {
 
     const response = await GET(request);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ isFolder: true, name: 'Campaign', files: [
+    expect(await response.json()).toEqual({ isFolder: true, name: 'Campaign', driveUrl: 'https://drive.google.com/drive/folders/folder_1', files: [
       { id: 'image_1', name: '01.jpg', mimeType: 'image/jpeg' },
       { id: 'video_1', name: '02.mp4', mimeType: 'video/mp4' },
     ] });
@@ -41,18 +41,18 @@ describe('Coyô Google Drive manifest', () => {
     const get = jest.fn().mockResolvedValue({ data: { name: 'Artwork.png', mimeType: 'image/png', trashed: false } });
     (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue({ files: { get, list } });
 
-    expect(await (await GET(request)).json()).toEqual({ isFolder: false, name: 'Artwork.png', files: [{ id: 'file_1', name: 'Artwork.png', mimeType: 'image/png' }] });
+    expect(await (await GET(request)).json()).toEqual({ isFolder: false, name: 'Artwork.png', driveUrl: 'https://drive.google.com/file/d/file_1/view', files: [{ id: 'file_1', name: 'Artwork.png', mimeType: 'image/png' }] });
     expect(list).not.toHaveBeenCalled();
   });
 
   it('lists attachments embedded by Coyô in a Backlog description', async () => {
     (fetchCoyoTasksForAccount as jest.Mock).mockResolvedValue([{ id: 'task-1', status: 'BACKLOG', driveLink: null, description: '<img src="/api/drive/media?fileId=image_1"><a href="/api/drive/media?fileId=brief_2">Brief</a>' }]);
     const get = jest.fn()
-      .mockResolvedValueOnce({ data: { name: 'Artwork.png', mimeType: 'image/png', trashed: false } })
-      .mockResolvedValueOnce({ data: { name: 'Brief.pdf', mimeType: 'application/pdf', trashed: false } });
+      .mockResolvedValueOnce({ data: { name: 'Artwork.png', mimeType: 'image/png', parents: ['task_folder'], trashed: false } })
+      .mockResolvedValueOnce({ data: { name: 'Brief.pdf', mimeType: 'application/pdf', parents: ['task_folder'], trashed: false } });
     (getConfiguredGoogleDriveClient as jest.Mock).mockResolvedValue({ files: { get, list: jest.fn() } });
 
-    expect(await (await GET(request)).json()).toEqual({ isFolder: false, name: 'Backlog attachments', files: [
+    expect(await (await GET(request)).json()).toEqual({ isFolder: false, name: 'Backlog attachments', driveUrl: 'https://drive.google.com/drive/folders/task_folder', files: [
       { id: 'image_1', name: 'Artwork.png', mimeType: 'image/png' },
       { id: 'brief_2', name: 'Brief.pdf', mimeType: 'application/pdf' },
     ] });

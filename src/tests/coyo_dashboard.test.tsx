@@ -345,6 +345,7 @@ it('loads comments and history in task details and adds a new comment', async ()
 
   expect(await screen.findByText('Updated and ready.')).toBeInTheDocument();
   expect(await screen.findByText('Carla')).toBeInTheDocument();
+  expect(screen.getByText('Updated and ready.').compareDocumentPosition(screen.getByText('logo larger')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByLabelText('Add a comment')).toHaveValue('');
   const commentCall = (global.fetch as jest.Mock).mock.calls.find(([input, init]) => String(input) === '/api/coyo/tasks/activity-1' && init?.method === 'PATCH');
   expect(JSON.parse(commentCall?.[1].body)).toEqual({ mainAccountId: 'customer', comment: 'Updated and ready.' });

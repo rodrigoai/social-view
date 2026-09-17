@@ -2,12 +2,24 @@ export const statuses = ['BACKLOG', 'CREATED', 'IN_PROGRESS', 'IN_REVIEW', 'SENT
 export const dateFields = { deliveryDate: 'Delivery date', createdAt: 'Creation date', postDate: 'Post date', executionDate: 'Execution date', updatedAt: 'Updated date' };
 export type DateField = keyof typeof dateFields;
 export type CoyoTag = string | { id?: string; name: string; color?: string | null };
+export type CoyoAuthor = { id?: string; name: string };
+export type CoyoComment = { id: string; content: string; author: CoyoAuthor | null; createdAt: string };
+export type CoyoClientNote = { id: string; content: string; tags: string[]; createdAt: string };
+export type CoyoHistoryEntry = {
+  id: string;
+  action: string;
+  oldValue: string | null;
+  newValue: string | null;
+  author: CoyoAuthor;
+  createdAt: string;
+};
 export type CoyoTask = {
   id: string; displayId: string; title: string; description: string | null; status: string; category: string;
   workspace: string; tags?: CoyoTag[]; caption: string | null; driveLink: string | null; postFormat?: string | string[] | null;
   client: { id: string; name: string; prefix: string };
   deliveryDate: string | null; createdAt: string; postDate: string | null; executionDate: string | null; updatedAt: string;
 };
+export type CoyoTaskDetail = CoyoTask & { comments: CoyoComment[]; history: CoyoHistoryEntry[]; clientNotes?: CoyoClientNote[] };
 export type CoyoPostFormat = 'Post' | 'Story' | 'Reels' | 'Carousel';
 export type TaskFilters = { search: string; status: string; from: string; to: string; dateField: DateField; tags?: string[] };
 export function filterTasks(tasks: CoyoTask[], filters: TaskFilters, section: string) {
@@ -34,6 +46,14 @@ export function safeLink(value: string | null) {
   try { const url = new URL(value, 'https://taskmanager.coyo.com.br'); return ['http:', 'https:'].includes(url.protocol) ? url.href : null; } catch { return null; }
 }
 export function statusLabel(value: string) { return value.toLowerCase().replaceAll('_', ' '); }
+
+export function formatBrazilianDateTime(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo',
+  }).format(date);
+}
 
 function trustedCoyoAttachmentLink(value: string) {
   const link = safeLink(value);

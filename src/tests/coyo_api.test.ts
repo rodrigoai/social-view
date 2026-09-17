@@ -2,7 +2,7 @@
 import { GET, POST } from '@/app/api/coyo/tasks/route';
 import { prisma } from '@/lib/prisma';
 import { requireMainAccountAccess, AuthzError } from '@/lib/authz';
-import { deleteCoyoBacklogTaskForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
+import { addCoyoTaskCommentForAccount, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
 import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 jest.mock('@/lib/prisma', () => ({ prisma: { mainAccount: { findUnique: jest.fn() } } }));
 jest.mock('@/lib/authz', () => ({ ...jest.requireActual('@/lib/authz'), requireMainAccountAccess: jest.fn() }));
@@ -33,6 +33,27 @@ it('does not retry rejected authentication', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 403 });
   expect((await GET(new Request('http://localhost/api/coyo/tasks?mainAccountId=1'))).status).toBe(502);
   expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+it('reads scoped detail and posts a comment with the external API contract', async () => {
+  const detail = { id: 'task-1', client: { prefix: 'AC' }, comments: [], history: [] };
+  const comment = { id: 'comment-1', content: '<p>Ready.</p>', author: { id: 'user-1', name: 'Ana' }, createdAt: '2026-09-16T12:00:00Z' };
+  (global.fetch as jest.Mock)
+    .mockResolvedValueOnce({ ok: true, json: async () => detail })
+    .mockResolvedValueOnce({ ok: true, json: async () => detail })
+    .mockResolvedValueOnce({ ok: true, json: async () => comment });
+
+  await expect(fetchCoyoTaskDetailForAccount('1', 'task-1')).resolves.toEqual(detail);
+  await expect(addCoyoTaskCommentForAccount('1', 'task-1', 'Ready.', 'Social User')).resolves.toEqual(comment);
+  const [url, options] = (global.fetch as jest.Mock).mock.calls[2];
+  expect(url).toBe('https://taskmanager.coyo.com.br/api/external/tasks/task-1');
+  expect(options).toEqual(expect.objectContaining({ method: 'PATCH', headers: expect.objectContaining({ Authorization: 'Bearer secret', Origin: 'https://example.com', 'Content-Type': 'application/json' }) }));
+  expect(JSON.parse(options.body)).toEqual({ comment: 'Ready.', externalAuthor: 'Social User' });
+});
+
+it('rejects detail from a different Coyô client', async () => {
+  (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ id: 'task-1', client: { prefix: 'OTHER' }, comments: [], history: [] }) });
+  await expect(fetchCoyoTaskDetailForAccount('1', 'task-1')).rejects.toMatchObject({ status: 404 });
 });
 
 it('creates a scoped Backlog task with every supported field', async () => {

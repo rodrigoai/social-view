@@ -105,6 +105,19 @@ body {
   animation: coyo-modal-panel-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.coyo-rich-text > * + * {
+  margin-top: 0.65rem;
+}
+
+.coyo-rich-text ul,
+.coyo-rich-text ol {
+  padding-left: 1.25rem;
+}
+
+.coyo-rich-text ul { list-style: disc; }
+.coyo-rich-text ol { list-style: decimal; }
+.coyo-rich-text a { color: #059669; text-decoration: underline; }
+
 .wa-chart-segment {
   animation: wa-chart-reveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }

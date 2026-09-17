@@ -315,3 +315,37 @@ it('caches Drive images only while the detail side panel is open', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
   expect(revokeObjectUrl).toHaveBeenCalledTimes(2);
 });
+
+it('loads comments and history in task details and adds a new comment', async () => {
+  const today = new Date().toISOString();
+  const task = { id: 'activity-1', displayId: 'AC-70', title: 'Review campaign', description: 'Review the final assets.', status: 'IN_REVIEW', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  const detail = {
+    ...task,
+    comments: [{ id: 'comment-1', content: '<p>Can we make the <strong>logo larger</strong>?</p>', author: { id: 'user-1', name: 'Ana' }, createdAt: '2026-09-15T12:00:00Z' }],
+    history: [{ id: 'history-1', action: 'changed status', oldValue: 'BACKLOG', newValue: 'IN_REVIEW', author: { id: 'user-2', name: 'Bruno' }, createdAt: '2026-09-16T12:00:00Z' }],
+  };
+  const created = { id: 'comment-2', content: '<p>Updated and ready.</p>', author: { id: 'user-3', name: 'Carla' }, createdAt: '2026-09-16T13:00:00Z' };
+  (global.fetch as jest.Mock).mockImplementation(async (input, init) => {
+    const url = String(input);
+    if (url === '/api/coyo/tasks/activity-1?mainAccountId=customer') return { ok: true, json: async () => ({ task: detail }) };
+    if (url === '/api/coyo/tasks/activity-1' && init?.method === 'PATCH') return { ok: true, status: 201, json: async () => ({ comment: created }) };
+    return { ok: true, json: async () => ({ tasks: [task] }) };
+  });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await screen.findByText('Items by status');
+  fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /AC-70 Review campaign/ }));
+
+  expect(await screen.findByText('logo larger')).toHaveProperty('tagName', 'STRONG');
+  expect(screen.getByText('changed status')).toBeInTheDocument();
+  expect(screen.getByText('BACKLOG')).toHaveClass('line-through');
+  fireEvent.change(screen.getByLabelText('Add a comment'), { target: { value: ' Updated and ready. ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add comment' }));
+
+  expect(await screen.findByText('Updated and ready.')).toBeInTheDocument();
+  expect(await screen.findByText('Carla')).toBeInTheDocument();
+  expect(screen.getByLabelText('Add a comment')).toHaveValue('');
+  const commentCall = (global.fetch as jest.Mock).mock.calls.find(([input, init]) => String(input) === '/api/coyo/tasks/activity-1' && init?.method === 'PATCH');
+  expect(JSON.parse(commentCall?.[1].body)).toEqual({ mainAccountId: 'customer', comment: 'Updated and ready.' });
+});

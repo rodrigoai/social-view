@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { prisma } from '@/lib/prisma';
-import { coyoAttachmentMarkup, extractGoogleDriveFileId, removeCoyoAttachmentMarkup, taskAttachmentLinks, type CoyoTask } from '@/lib/coyoTasks';
+import { coyoAttachmentMarkup, extractGoogleDriveFileId, removeCoyoAttachmentMarkup, taskAttachmentLinks, type CoyoComment, type CoyoTask, type CoyoTaskDetail } from '@/lib/coyoTasks';
 import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 
 export class CoyoTasksError extends Error {
@@ -61,6 +61,43 @@ export async function fetchCoyoTasksForAccount(mainAccountId: string) {
   const payload = await response.json();
   if (!Array.isArray(payload)) throw new CoyoTasksError('Coyô returned an invalid task response.', 502);
   return payload.filter((task: CoyoTask) => task.client?.prefix?.toLowerCase() === clientAcronym.toLowerCase()) as CoyoTask[];
+}
+
+export async function fetchCoyoTaskDetailForAccount(mainAccountId: string, taskId: string) {
+  const { clientAcronym, token, origin } = await getCoyoAccountConfig(mainAccountId);
+  const response = await fetch(`https://taskmanager.coyo.com.br/api/external/tasks/${encodeURIComponent(taskId)}`, {
+    headers: { Authorization: `Bearer ${token}`, Origin: origin, Accept: 'application/json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw await taskMutationError(response);
+  const task = await response.json();
+  if (!task?.id || task.id !== taskId || !Array.isArray(task.comments) || !Array.isArray(task.history)) {
+    throw new CoyoTasksError('Coyô returned an invalid task detail response.', 502);
+  }
+  if (task.client?.prefix?.toLowerCase() !== clientAcronym.toLowerCase()) {
+    throw new CoyoTasksError('Task not found for this client.', 404);
+  }
+  return task as CoyoTaskDetail;
+}
+
+export async function addCoyoTaskCommentForAccount(mainAccountId: string, taskId: string, comment: string, externalAuthor: string) {
+  const task = await fetchCoyoTaskDetailForAccount(mainAccountId, taskId);
+  const { token, origin } = await getCoyoAccountConfig(mainAccountId);
+  const response = await fetch(`https://taskmanager.coyo.com.br/api/external/tasks/${encodeURIComponent(task.id)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, Origin: origin, Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ comment, externalAuthor }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw await taskMutationError(response);
+  const created = await response.json();
+  const validAuthor = created?.author === null || (typeof created?.author?.name === 'string' && created.author.name.length > 0);
+  if (!created?.id || typeof created.content !== 'string' || !validAuthor || !created.createdAt) {
+    throw new CoyoTasksError('Coyô returned an invalid comment response.', 502);
+  }
+  return created as CoyoComment;
 }
 
 export async function createCoyoTaskForAccount(mainAccountId: string, input: NewCoyoTaskInput) {

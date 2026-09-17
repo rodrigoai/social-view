@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
-import { CoyoTasksError, deleteCoyoBacklogTaskForAccount, updateCoyoBacklogTaskForAccount, type UpdateCoyoTaskInput } from '@/lib/coyoTasksServer';
+import { addCoyoTaskCommentForAccount, CoyoTasksError, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, updateCoyoBacklogTaskForAccount, type UpdateCoyoTaskInput } from '@/lib/coyoTasksServer';
 
 const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -9,6 +9,19 @@ function errorResponse(error: unknown, fallback: string) {
   return authzErrorResponse(error)
     || (error instanceof CoyoTasksError ? NextResponse.json({ error: error.message }, { status: error.status }) : null)
     || NextResponse.json({ error: fallback }, { status: 502 });
+}
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const mainAccountId = new URL(request.url).searchParams.get('mainAccountId')?.trim() || '';
+    if (!mainAccountId) return NextResponse.json({ error: 'Missing mainAccountId' }, { status: 400 });
+    await requireMainAccountAccess(mainAccountId);
+    const task = await fetchCoyoTaskDetailForAccount(mainAccountId, id);
+    return NextResponse.json({ task }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (error) {
+    return errorResponse(error, 'Unable to load the Coyô task. Please try again.');
+  }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +33,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const mainAccountValue = value('mainAccountId');
     const mainAccountId = typeof mainAccountValue === 'string' ? mainAccountValue.trim() : '';
     if (!mainAccountId) return NextResponse.json({ error: 'Missing mainAccountId' }, { status: 400 });
-    await requireMainAccountAccess(mainAccountId);
+    const user = await requireMainAccountAccess(mainAccountId);
+
+    if (!multipart && Object.prototype.hasOwnProperty.call(body, 'comment')) {
+      const commentValue = body.comment;
+      const comment = typeof commentValue === 'string' ? commentValue.trim() : '';
+      if (!comment) return NextResponse.json({ error: 'Comment is required.' }, { status: 400 });
+      const externalAuthor = user.name?.trim() || user.email;
+      const created = await addCoyoTaskCommentForAccount(mainAccountId, id, comment, externalAuthor);
+      return NextResponse.json({ comment: created }, { status: 201, headers: { 'Cache-Control': 'private, no-store' } });
+    }
 
     const titleValue = value('title'), descriptionValue = value('description'), dueDateValue = value('dueDate'), workspaceValue = value('workspace');
     const title = typeof titleValue === 'string' ? titleValue.trim() : '';

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Image from 'next/image';
 import { ExternalLink, FileText, Loader2, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, safeLink, statuses, statusLabel, tagName, taskTextDescription, type CoyoPostFormat } from '@/lib/coyoTasks';
+import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, formatBrazilianDateTime, groupTasksByExactTags, normalizePostFormats, safeLink, statuses, statusLabel, tagName, taskTextDescription, type CoyoPostFormat, type CoyoTaskDetail } from '@/lib/coyoTasks';
 import { NewCoyoTaskModal } from '@/components/dashboard/NewCoyoTaskModal';
 
 type Section = 'dash' | 'tasks' | 'social';
@@ -259,12 +259,57 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [detail, setDetail] = useState<CoyoTaskDetail | null>(null);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState('');
+  const [comment, setComment] = useState('');
+  const [commenting, setCommenting] = useState(false);
   const postFormats = normalizePostFormats(task.postFormat, task.category);
   const isPost = task.category !== 'TASK' || postFormats.length > 0;
   const isBacklog = task.status === 'BACKLOG';
   const attachment = firstAttachmentLink(task);
   const description = taskTextDescription(task.description);
   const dates: [string, string | null][] = [['Created', task.createdAt], ['Delivery', task.deliveryDate], ...(isPost ? [['Post date', task.postDate], ['Execution', task.executionDate]] as [string, string | null][] : [])];
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setActivityLoading(true);
+    setActivityError('');
+    fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}?mainAccountId=${encodeURIComponent(mainAccountId)}`, { signal: controller.signal })
+      .then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to load comments and history.'); return body.task; })
+      .then(data => {
+        if (!controller.signal.aborted && data?.id === task.id && Array.isArray(data.comments) && Array.isArray(data.history)) setDetail(data);
+        else if (!controller.signal.aborted) throw new Error('Unable to load comments and history.');
+      })
+      .catch(cause => { if (!controller.signal.aborted) setActivityError(cause instanceof Error ? cause.message : 'Unable to load comments and history.'); })
+      .finally(() => { if (!controller.signal.aborted) setActivityLoading(false); });
+    return () => controller.abort();
+  }, [mainAccountId, task.id]);
+
+  const addComment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const content = comment.trim();
+    if (!content) return;
+    setCommenting(true);
+    setActivityError('');
+    try {
+      const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mainAccountId, comment: content }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Unable to add this comment.');
+      setDetail(current => payload.comment
+        ? current ? { ...current, comments: [...current.comments, payload.comment] } : { ...task, comments: [payload.comment], history: [] }
+        : current);
+      setComment('');
+    } catch (cause) {
+      setActivityError(cause instanceof Error ? cause.message : 'Unable to add this comment.');
+    } finally {
+      setCommenting(false);
+    }
+  };
 
   const updateTask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -315,6 +360,16 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
         {confirmingDelete && <section aria-label="Confirm task deletion" className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/35"><h4 className="font-bold text-red-800 dark:text-red-200">Delete {task.displayId} permanently?</h4><p className="mt-1 text-sm leading-6 text-red-700 dark:text-red-300">This cannot be undone. Coyô will also remove files uploaded as this task’s attachments.</p><div className="mt-4 flex justify-end gap-2"><button type="button" disabled={working} onClick={() => setConfirmingDelete(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-card">Cancel</button><button type="button" disabled={working} onClick={deleteTask} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50">{working && <Loader2 size={15} className="animate-spin" />} Delete permanently</button></div></section>}
         {actionError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">{actionError}</p>}
         {editing ? <form onSubmit={updateTask} className="space-y-5"><label className="block text-xs font-medium text-muted">Title<input name="title" aria-label="Edit title" required maxLength={240} defaultValue={task.title} className={`${control} mt-1.5 block w-full`} /></label><label className="block text-xs font-medium text-muted">Description<textarea name="description" aria-label="Edit description" rows={6} defaultValue={description} className={`${control} mt-1.5 block w-full resize-y`} /></label><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-medium text-muted">Due date<input name="dueDate" aria-label="Edit due date" type="date" defaultValue={task.deliveryDate?.slice(0, 10) || ''} className={`${control} mt-1.5 block w-full`} /></label><label className="text-xs font-medium text-muted">Workspace<select name="workspace" aria-label="Edit workspace" defaultValue={task.workspace} className={`${control} mt-1.5 block w-full`}><option value="AGENCY">Agency</option><option value="SOFTWARE">Software</option></select></label></div><label className="block rounded-xl border border-dashed border-border-custom bg-accent-custom/60 px-4 py-3 text-sm transition hover:border-emerald-500"><span className="flex items-center gap-2 font-semibold"><Paperclip size={16} aria-hidden="true" /> Add attachments</span><span className="mt-1 block text-xs text-muted">Up to 10 total files, 5 MB each.</span><input name="attachments" aria-label="Add attachments" type="file" multiple onChange={event => setPendingAttachments(Array.from(event.target.files || []))} className="mt-3 block w-full text-xs text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-card file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground" />{pendingAttachments.length > 0 && <ul className="mt-3 space-y-1.5">{pendingAttachments.map((file, index) => <li key={`${file.name}-${index}`} className="flex items-center gap-3 text-xs"><span className="min-w-0 flex-1 truncate">{file.name}</span><span className="shrink-0 tabular-nums text-muted">{(file.size / 1024 / 1024).toFixed(1)} MB</span><button type="button" onClick={() => setPendingAttachments(current => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove selected ${file.name}`} className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"><X size={14} /></button></li>)}</ul>}</label><div className="flex justify-end gap-2 border-t border-border-custom pt-5"><button type="button" disabled={working} onClick={() => { setEditing(false); setActionError(''); setPendingAttachments([]); }} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-muted transition hover:bg-accent-custom">Cancel</button><button type="submit" disabled={working} className="inline-flex min-w-28 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{working ? <><Loader2 size={15} className="animate-spin" /> Saving…</> : 'Save changes'}</button></div></form> : <div className="min-w-0 space-y-7"><div className="flex flex-wrap items-center gap-2"><StatusTag status={task.status} /><span className="text-sm text-muted">{task.workspace}</span></div><div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">{dates.map(([label, value]) => <div key={label}><p className="text-xs text-muted">{label}</p><p className="mt-1 text-sm font-semibold">{formatBrazilianDate(value)}</p></div>)}</div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Tags</p><TagList task={task} /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Description</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{description || 'No description.'}</p></div>{task.caption && <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Caption</p><p className="break-words whitespace-pre-wrap text-sm leading-6">{task.caption}</p></div>}</div>}
+        <section className="border-t border-border-custom pt-7" aria-labelledby="comments-title">
+          <div className="flex items-center justify-between gap-3"><h4 id="comments-title" className="font-bold">Comments</h4>{detail && <span className="text-xs tabular-nums text-muted">{detail.comments.length}</span>}</div>
+          <form onSubmit={addComment} className="mt-4"><label htmlFor="coyo-comment" className="sr-only">Add a comment</label><textarea id="coyo-comment" value={comment} onChange={event => setComment(event.target.value)} rows={3} placeholder="Write a comment…" className={`${control} block w-full resize-y`} /><div className="mt-2 flex justify-end"><button type="submit" disabled={commenting || !comment.trim()} className="inline-flex min-w-28 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{commenting ? <><Loader2 size={15} className="animate-spin" /> Sending…</> : 'Add comment'}</button></div></form>
+          {activityError && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">{activityError}</p>}
+          {activityLoading ? <p role="status" className="mt-5 text-sm text-muted">Loading comments and history…</p> : detail?.comments.length ? <ol className="mt-5 space-y-4">{detail.comments.map(item => <li key={item.id} className="rounded-xl bg-accent-custom/70 p-4"><div className="flex flex-wrap items-baseline justify-between gap-2"><p className="text-sm font-semibold">{item.author?.name || 'Unknown author'}</p><time dateTime={item.createdAt} className="text-xs text-muted">{formatBrazilianDateTime(item.createdAt)}</time></div><div className="coyo-rich-text mt-2 break-words text-sm leading-6" dangerouslySetInnerHTML={{ __html: item.content }} /></li>)}</ol> : !activityLoading && !activityError ? <p className="mt-5 text-sm text-muted">No comments yet.</p> : null}
+        </section>
+        <section className="border-t border-border-custom pt-7" aria-labelledby="history-title">
+          <div className="flex items-center justify-between gap-3"><h4 id="history-title" className="font-bold">History</h4>{detail && <span className="text-xs tabular-nums text-muted">{detail.history.length}</span>}</div>
+          {!activityLoading && detail?.history.length ? <ol className="relative mt-5 space-y-5 border-l border-border-custom pl-5">{detail.history.map(item => <li key={item.id} className="relative"><span className="absolute -left-[1.48rem] top-1.5 h-2 w-2 rounded-full bg-emerald-600 ring-4 ring-card" aria-hidden="true" /><p className="text-sm font-medium leading-6">{item.action}</p>{(item.oldValue !== null || item.newValue !== null) && <p className="mt-1 break-words text-xs text-muted"><span className="line-through">{item.oldValue || 'Empty'}</span><span aria-hidden="true"> → </span><span>{item.newValue || 'Empty'}</span></p>}<p className="mt-1 text-xs text-muted">{item.author.name} · <time dateTime={item.createdAt}>{formatBrazilianDateTime(item.createdAt)}</time></p></li>)}</ol> : !activityLoading && !activityError ? <p className="mt-5 text-sm text-muted">No history recorded.</p> : null}
+        </section>
       </div>
     </aside>
   </div>;

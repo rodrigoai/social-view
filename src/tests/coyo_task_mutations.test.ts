@@ -1,14 +1,16 @@
 /** @jest-environment node */
-import { DELETE, PATCH } from '@/app/api/coyo/tasks/[id]/route';
+import { DELETE, GET, PATCH } from '@/app/api/coyo/tasks/[id]/route';
 import { DELETE as DELETE_ATTACHMENT } from '@/app/api/coyo/tasks/[id]/attachments/[fileId]/route';
 import { requireMainAccountAccess, AuthzError } from '@/lib/authz';
-import { deleteCoyoBacklogTaskForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
+import { addCoyoTaskCommentForAccount, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
 
 jest.mock('@/lib/prisma', () => ({ prisma: {} }));
 jest.mock('@/lib/authz', () => ({ ...jest.requireActual('@/lib/authz'), requireMainAccountAccess: jest.fn() }));
 jest.mock('@/lib/coyoTasksServer', () => ({
   CoyoTasksError: class CoyoTasksError extends Error { status: number; constructor(message: string, status: number) { super(message); this.status = status; } },
   updateCoyoBacklogTaskForAccount: jest.fn(),
+  fetchCoyoTaskDetailForAccount: jest.fn(),
+  addCoyoTaskCommentForAccount: jest.fn(),
   deleteCoyoBacklogTaskForAccount: jest.fn(),
   removeCoyoBacklogAttachmentForAccount: jest.fn(),
 }));
@@ -17,7 +19,29 @@ const context = { params: Promise.resolve({ id: 'task-1' }) };
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (requireMainAccountAccess as jest.Mock).mockResolvedValue({});
+  (requireMainAccountAccess as jest.Mock).mockResolvedValue({ id: 'user-1', name: 'Social User', email: 'social@example.com' });
+});
+
+it('returns scoped task detail with comments and history', async () => {
+  const task = { id: 'task-1', comments: [], history: [] };
+  (fetchCoyoTaskDetailForAccount as jest.Mock).mockResolvedValue(task);
+  const response = await GET(new Request('http://localhost/api/coyo/tasks/task-1?mainAccountId=account-1'), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ task });
+  expect(fetchCoyoTaskDetailForAccount).toHaveBeenCalledWith('account-1', 'task-1');
+});
+
+it('forwards a comment-only patch and preserves its distinct response shape', async () => {
+  const comment = { id: 'comment-1', content: '<p>Looks good.</p>', author: { id: 'user-1', name: 'Ana' }, createdAt: '2026-09-16T12:00:00Z' };
+  (addCoyoTaskCommentForAccount as jest.Mock).mockResolvedValue(comment);
+  const response = await PATCH(new Request('http://localhost/api/coyo/tasks/task-1', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mainAccountId: 'account-1', comment: ' Looks good. ' }),
+  }), context);
+  expect(response.status).toBe(201);
+  expect(await response.json()).toEqual({ comment });
+  expect(addCoyoTaskCommentForAccount).toHaveBeenCalledWith('account-1', 'task-1', 'Looks good.', 'Social User');
+  expect(updateCoyoBacklogTaskForAccount).not.toHaveBeenCalled();
 });
 
 it('validates and forwards Backlog task updates', async () => {

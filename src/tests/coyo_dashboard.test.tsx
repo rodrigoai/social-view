@@ -74,18 +74,26 @@ it('preserves separate filters and switches Social to a calendar', async () => {
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   expect(screen.getByLabelText('Search')).toHaveValue('dash search');
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
-  expect(screen.getByLabelText('Date type')).toHaveValue('postDate');
+  expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
   fireEvent.click(screen.getByRole('button', { name: /^calendar$/i }));
   expect(screen.getByRole('button', { name: 'Next month' })).toBeInTheDocument();
 });
 
-it('defaults to seven days and saves the selected period', async () => {
+it('defaults every section to the last 90 days by creation date and saves the selected period', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   const first = render(<CoyoTasksDashboardView selectedAccountId="customer" />);
   await screen.findByText('Items by status');
-  expect(screen.getByLabelText('Period')).toHaveValue('7');
+  expect(screen.getByLabelText('Period')).toHaveValue('90');
+  expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  expect(screen.getByLabelText('Period')).toHaveValue('90');
+  expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
+  expect(screen.getByLabelText('Period')).toHaveValue('90');
+  expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   fireEvent.change(screen.getByLabelText('Period'), { target: { value: '30' } });
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v2')!).presets.dash).toBe('30'));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v3')!).presets.dash).toBe('30'));
   first.unmount();
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
   await screen.findByText('Items by status');
@@ -107,7 +115,7 @@ it('groups exact tag sets, sorts tasks, and opens a localized detail side panel'
   expect(screen.getByRole('region', { name: 'Tasks tagged Design, Urgent' })).toBeInTheDocument();
   const earlier = screen.getByRole('button', { name: /AC-1 Earlier task/ });
   const later = screen.getByRole('button', { name: /AC-2 Later task/ });
-  expect(earlier.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(later.compareDocumentPosition(earlier) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(later);
   expect(screen.getByRole('dialog')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Edit task' })).not.toBeInTheDocument();

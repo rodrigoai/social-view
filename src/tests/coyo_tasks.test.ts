@@ -53,9 +53,9 @@ it('formats dates for Brazil and groups only identical tag sets', () => {
   expect(groups.map(group => group.tasks.map(item => item.id))).toEqual([['a', 'b'], ['c']]);
 });
 
-it('orders task rows by delivery and then creation date', () => {
+it('orders task rows by creation date descending', () => {
   const laterCreated = { ...task, id: 'later', deliveryDate: '2026-09-01', createdAt: '2026-08-03' };
   const earlierCreated = { ...task, id: 'earlier', deliveryDate: '2026-09-01', createdAt: '2026-08-02' };
   const laterDelivery = { ...task, id: 'delivery', deliveryDate: '2026-09-02', createdAt: '2026-08-01' };
-  expect(filterTasks([laterCreated, laterDelivery, earlierCreated], { ...filters, from: '', to: '' }, 'tasks').map(item => item.id)).toEqual(['earlier', 'later', 'delivery']);
+  expect(filterTasks([earlierCreated, laterDelivery, laterCreated], { ...filters, from: '', to: '', dateField: 'createdAt' }, 'tasks').map(item => item.id)).toEqual(['later', 'earlier', 'delivery']);
 });

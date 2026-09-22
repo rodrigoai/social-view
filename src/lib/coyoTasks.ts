@@ -34,12 +34,10 @@ export function filterTasks(tasks: CoyoTask[], filters: TaskFilters, section: st
       && (!filters.to || (!!date && date <= filters.to))
       && (!selectedTags.length || selectedTags.some(tag => taskTags.has(tag.toLocaleLowerCase('pt-BR'))))
       && `${task.displayId} ${task.title} ${task.caption || ''}`.toLowerCase().includes(filters.search.toLowerCase());
-  }).sort((a, b) => section === 'tasks'
-    ? compareDate(a.deliveryDate, b.deliveryDate) || compareDate(a.createdAt, b.createdAt)
-    : compareDate(a[filters.dateField], b[filters.dateField]));
+  }).sort((a, b) => compareDateDescending(a.createdAt, b.createdAt));
 }
-function compareDate(a: string | null | undefined, b: string | null | undefined) {
-  return (a || '9999').localeCompare(b || '9999');
+function compareDateDescending(a: string | null | undefined, b: string | null | undefined) {
+  return (b || '').localeCompare(a || '');
 }
 export function safeLink(value: string | null) {
   if (!value) return null;

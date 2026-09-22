@@ -11,7 +11,7 @@ type RangePreset = '7' | '30' | '60' | '90' | 'custom';
 type FiltersState = Record<Section, TaskFilters>;
 type PresetsState = Record<Section, RangePreset>;
 
-const STORAGE_KEY = 'coyo-tasks-dashboard-filters:v2';
+const STORAGE_KEY = 'coyo-tasks-dashboard-filters:v3';
 const control = 'rounded-xl border border-border-custom bg-card px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15';
 const statusStyles: Record<string, string> = {
   BACKLOG: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
@@ -36,9 +36,9 @@ function presetDates(days: number) {
 }
 
 function defaultFilters(): FiltersState {
-  const dates = presetDates(7);
-  const base = { search: '', status: '', tags: [], ...dates };
-  return { dash: { ...base, dateField: 'deliveryDate' }, tasks: { ...base, dateField: 'deliveryDate' }, social: { ...base, dateField: 'postDate' } };
+  const dates = presetDates(90);
+  const base = { search: '', status: '', tags: [], ...dates, dateField: 'createdAt' as const };
+  return { dash: { ...base }, tasks: { ...base }, social: { ...base } };
 }
 
 function StatusTag({ status }: { status: string }) {
@@ -405,7 +405,7 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
   const [loading, setLoading] = useState(true), [revision, setRevision] = useState(0);
   const [section, setSection] = useState<Section>('dash');
   const [filtersBySection, setFilters] = useState<FiltersState>(defaultFilters);
-  const [presets, setPresets] = useState<PresetsState>({ dash: '7', tasks: '7', social: '7' });
+  const [presets, setPresets] = useState<PresetsState>({ dash: '90', tasks: '90', social: '90' });
   const [groupTasksByTags, setGroupTasksByTags] = useState(true);
   const [storageReady, setStorageReady] = useState(false), [view, setView] = useState('list');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -442,7 +442,7 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
   const monthDate = new Date(`${month}-01T00:00:00Z`), days = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth() + 1, 0)).getUTCDate(), offset = monthDate.getUTCDay();
   const changeMonth = (delta: number) => { const date = new Date(monthDate); date.setUTCMonth(date.getUTCMonth() + delta); setMonth(date.toISOString().slice(0, 7)); };
   const selectPreset = (value: RangePreset) => { setPresets(current => ({ ...current, [section]: value })); if (value !== 'custom') update(presetDates(Number(value))); };
-  const resetFilters = () => { setFilters(current => ({ ...current, [section]: defaultFilters()[section] })); setPresets(current => ({ ...current, [section]: '7' })); };
+  const resetFilters = () => { setFilters(current => ({ ...current, [section]: defaultFilters()[section] })); setPresets(current => ({ ...current, [section]: '90' })); };
 
   return <section className="space-y-7" aria-label="Coyô Tasks">
     <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-2xl font-bold tracking-tight">Coyô Tasks</h2><p className="mt-1 text-sm text-muted">Customer work, delivery progress, and social planning.</p></div><div className="flex items-center gap-2"><button className={`${control} font-semibold`} disabled={loading} onClick={() => setRevision(value => value + 1)}>↻ Refresh</button><button type="button" onClick={() => setCreating(true)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"><Plus size={16} aria-hidden="true" /> New Task</button></div></div>

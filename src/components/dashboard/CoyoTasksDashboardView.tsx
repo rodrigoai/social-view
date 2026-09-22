@@ -11,7 +11,8 @@ type RangePreset = '7' | '30' | '60' | '90' | 'custom';
 type FiltersState = Record<Section, TaskFilters>;
 type PresetsState = Record<Section, RangePreset>;
 
-const STORAGE_KEY = 'coyo-tasks-dashboard-filters:v3';
+const STORAGE_KEY = 'coyo-tasks-dashboard-filters:v4';
+const PREVIOUS_STORAGE_KEY = 'coyo-tasks-dashboard-filters:v3';
 const control = 'rounded-xl border border-border-custom bg-card px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15';
 const statusStyles: Record<string, string> = {
   BACKLOG: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
@@ -403,11 +404,11 @@ function TasksTable({ tasks, social, showTags = false, onSelect }: { tasks: Coyo
 export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName = 'Selected client', selectedClientAcronym }: { selectedAccountId: string; selectedAccountName?: string; selectedClientAcronym?: string | null }) {
   const [tasks, setTasks] = useState<CoyoTask[]>([]), [error, setError] = useState('');
   const [loading, setLoading] = useState(true), [revision, setRevision] = useState(0);
-  const [section, setSection] = useState<Section>('dash');
+  const [section, setSection] = useState<Section>('tasks');
   const [filtersBySection, setFilters] = useState<FiltersState>(defaultFilters);
   const [presets, setPresets] = useState<PresetsState>({ dash: '90', tasks: '90', social: '90' });
-  const [groupTasksByTags, setGroupTasksByTags] = useState(true);
-  const [storageReady, setStorageReady] = useState(false), [view, setView] = useState('list');
+  const [groupTasksByTags, setGroupTasksByTags] = useState(false);
+  const [storageReady, setStorageReady] = useState(false), [view, setView] = useState<'list' | 'calendar'>('list');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [selected, setSelected] = useState<CoyoTask | null>(null);
   const [creating, setCreating] = useState(false);
@@ -418,12 +419,20 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      try { const saved = window.localStorage.getItem(STORAGE_KEY); if (saved) { const parsed = JSON.parse(saved); if (parsed.filtersBySection) setFilters(parsed.filtersBySection); if (parsed.presets) setPresets(parsed.presets); if (typeof parsed.groupTasksByTags === 'boolean') setGroupTasksByTags(parsed.groupTasksByTags); } } catch { /* Invalid or unavailable browser storage. */ }
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        const previous = saved ? null : window.localStorage.getItem(PREVIOUS_STORAGE_KEY);
+        const parsed = JSON.parse(saved || previous || 'null');
+        if (parsed?.filtersBySection) setFilters(parsed.filtersBySection);
+        if (parsed?.presets) setPresets(parsed.presets);
+        if (saved && typeof parsed?.groupTasksByTags === 'boolean') setGroupTasksByTags(parsed.groupTasksByTags);
+        if (parsed?.view === 'list' || parsed?.view === 'calendar') setView(parsed.view);
+      } catch { /* Invalid or unavailable browser storage. */ }
       setStorageReady(true);
     });
     return () => { cancelled = true; };
   }, []);
-  useEffect(() => { if (storageReady) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ filtersBySection, presets, groupTasksByTags })); }, [filtersBySection, presets, groupTasksByTags, storageReady]);
+  useEffect(() => { if (storageReady) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ filtersBySection, presets, groupTasksByTags, view })); }, [filtersBySection, presets, groupTasksByTags, view, storageReady]);
   useEffect(() => {
     const controller = new AbortController();
     queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(''); setTasks([]); setSelected(null); } });
@@ -461,7 +470,7 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
     {loading ? <p role="status" className="py-12 text-muted">Loading Coyô tasks…</p> : error ? <p role="alert" className="py-8 text-red-600">{error}</p> : section === 'dash' ? <>
       <div className="flex flex-wrap gap-x-14 gap-y-6 border-b border-border-custom pb-7">{[['Total items', filtered.length], ['Tasks', filtered.filter(task => task.category === 'TASK').length], ['Social posts', filtered.filter(task => task.category !== 'TASK').length]].map(([label, count]) => <div key={label}><p className="text-sm text-muted">{label}</p><p className="mt-1 text-4xl font-bold tracking-tight tabular-nums">{count}</p></div>)}</div><WeeklyChart tasks={filtered} filters={filters} /><div><h3 className="font-semibold">Items by status</h3><div className="mt-5 space-y-4">{statuses.map(status => { const count = filtered.filter(task => task.status === status).length; return <div key={status} className="grid grid-cols-[155px_1fr_40px] items-center gap-4 text-sm"><StatusTag status={status} /><div className="h-2 overflow-hidden rounded-full bg-accent-custom"><div className="h-full rounded-full bg-emerald-600 transition-all duration-700" style={{ width: `${filtered.length ? count / filtered.length * 100 : 0}%` }} /></div><span className="text-right tabular-nums">{count}</span></div>; })}</div></div>
     </> : <>
-      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">{filtered.length} {section === 'social' ? 'posts' : 'tasks'}</p>{section === 'social' && <div className="flex rounded-xl bg-accent-custom p-1">{['list', 'calendar'].map(mode => <button key={mode} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize transition ${view === mode ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted'}`} aria-pressed={view === mode} onClick={() => setView(mode)}>{mode}</button>)}</div>}</div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">{filtered.length} {section === 'social' ? 'posts' : 'tasks'}</p>{section === 'social' && <div className="flex rounded-xl bg-accent-custom p-1">{(['list', 'calendar'] as const).map(mode => <button key={mode} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize transition ${view === mode ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted'}`} aria-pressed={view === mode} onClick={() => setView(mode)}>{mode}</button>)}</div>}</div>
       {section === 'social' && view === 'calendar' ? <><div className="flex items-center justify-between"><button className={control} aria-label="Previous month" onClick={() => changeMonth(-1)}>←</button><h3 className="font-semibold capitalize">{monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className={control} aria-label="Next month" onClick={() => changeMonth(1)}>→</button></div><div className="overflow-x-auto"><div className="grid min-w-[700px] grid-cols-7 overflow-hidden rounded-2xl border-l border-t border-border-custom">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(day => <div key={day} className="border-b border-r border-border-custom bg-accent-custom p-2 text-xs font-semibold text-muted">{day}</div>)}{Array.from({ length: Math.ceil((days + offset) / 7) * 7 }, (_, index) => { const day = index - offset + 1, date = `${month}-${String(day).padStart(2, '0')}`; return <div key={index} className="min-h-28 border-b border-r border-border-custom p-2">{day > 0 && day <= days && <><p className="mb-2 text-xs text-muted">{day}</p>{filtered.filter(task => task[filters.dateField]?.slice(0, 10) === date).map(task => <button key={task.id} onClick={() => setSelected(task)} className="mb-2 block w-full rounded-lg bg-accent-custom p-2 text-left text-xs transition hover:bg-emerald-100 dark:hover:bg-emerald-950"><span className="font-semibold">{task.title}</span><span className="mt-1 block"><StatusTag status={task.status} /></span></button>)}</>}</div>; })}</div></div><p className="text-sm text-muted">{filtered.filter(task => !task[filters.dateField]).length} posts have no {dateFields[filters.dateField].toLowerCase()}. Use List to see them.</p></> : filtered.length === 0 ? <p className="py-12 text-center text-muted">No {section === 'social' ? 'posts' : 'tasks'} match these filters.</p> : section === 'tasks' ? groupTasksByTags ? <div className="space-y-8">{taskGroups.map(group => <section key={group.key} aria-label={group.tags.length ? `Tasks tagged ${group.tags.join(', ')}` : 'Untagged tasks'}><div className="mb-3 flex items-center gap-3"><div className="flex flex-wrap gap-1.5">{group.tags.length ? group.tags.map(tag => <span key={tag} className="rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">{tag}</span>) : <span className="text-sm font-semibold text-muted">Untagged</span>}</div><span className="text-xs tabular-nums text-muted">{group.tasks.length}</span><span className="h-px flex-1 bg-border-custom" /></div><TasksTable tasks={group.tasks} social={false} onSelect={setSelected} /></section>)}</div> : <TasksTable tasks={filtered} social={false} showTags onSelect={setSelected} /> : <TasksTable tasks={filtered} social onSelect={setSelected} />}
     </>}
     {selected && <DetailPanel task={selected} mainAccountId={selectedAccountId} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); setRevision(value => value + 1); }} />}

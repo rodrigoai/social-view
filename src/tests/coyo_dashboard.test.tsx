@@ -13,7 +13,7 @@ it('creates a Backlog task from the Coyô tab modal and refreshes the list', asy
     : { ok: true, json: async () => ({ tasks: [] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" selectedAccountName="Acme" selectedClientAcronym="AC" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
 
   expect(screen.getByRole('dialog', { name: 'Create a Coyô task' })).toBeInTheDocument();
@@ -47,7 +47,7 @@ it('previews description attachments for Backlog tasks in the side panel', async
   });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-50 New brief/ }));
 
@@ -67,7 +67,9 @@ it('previews description attachments for Backlog tasks in the side panel', async
 it('preserves separate filters and switches Social to a calendar', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: /^tasks$/i })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'dash search' } });
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   expect(screen.getByLabelText('Search')).toHaveValue('');
@@ -82,10 +84,12 @@ it('preserves separate filters and switches Social to a calendar', async () => {
 it('defaults every section to the last 90 days by creation date and saves the selected period', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   const first = render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: /^tasks$/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('checkbox', { name: 'Group by tags' })).not.toBeChecked();
   expect(screen.getByLabelText('Period')).toHaveValue('90');
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
-  fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   expect(screen.getByLabelText('Period')).toHaveValue('90');
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
@@ -93,11 +97,64 @@ it('defaults every section to the last 90 days by creation date and saves the se
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   fireEvent.change(screen.getByLabelText('Period'), { target: { value: '30' } });
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v3')!).presets.dash).toBe('30'));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v4')!).presets.dash).toBe('30'));
   first.unmount();
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: /^tasks$/i })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   expect(screen.getByLabelText('Period')).toHaveValue('30');
+});
+
+it('restores each subtabs filters, tag grouping, and Social visualization after reopening Coyô', async () => {
+  (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
+  const first = render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'tasks query' } });
+  fireEvent.change(screen.getByLabelText('Period'), { target: { value: '30' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Group by tags' }));
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'dash query' } });
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'FINISHED' } });
+  fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'social query' } });
+  fireEvent.change(screen.getByLabelText('Date type'), { target: { value: 'postDate' } });
+  fireEvent.click(screen.getByRole('button', { name: /^calendar$/i }));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v4')!).view).toBe('calendar'));
+  first.unmount();
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.getByLabelText('Search')).toHaveValue('tasks query'));
+  expect(screen.getByRole('button', { name: /^tasks$/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByLabelText('Period')).toHaveValue('30');
+  expect(screen.getByRole('checkbox', { name: 'Group by tags' })).toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
+  expect(screen.getByLabelText('Search')).toHaveValue('dash query');
+  expect(screen.getByLabelText('Status')).toHaveValue('FINISHED');
+  fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
+  expect(screen.getByLabelText('Search')).toHaveValue('social query');
+  expect(screen.getByLabelText('Date type')).toHaveValue('postDate');
+  expect(screen.getByRole('button', { name: /^calendar$/i })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('keeps existing saved filters when adopting the new ungrouped default', async () => {
+  const filters = { search: 'saved task', status: '', from: '', to: '', dateField: 'createdAt', tags: [] };
+  window.localStorage.setItem('coyo-tasks-dashboard-filters:v3', JSON.stringify({
+    filtersBySection: { dash: { ...filters, search: 'saved dash' }, tasks: filters, social: { ...filters, search: 'saved social' } },
+    presets: { dash: '90', tasks: 'custom', social: '90' },
+    groupTasksByTags: true,
+  }));
+  (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.getByLabelText('Search')).toHaveValue('saved task'));
+  expect(screen.getByRole('checkbox', { name: 'Group by tags' })).not.toBeChecked();
+  expect(screen.getByLabelText('Period')).toHaveValue('custom');
+  fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
+  expect(screen.getByLabelText('Search')).toHaveValue('saved dash');
+  fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
+  expect(screen.getByLabelText('Search')).toHaveValue('saved social');
 });
 
 it('groups exact tag sets, sorts tasks, and opens a localized detail side panel', async () => {
@@ -110,8 +167,9 @@ it('groups exact tag sets, sorts tasks, and opens a localized detail side panel'
     ? { ok: true, json: async () => ({ isFolder: true, name: 'Campaign', files: [{ id: 'image_1', name: '01.jpg', mimeType: 'image/jpeg' }, { id: 'image_2', name: '02.jpg', mimeType: 'image/jpeg' }] }) }
     : { ok: true, json: async () => ({ tasks }) });
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Group by tags' }));
   expect(screen.getByRole('region', { name: 'Tasks tagged Design, Urgent' })).toBeInTheDocument();
   const earlier = screen.getByRole('button', { name: /AC-1 Earlier task/ });
   const later = screen.getByRole('button', { name: /AC-2 Later task/ });
@@ -138,7 +196,7 @@ it('shows edit and delete actions only for Backlog tasks and updates in place', 
     : { ok: true, json: async () => ({ tasks: [backlog] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-60 Original title/ }));
   expect(screen.getByRole('button', { name: 'Edit task' })).toBeInTheDocument();
@@ -167,7 +225,7 @@ it('adds Backlog attachments from the edit panel', async () => {
   });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-62 Files task/ }));
   await screen.findByRole('button', { name: 'Preview Artwork.png' });
@@ -197,7 +255,7 @@ it('requires confirmation before removing one Backlog attachment', async () => {
   });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-62 Files task/ }));
   await screen.findByRole('button', { name: 'Preview Artwork.png' });
@@ -219,7 +277,7 @@ it('requires explicit confirmation before deleting a Backlog task', async () => 
     : { ok: true, json: async () => ({ tasks: [backlog] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-61 Delete me/ }));
   fireEvent.click(screen.getByRole('button', { name: 'Delete task' }));
@@ -232,7 +290,7 @@ it('requires explicit confirmation before deleting a Backlog task', async () => 
   expect(deleteCall?.[0]).toBe('/api/coyo/tasks/backlog-delete?mainAccountId=customer');
 });
 
-it('filters tasks by multiple tags and can disable tag grouping', async () => {
+it('filters tasks by multiple tags and can enable tag grouping', async () => {
   const today = new Date().toISOString();
   const base = { description: null, status: 'BACKLOG', category: 'TASK', workspace: 'AGENCY', caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
   const tasks = [
@@ -243,10 +301,10 @@ it('filters tasks by multiple tags and can disable tag grouping', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
 
-  expect(screen.getByRole('checkbox', { name: 'Group by tags' })).toBeChecked();
+  expect(screen.getByRole('checkbox', { name: 'Group by tags' })).not.toBeChecked();
   fireEvent.click(screen.getByLabelText('Tag filters'));
   fireEvent.click(screen.getByRole('checkbox', { name: 'Filter by tag Design' }));
   expect(screen.getByRole('button', { name: 'AC-10 Design task' })).toBeInTheDocument();
@@ -256,8 +314,8 @@ it('filters tasks by multiple tags and can disable tag grouping', async () => {
   fireEvent.click(screen.getByRole('checkbox', { name: 'Filter by tag Copy' }));
   expect(screen.getByRole('button', { name: 'AC-11 Copy task' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('checkbox', { name: 'Group by tags' }));
-  expect(screen.queryByRole('region', { name: 'Tasks tagged Design' })).not.toBeInTheDocument();
-  expect(screen.getByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Tasks tagged Design' })).toBeInTheDocument();
+  expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
 });
 
 it('renders social details as a phone-proportioned post in the side panel', async () => {
@@ -268,7 +326,7 @@ it('renders social details as a phone-proportioned post in the side panel', asyn
     : { ok: true, json: async () => ({ tasks: [post] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-3 Launch post/ }));
 
@@ -289,7 +347,7 @@ it('shows post types, emphasizes post dates, and makes the whole post row clicka
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [post] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
 
   expect(screen.queryByRole('columnheader', { name: 'Execution' })).not.toBeInTheDocument();
@@ -314,7 +372,7 @@ it('caches Drive images only while the detail side panel is open', async () => {
   });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-4 Cached artwork/ }));
 
@@ -341,7 +399,7 @@ it('loads comments and history in task details and adds a new comment', async ()
   });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
-  await screen.findByText('Items by status');
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^tasks$/i }));
   fireEvent.click(screen.getByRole('button', { name: /AC-70 Review campaign/ }));
 

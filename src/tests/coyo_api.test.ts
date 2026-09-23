@@ -57,6 +57,7 @@ it('rejects detail from a different Coyô client', async () => {
 });
 
 it('creates a scoped Backlog task with every supported field', async () => {
+  (requireMainAccountAccess as jest.Mock).mockResolvedValue({ id: 'user-1', name: ' Social User ', email: 'social@example.com' });
   (global.fetch as jest.Mock).mockResolvedValue({
     ok: true,
     status: 201,
@@ -77,8 +78,24 @@ it('creates a scoped Backlog task with every supported field', async () => {
   const sent = options.body as FormData;
   expect(url).toBe('https://taskmanager.coyo.com.br/api/external/tasks');
   expect(options).toEqual(expect.objectContaining({ method: 'POST', headers: { Authorization: 'Bearer secret', Origin: 'https://example.com', Accept: 'application/json' } }));
-  expect(Object.fromEntries([...sent.entries()].filter(([key]) => key !== 'attachments'))).toEqual({ title: 'Campaign brief', clientAcronym: 'AC', description: 'Prepare the campaign assets.', dueDate: '2026-09-30', workspace: 'SOFTWARE' });
+  expect(Object.fromEntries([...sent.entries()].filter(([key]) => key !== 'attachments'))).toEqual({ title: 'Campaign brief', clientAcronym: 'AC', authorName: 'Social User', description: 'Prepare the campaign assets.', dueDate: '2026-09-30', workspace: 'SOFTWARE' });
   expect((sent.get('attachments') as File).name).toBe('brief.txt');
+});
+
+it('uses the authenticated user email as the creation author when their name is blank', async () => {
+  (requireMainAccountAccess as jest.Mock).mockResolvedValue({ id: 'user-1', name: ' ', email: 'social@example.com' });
+  (global.fetch as jest.Mock).mockResolvedValue({
+    ok: true,
+    status: 201,
+    json: async () => ({ id: 'task-1', displayId: 'AC-42', status: 'BACKLOG', attachments: [] }),
+  });
+  const form = new FormData();
+  form.set('mainAccountId', '1');
+  form.set('title', 'Campaign brief');
+
+  expect((await POST(new Request('http://localhost/api/coyo/tasks', { method: 'POST', body: form }))).status).toBe(201);
+  const sent = (global.fetch as jest.Mock).mock.calls[0][1].body as FormData;
+  expect(sent.get('authorName')).toBe('social@example.com');
 });
 
 it('authorizes before creating and rejects unsupported workspace values', async () => {

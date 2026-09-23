@@ -14,6 +14,7 @@ export type NewCoyoTaskInput = {
   dueDate?: string;
   workspace: 'AGENCY' | 'SOFTWARE';
   attachments: File[];
+  authorName: string;
 };
 
 export type UpdateCoyoTaskInput = {
@@ -105,6 +106,7 @@ export async function createCoyoTaskForAccount(mainAccountId: string, input: New
   const body = new FormData();
   body.set('title', input.title);
   body.set('clientAcronym', clientAcronym);
+  body.set('authorName', input.authorName);
   if (input.description) body.set('description', input.description);
   if (input.dueDate) body.set('dueDate', input.dueDate);
   body.set('workspace', input.workspace);

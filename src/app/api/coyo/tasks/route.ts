@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const mainAccountId = textValue(formData, 'mainAccountId');
     if (!mainAccountId) return NextResponse.json({ error: 'Missing mainAccountId' }, { status: 400 });
-    await requireMainAccountAccess(mainAccountId);
+    const user = await requireMainAccountAccess(mainAccountId);
 
     const title = textValue(formData, 'title');
     const description = textValue(formData, 'description');
@@ -45,7 +45,8 @@ export async function POST(request: Request) {
     const oversized = attachments.find(file => file.size > MAX_ATTACHMENT_BYTES);
     if (oversized) return NextResponse.json({ error: `${oversized.name} exceeds the 5 MB attachment limit.` }, { status: 400 });
 
-    const input: NewCoyoTaskInput = { title, description, dueDate, workspace, attachments };
+    const authorName = user.name?.trim() || user.email;
+    const input: NewCoyoTaskInput = { title, description, dueDate, workspace, attachments, authorName };
     const task = await createCoyoTaskForAccount(mainAccountId, input);
     return NextResponse.json({ task }, { status: 201, headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {

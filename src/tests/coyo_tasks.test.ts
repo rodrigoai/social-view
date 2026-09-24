@@ -1,6 +1,6 @@
-import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, removeCoyoAttachmentMarkup, safeLink, taskAttachmentLinks, TaskFilters } from '@/lib/coyoTasks';
-const filters: TaskFilters = { search: '', status: '', from: '', to: '', dateField: 'postDate' };
-const task = { id: '1', title: 'Campaign', displayId: 'AC-1', category: 'TASK', status: 'BACKLOG', createdAt: '2026-08-01', deliveryDate: '2026-09-01', postDate: null } as CoyoTask;
+import { CoyoTask, filterTasks, formatBrazilianDate, groupTasksByExactTags, normalizePostFormats, removeCoyoAttachmentMarkup, safeLink, taskAttachmentLinks, taskRichTextDescription, TaskFilters } from '@/lib/coyoTasks';
+const filters: TaskFilters = { search: '', status: '', workspace: 'AGENCY', from: '', to: '', dateField: 'postDate' };
+const task = { id: '1', title: 'Campaign', displayId: 'AC-1', category: 'TASK', status: 'BACKLOG', workspace: 'AGENCY', createdAt: '2026-08-01', deliveryDate: '2026-09-01', postDate: null } as CoyoTask;
 const post = { ...task, id: '2', category: 'POST', postDate: '2026-09-10T23:59:00Z' };
 it('keeps posts out of Tasks and tasks out of Social', () => {
   expect(filterTasks([task, post], filters, 'tasks')).toEqual([task]);
@@ -14,6 +14,12 @@ it('filters inclusively using the selected date rather than delivery date', () =
 it('combines search and status and retains undated items with no date bounds', () => {
   expect(filterTasks([task], { ...filters, search: 'ac-1', status: 'BACKLOG' }, 'tasks')).toEqual([task]);
   expect(filterTasks([task], { ...filters, status: 'FINISHED' }, 'tasks')).toEqual([]);
+});
+it('filters by workspace and treats an empty workspace filter as both', () => {
+  const software = { ...task, id: 'software', workspace: 'SOFTWARE' };
+  expect(filterTasks([task, software], filters, 'tasks')).toEqual([task]);
+  expect(filterTasks([task, software], { ...filters, workspace: 'SOFTWARE' }, 'tasks')).toEqual([software]);
+  expect(filterTasks([task, software], { ...filters, workspace: '' }, 'tasks')).toEqual([task, software]);
 });
 it('matches any of multiple selected tags without case sensitivity', () => {
   const design = { ...task, id: 'design', tags: ['Design'] };
@@ -37,6 +43,10 @@ it('removes only the selected attachment markup from a description', () => {
   const description = '<p>Brief</p><img src="/api/drive/media?fileId=image_1" alt="First"><a href="/api/drive/media?fileId=brief_2">Second</a>';
   expect(removeCoyoAttachmentMarkup(description, 'image_1')).toBe('<p>Brief</p><a href="/api/drive/media?fileId=brief_2">Second</a>');
   expect(removeCoyoAttachmentMarkup(description, 'missing')).toBe(description);
+});
+it('preserves rich text while excluding attachment markup from the task description', () => {
+  const description = '<p>A <strong>formatted</strong> brief.</p><ul><li>First item</li></ul><img src="/api/drive/media?fileId=image_1">';
+  expect(taskRichTextDescription(description)).toBe('<p>A <strong>formatted</strong> brief.</p><ul><li>First item</li></ul>');
 });
 it('normalizes single and multi-value post formats', () => {
   expect(normalizePostFormats('Story', 'POST')).toEqual(['Story']);

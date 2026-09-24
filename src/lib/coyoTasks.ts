@@ -21,7 +21,8 @@ export type CoyoTask = {
 };
 export type CoyoTaskDetail = CoyoTask & { comments: CoyoComment[]; history: CoyoHistoryEntry[]; clientNotes?: CoyoClientNote[] };
 export type CoyoPostFormat = 'Post' | 'Story' | 'Reels' | 'Carousel';
-export type TaskFilters = { search: string; status: string; from: string; to: string; dateField: DateField; tags?: string[] };
+export type WorkspaceFilter = 'AGENCY' | 'SOFTWARE' | '';
+export type TaskFilters = { search: string; status: string; workspace: WorkspaceFilter; from: string; to: string; dateField: DateField; tags?: string[] };
 export function filterTasks(tasks: CoyoTask[], filters: TaskFilters, section: string) {
   return tasks.filter(task => {
     if (section === 'tasks' && task.category !== 'TASK') return false;
@@ -30,6 +31,7 @@ export function filterTasks(tasks: CoyoTask[], filters: TaskFilters, section: st
     const selectedTags = filters.tags || [];
     const taskTags = new Set((task.tags || []).map(tagName).map(name => name.toLocaleLowerCase('pt-BR')));
     return (!filters.status || task.status === filters.status)
+      && (!filters.workspace || task.workspace === filters.workspace)
       && (!filters.from || (!!date && date >= filters.from))
       && (!filters.to || (!!date && date <= filters.to))
       && (!selectedTags.length || selectedTags.some(tag => taskTags.has(tag.toLocaleLowerCase('pt-BR'))))
@@ -81,6 +83,10 @@ export function removeCoyoAttachmentMarkup(description: string | null | undefine
 
 export function taskTextDescription(description: string | null | undefined) {
   return (description || '').replace(attachmentNodePattern, ' ').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+export function taskRichTextDescription(description: string | null | undefined) {
+  return (description || '').replace(attachmentNodePattern, '').trim();
 }
 
 export function normalizePostFormats(value: CoyoTask['postFormat'], category = ''): CoyoPostFormat[] {

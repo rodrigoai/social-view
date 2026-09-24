@@ -64,6 +64,22 @@ it('previews description attachments for Backlog tasks in the side panel', async
   expect(await screen.findByRole('img', { name: 'Brief.png' })).toBeInTheDocument();
 });
 
+it('renders API task descriptions as rich text in the detail panel', async () => {
+  const today = new Date().toISOString();
+  const task = { id: 'rich-text-1', displayId: 'AC-51', title: 'Formatted brief', description: '<p>Use the <strong>primary logo</strong>.</p><ul><li>Desktop</li><li>Mobile</li></ul>', status: 'IN_PROGRESS', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/tasks/rich-text-1')
+    ? { ok: true, json: async () => ({ task: { ...task, comments: [], history: [] } }) }
+    : { ok: true, json: async () => ({ tasks: [task] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: /AC-51 Formatted brief/ }));
+
+  expect(screen.getByText('primary logo').tagName).toBe('STRONG');
+  expect(screen.getByText('Desktop').tagName).toBe('LI');
+  expect(screen.getByText('Mobile').tagName).toBe('LI');
+});
+
 it('preserves separate filters and switches Social to a calendar', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
@@ -89,15 +105,18 @@ it('defaults every section to the last 90 days by creation date and saves the se
   expect(screen.getByRole('checkbox', { name: 'Group by tags' })).not.toBeChecked();
   expect(screen.getByLabelText('Period')).toHaveValue('90');
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   expect(screen.getByLabelText('Period')).toHaveValue('90');
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
   expect(screen.getByLabelText('Period')).toHaveValue('90');
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   fireEvent.change(screen.getByLabelText('Period'), { target: { value: '30' } });
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v4')!).presets.dash).toBe('30'));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v5')!).presets.dash).toBe('30'));
   first.unmount();
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
   await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
@@ -121,7 +140,7 @@ it('restores each subtabs filters, tag grouping, and Social visualization after 
   fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'social query' } });
   fireEvent.change(screen.getByLabelText('Date type'), { target: { value: 'postDate' } });
   fireEvent.click(screen.getByRole('button', { name: /^calendar$/i }));
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v4')!).view).toBe('calendar'));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v5')!).view).toBe('calendar'));
   first.unmount();
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
@@ -136,6 +155,32 @@ it('restores each subtabs filters, tag grouping, and Social visualization after 
   expect(screen.getByLabelText('Search')).toHaveValue('social query');
   expect(screen.getByLabelText('Date type')).toHaveValue('postDate');
   expect(screen.getByRole('button', { name: /^calendar$/i })).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('defaults to Agency, filters locally by workspace, and shows workspace in the task list', async () => {
+  const today = new Date().toISOString();
+  const base = { description: null, status: 'BACKLOG', category: 'TASK', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  const tasks = [
+    { ...base, id: 'agency', displayId: 'AC-20', title: 'Agency task', workspace: 'AGENCY' },
+    { ...base, id: 'software', displayId: 'AC-21', title: 'Software task', workspace: 'SOFTWARE' },
+  ];
+  (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+
+  expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
+  expect(screen.getByRole('columnheader', { name: 'Workspace' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'AC-20 Agency task' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'AC-21 Software task' })).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Filter by workspace'), { target: { value: 'SOFTWARE' } });
+  expect(screen.queryByRole('button', { name: 'AC-20 Agency task' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'AC-21 Software task' })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText('Filter by workspace'), { target: { value: '' } });
+  expect(screen.getByRole('button', { name: 'AC-20 Agency task' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'AC-21 Software task' })).toBeInTheDocument();
 });
 
 it('keeps existing saved filters when adopting the new ungrouped default', async () => {
@@ -320,7 +365,7 @@ it('filters tasks by multiple tags and can enable tag grouping', async () => {
 
 it('renders social details as a phone-proportioned post in the side panel', async () => {
   const today = new Date().toISOString();
-  const post = { id: 'post-1', displayId: 'AC-3', title: 'Launch post', description: 'Post description', status: 'IN_REVIEW', category: 'POST', postFormat: ['Post', 'Story'], workspace: 'SOCIAL', tags: ['Instagram'], caption: 'A launch caption', driveLink: 'https://drive.google.com/drive/folders/folder_1', client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: null, updatedAt: today };
+  const post = { id: 'post-1', displayId: 'AC-3', title: 'Launch post', description: 'Post description', status: 'IN_REVIEW', category: 'POST', postFormat: ['Post', 'Story'], workspace: 'AGENCY', tags: ['Instagram'], caption: 'A launch caption', driveLink: 'https://drive.google.com/drive/folders/folder_1', client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: null, updatedAt: today };
   (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/files?')
     ? { ok: true, json: async () => ({ isFolder: true, name: 'Campaign', files: [{ id: 'image_1', name: 'post.jpg', mimeType: 'image/jpeg' }, { id: 'story_1', name: 'story.mp4', mimeType: 'video/mp4' }], formats: [{ format: 'Post', files: [{ id: 'image_1', name: 'post.jpg', mimeType: 'image/jpeg' }] }, { format: 'Story', files: [{ id: 'story_1', name: 'story.mp4', mimeType: 'video/mp4' }] }] }) }
     : { ok: true, json: async () => ({ tasks: [post] }) });
@@ -343,7 +388,7 @@ it('renders social details as a phone-proportioned post in the side panel', asyn
 
 it('shows post types, emphasizes post dates, and makes the whole post row clickable', async () => {
   const today = new Date().toISOString();
-  const post = { id: 'post-table', displayId: 'AC-5', title: 'Social table post', description: null, status: 'CREATED', category: 'POST', postFormat: ['Post', 'Story'], workspace: 'SOCIAL', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: today, updatedAt: today };
+  const post = { id: 'post-table', displayId: 'AC-5', title: 'Social table post', description: null, status: 'CREATED', category: 'POST', postFormat: ['Post', 'Story'], workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: today, updatedAt: today };
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [post] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);

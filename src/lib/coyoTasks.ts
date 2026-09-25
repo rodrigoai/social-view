@@ -16,7 +16,7 @@ export type CoyoHistoryEntry = {
 };
 export type CoyoTask = {
   id: string; displayId: string; title: string; description: string | null; status: string; category: string;
-  workspace: string; tags?: CoyoTag[]; caption: string | null; driveLink: string | null; postFormat?: string | string[] | null;
+  workspace: string; tags?: CoyoTag[]; caption: string | null; roteiro?: string | null; driveLink: string | null; postFormat?: string | string[] | null;
   client: { id: string; name: string; prefix: string };
   deliveryDate: string | null; createdAt: string; postDate: string | null; executionDate: string | null; updatedAt: string;
 };

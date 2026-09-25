@@ -365,9 +365,9 @@ it('filters tasks by multiple tags and can enable tag grouping', async () => {
   expect(screen.queryByRole('columnheader', { name: 'Tags' })).not.toBeInTheDocument();
 });
 
-it('renders social details as a phone-proportioned post in the side panel', async () => {
+it('renders social details and reveals the roteiro only after opening its accordion', async () => {
   const today = new Date().toISOString();
-  const post = { id: 'post-1', displayId: 'AC-3', title: 'Launch post', description: 'Post description', status: 'IN_REVIEW', category: 'POST', postFormat: ['Post', 'Story'], workspace: 'AGENCY', tags: ['Instagram'], caption: 'A launch caption', driveLink: 'https://drive.google.com/drive/folders/folder_1', client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: null, updatedAt: today };
+  const post = { id: 'post-1', displayId: 'AC-3', title: 'Launch post', description: 'Post description', status: 'IN_REVIEW', category: 'POST', postFormat: ['Post', 'Story'], workspace: 'AGENCY', tags: ['Instagram'], caption: 'A launch caption', roteiro: 'Opening scene\nShow the product in use.', driveLink: 'https://drive.google.com/drive/folders/folder_1', client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: null, updatedAt: today };
   (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/files?')
     ? { ok: true, json: async () => ({ isFolder: true, name: 'Campaign', files: [{ id: 'image_1', name: 'post.jpg', mimeType: 'image/jpeg' }, { id: 'story_1', name: 'story.mp4', mimeType: 'video/mp4' }], formats: [{ format: 'Post', files: [{ id: 'image_1', name: 'post.jpg', mimeType: 'image/jpeg' }] }, { format: 'Story', files: [{ id: 'story_1', name: 'story.mp4', mimeType: 'video/mp4' }] }] }) }
     : { ok: true, json: async () => ({ tasks: [post] }) });
@@ -382,6 +382,12 @@ it('renders social details as a phone-proportioned post in the side panel', asyn
   expect(await screen.findByTestId('social-post-preview')).toHaveClass('aspect-[9/19.5]');
   expect(screen.getByText('Post preview')).toBeInTheDocument();
   expect(screen.getAllByText('A launch caption')).toHaveLength(2);
+  const roteiroButton = screen.getByRole('button', { name: 'Roteiro' });
+  expect(roteiroButton).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByText(/Opening scene/)).not.toBeInTheDocument();
+  fireEvent.click(roteiroButton);
+  expect(roteiroButton).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByText(/Opening scene/)).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: 'post.jpg' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Open in Google Drive' })).toHaveAttribute('href', 'https://drive.google.com/drive/folders/folder_1');
   fireEvent.click(screen.getByRole('button', { name: 'Story' }));

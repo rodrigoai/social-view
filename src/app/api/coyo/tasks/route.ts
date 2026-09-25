@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
 import { CoyoTasksError, createCoyoTaskForAccount, fetchCoyoTasksForAccount, type NewCoyoTaskInput } from '@/lib/coyoTasksServer';
+import type { CoyoApiDateType } from '@/lib/coyoTasks';
 
 const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const DATE_TYPES = new Set<CoyoApiDateType>(['createdAt', 'dueDate', 'deliveryDate', 'postDate']);
+
+function isoDateValue(searchParams: URLSearchParams, name: 'from' | 'to') {
+  const value = searchParams.get(name)?.trim() || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null;
+}
 
 function textValue(formData: FormData, name: string) {
   const value = formData.get(name);
@@ -11,11 +20,21 @@ function textValue(formData: FormData, name: string) {
 }
 
 export async function GET(request: Request) {
-  const id = new URL(request.url).searchParams.get('mainAccountId');
+  const searchParams = new URL(request.url).searchParams;
+  const id = searchParams.get('mainAccountId');
   if (!id) return NextResponse.json({ error: 'Missing mainAccountId' }, { status: 400 });
+  const rawDateType = searchParams.get('dateType');
+  if (rawDateType && !DATE_TYPES.has(rawDateType as CoyoApiDateType)) return NextResponse.json({ error: 'Invalid dateType' }, { status: 400 });
+  const rawFrom = searchParams.get('from');
+  const rawTo = searchParams.get('to');
+  const from = isoDateValue(searchParams, 'from');
+  const to = isoDateValue(searchParams, 'to');
+  if (rawFrom && !from) return NextResponse.json({ error: 'Invalid from date' }, { status: 400 });
+  if (rawTo && !to) return NextResponse.json({ error: 'Invalid to date' }, { status: 400 });
+  if (from && to && from > to) return NextResponse.json({ error: 'From must be on or before To.' }, { status: 400 });
   try {
     await requireMainAccountAccess(id);
-    const tasks = await fetchCoyoTasksForAccount(id);
+    const tasks = await fetchCoyoTasksForAccount(id, { dateType: rawDateType as CoyoApiDateType | undefined, from: from || undefined, to: to || undefined });
     return NextResponse.json({ tasks }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     return authzErrorResponse(error)

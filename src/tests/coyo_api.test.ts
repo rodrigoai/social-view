@@ -24,6 +24,17 @@ it('uses account key, explicit origin and client scope, excluding other customer
   expect(await response.json()).toEqual({ tasks: [{ id: '1', client: { prefix: 'AC' } }] });
   expect(global.fetch).toHaveBeenCalledWith(new URL('https://taskmanager.coyo.com.br/api/external/tasks?clientAcronym=AC'), expect.objectContaining({ headers: { Authorization: 'Bearer secret', Origin: 'https://example.com', Accept: 'application/json' } }));
 });
+it('forwards the selected API date type and inclusive period', async () => {
+  (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => [] });
+  const response = await GET(new Request('http://localhost/api/coyo/tasks?mainAccountId=1&dateType=postDate&from=2026-09-01&to=2026-09-30'));
+  expect(response.status).toBe(200);
+  expect(global.fetch).toHaveBeenCalledWith(new URL('https://taskmanager.coyo.com.br/api/external/tasks?clientAcronym=AC&dateType=postDate&from=2026-09-01&to=2026-09-30'), expect.any(Object));
+});
+it('rejects unsupported date types and invalid periods before calling Coyô', async () => {
+  expect((await GET(new Request('http://localhost/api/coyo/tasks?mainAccountId=1&dateType=updatedAt'))).status).toBe(400);
+  expect((await GET(new Request('http://localhost/api/coyo/tasks?mainAccountId=1&dateType=createdAt&from=2026-09-30&to=2026-09-01'))).status).toBe(400);
+  expect(global.fetch).not.toHaveBeenCalled();
+});
 it('does not query all customers when configuration is missing', async () => {
   (prisma.mainAccount.findUnique as jest.Mock).mockResolvedValue({});
   expect((await GET(new Request('http://localhost/api/coyo/tasks?mainAccountId=1'))).status).toBe(400);

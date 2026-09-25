@@ -1,6 +1,7 @@
 export const statuses = ['BACKLOG', 'CREATED', 'IN_PROGRESS', 'IN_REVIEW', 'SENT', 'CHANGES_REQUESTED', 'APPROVED', 'FINISHED'] as const;
-export const dateFields = { deliveryDate: 'Delivery date', createdAt: 'Creation date', postDate: 'Post date', executionDate: 'Execution date', updatedAt: 'Updated date' };
+export const dateFields = { deliveryDate: 'Delivery date', createdAt: 'Creation date', postDate: 'Post date', executionDate: 'Execution date' };
 export type DateField = keyof typeof dateFields;
+export type CoyoApiDateType = 'createdAt' | 'dueDate' | 'deliveryDate' | 'postDate';
 export type CoyoTag = string | { id?: string; name: string; color?: string | null };
 export type CoyoAuthor = { id?: string; name: string };
 export type CoyoComment = { id: string; content: string; author: CoyoAuthor | null; createdAt: string };
@@ -23,6 +24,9 @@ export type CoyoTaskDetail = CoyoTask & { comments: CoyoComment[]; history: Coyo
 export type CoyoPostFormat = 'Post' | 'Story' | 'Reels' | 'Carousel';
 export type WorkspaceFilter = 'AGENCY' | 'SOFTWARE' | '';
 export type TaskFilters = { search: string; status: string; workspace: WorkspaceFilter; from: string; to: string; dateField: DateField; tags?: string[] };
+export function coyoApiDateType(dateField: DateField): CoyoApiDateType {
+  return dateField === 'executionDate' ? 'dueDate' : dateField;
+}
 export function filterTasks(tasks: CoyoTask[], filters: TaskFilters, section: string) {
   return tasks.filter(task => {
     if (section === 'tasks' && task.category !== 'TASK') return false;

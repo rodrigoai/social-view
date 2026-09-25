@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import Image from 'next/image';
 import { ExternalLink, FileText, Loader2, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { CoyoTask, DateField, TaskFilters, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, formatBrazilianDateTime, groupTasksByExactTags, normalizePostFormats, safeLink, statuses, statusLabel, tagName, taskRichTextDescription, taskTextDescription, type CoyoPostFormat, type CoyoTaskDetail, type WorkspaceFilter } from '@/lib/coyoTasks';
+import { CoyoTask, DateField, TaskFilters, coyoApiDateType, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, formatBrazilianDateTime, groupTasksByExactTags, normalizePostFormats, safeLink, statuses, statusLabel, tagName, taskRichTextDescription, taskTextDescription, type CoyoPostFormat, type CoyoTaskDetail, type WorkspaceFilter } from '@/lib/coyoTasks';
 import { NewCoyoTaskModal } from '@/components/dashboard/NewCoyoTaskModal';
 
 type Section = 'dash' | 'tasks' | 'social';
@@ -11,8 +11,8 @@ type RangePreset = '7' | '30' | '60' | '90' | 'custom';
 type FiltersState = Record<Section, TaskFilters>;
 type PresetsState = Record<Section, RangePreset>;
 
-const STORAGE_KEY = 'coyo-tasks-dashboard-filters:v5';
-const PREVIOUS_STORAGE_KEYS = ['coyo-tasks-dashboard-filters:v4', 'coyo-tasks-dashboard-filters:v3'];
+const STORAGE_KEY = 'coyo-tasks-dashboard-filters:v6';
+const PREVIOUS_STORAGE_KEYS = ['coyo-tasks-dashboard-filters:v5', 'coyo-tasks-dashboard-filters:v4', 'coyo-tasks-dashboard-filters:v3'];
 const control = 'rounded-xl border border-border-custom bg-card px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15';
 const statusStyles: Record<string, string> = {
   BACKLOG: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
@@ -39,7 +39,7 @@ function presetDates(days: number) {
 function defaultFilters(): FiltersState {
   const dates = presetDates(90);
   const base = { search: '', status: '', workspace: 'AGENCY' as const, tags: [], ...dates, dateField: 'createdAt' as const };
-  return { dash: { ...base }, tasks: { ...base }, social: { ...base } };
+  return { dash: { ...base }, tasks: { ...base }, social: { ...base, dateField: 'postDate' } };
 }
 
 function StatusTag({ status }: { status: string }) {
@@ -431,7 +431,7 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
           setFilters({
             dash: { ...defaults.dash, ...parsed.filtersBySection.dash, workspace: parsed.filtersBySection.dash?.workspace || 'AGENCY' },
             tasks: { ...defaults.tasks, ...parsed.filtersBySection.tasks, workspace: parsed.filtersBySection.tasks?.workspace || 'AGENCY' },
-            social: { ...defaults.social, ...parsed.filtersBySection.social, workspace: parsed.filtersBySection.social?.workspace || 'AGENCY' },
+            social: { ...defaults.social, ...parsed.filtersBySection.social, dateField: previousKey ? 'postDate' : parsed.filtersBySection.social?.dateField || 'postDate', workspace: parsed.filtersBySection.social?.workspace || 'AGENCY' },
           });
         }
         if (parsed?.presets) setPresets(parsed.presets);
@@ -444,11 +444,15 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
   }, []);
   useEffect(() => { if (storageReady) window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ filtersBySection, presets, groupTasksByTags, view })); }, [filtersBySection, presets, groupTasksByTags, view, storageReady]);
   useEffect(() => {
+    if (!storageReady) return;
     const controller = new AbortController();
+    const query = new URLSearchParams({ mainAccountId: selectedAccountId, dateType: coyoApiDateType(filters.dateField) });
+    if (filters.from) query.set('from', filters.from);
+    if (filters.to) query.set('to', filters.to);
     queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(''); setTasks([]); setSelected(null); } });
-    fetch(`/api/coyo/tasks?mainAccountId=${encodeURIComponent(selectedAccountId)}`, { signal: controller.signal }).then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to load tasks'); return body.tasks; }).then(data => { if (!controller.signal.aborted) setTasks(data); }).catch(err => { if (!controller.signal.aborted) setError(err.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    fetch(`/api/coyo/tasks?${query}`, { signal: controller.signal }).then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to load tasks'); return body.tasks; }).then(data => { if (!controller.signal.aborted) setTasks(data); }).catch(err => { if (!controller.signal.aborted) setError(err.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [selectedAccountId, revision]);
+  }, [selectedAccountId, revision, section, filters.dateField, filters.from, filters.to, storageReady]);
   useEffect(() => { if (!selected) return; const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; document.addEventListener('keydown', close); const overflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.removeEventListener('keydown', close); document.body.style.overflow = overflow; }; }, [selected]);
 
   const invalidRange = !!filters.from && !!filters.to && filters.from > filters.to;

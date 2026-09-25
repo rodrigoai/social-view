@@ -92,12 +92,12 @@ it('preserves separate filters and switches Social to a calendar', async () => {
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   expect(screen.getByLabelText('Search')).toHaveValue('dash search');
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
-  expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  expect(screen.getByLabelText('Date type')).toHaveValue('postDate');
   fireEvent.click(screen.getByRole('button', { name: /^calendar$/i }));
   expect(screen.getByRole('button', { name: 'Next month' })).toBeInTheDocument();
 });
 
-it('defaults every section to the last 90 days by creation date and saves the selected period', async () => {
+it('defaults Tasks to creation date and Posts to post date for the last 90 days', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   const first = render(<CoyoTasksDashboardView selectedAccountId="customer" />);
   await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
@@ -105,6 +105,7 @@ it('defaults every section to the last 90 days by creation date and saves the se
   expect(screen.getByRole('checkbox', { name: 'Group by tags' })).not.toBeChecked();
   expect(screen.getByLabelText('Period')).toHaveValue('90');
   expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  expect((global.fetch as jest.Mock).mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([expect.stringContaining('dateType=createdAt')]));
   expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   expect(screen.getByLabelText('Period')).toHaveValue('90');
@@ -112,11 +113,12 @@ it('defaults every section to the last 90 days by creation date and saves the se
   expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
   expect(screen.getByLabelText('Period')).toHaveValue('90');
-  expect(screen.getByLabelText('Date type')).toHaveValue('createdAt');
+  expect(screen.getByLabelText('Date type')).toHaveValue('postDate');
+  await waitFor(() => expect((global.fetch as jest.Mock).mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([expect.stringContaining('dateType=postDate')])));
   expect(screen.getByLabelText('Filter by workspace')).toHaveValue('AGENCY');
   fireEvent.click(screen.getByRole('button', { name: /^dash$/i }));
   fireEvent.change(screen.getByLabelText('Period'), { target: { value: '30' } });
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v5')!).presets.dash).toBe('30'));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v6')!).presets.dash).toBe('30'));
   first.unmount();
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
   await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
@@ -140,7 +142,7 @@ it('restores each subtabs filters, tag grouping, and Social visualization after 
   fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'social query' } });
   fireEvent.change(screen.getByLabelText('Date type'), { target: { value: 'postDate' } });
   fireEvent.click(screen.getByRole('button', { name: /^calendar$/i }));
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v5')!).view).toBe('calendar'));
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem('coyo-tasks-dashboard-filters:v6')!).view).toBe('calendar'));
   first.unmount();
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
@@ -373,6 +375,8 @@ it('renders social details as a phone-proportioned post in the side panel', asyn
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);
   await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: /AC-3 Launch post/ }));
 
   expect(await screen.findByTestId('social-post-preview')).toHaveClass('aspect-[9/19.5]');

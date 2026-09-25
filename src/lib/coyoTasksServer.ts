@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 import { prisma } from '@/lib/prisma';
-import { coyoAttachmentMarkup, extractGoogleDriveFileId, removeCoyoAttachmentMarkup, taskAttachmentLinks, type CoyoComment, type CoyoTask, type CoyoTaskDetail } from '@/lib/coyoTasks';
+import { coyoAttachmentMarkup, extractGoogleDriveFileId, removeCoyoAttachmentMarkup, taskAttachmentLinks, type CoyoApiDateType, type CoyoComment, type CoyoTask, type CoyoTaskDetail } from '@/lib/coyoTasks';
 import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 
 export class CoyoTasksError extends Error {
@@ -42,11 +42,16 @@ async function getCoyoAccountConfig(mainAccountId: string) {
   return { clientAcronym: account.coyoClientAcronym, token, origin };
 }
 
-export async function fetchCoyoTasksForAccount(mainAccountId: string) {
+export type CoyoTaskPeriod = { dateType?: CoyoApiDateType; from?: string; to?: string };
+
+export async function fetchCoyoTasksForAccount(mainAccountId: string, period: CoyoTaskPeriod = {}) {
   const { clientAcronym, token, origin } = await getCoyoAccountConfig(mainAccountId);
 
   const url = new URL('https://taskmanager.coyo.com.br/api/external/tasks');
   url.searchParams.set('clientAcronym', clientAcronym);
+  if (period.dateType) url.searchParams.set('dateType', period.dateType);
+  if (period.from) url.searchParams.set('from', period.from);
+  if (period.to) url.searchParams.set('to', period.to);
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Origin: origin, Accept: 'application/json' },
     cache: 'no-store',

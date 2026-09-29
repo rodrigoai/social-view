@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authzErrorResponse, requireMainAccountAccess } from '@/lib/authz';
-import { addCoyoTaskCommentForAccount, CoyoTasksError, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, updateCoyoBacklogTaskForAccount, type UpdateCoyoTaskInput } from '@/lib/coyoTasksServer';
+import { addCoyoTaskCommentForAccount, approveCoyoTaskForAccount, CoyoTasksError, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, updateCoyoBacklogTaskForAccount, type UpdateCoyoTaskInput } from '@/lib/coyoTasksServer';
 
 const MAX_ATTACHMENTS = 10;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -63,6 +63,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ task }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     return errorResponse(error, 'Unable to update the Coyô task. Please try again.');
+  }
+}
+
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const body = await request.json().catch(() => null);
+    const mainAccountId = typeof body?.mainAccountId === 'string' ? body.mainAccountId.trim() : '';
+    if (!mainAccountId) return NextResponse.json({ error: 'Missing mainAccountId' }, { status: 400 });
+    await requireMainAccountAccess(mainAccountId);
+    const task = await approveCoyoTaskForAccount(mainAccountId, id);
+    return NextResponse.json({ task }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (error) {
+    return errorResponse(error, 'Unable to approve the Coyô task. Please try again.');
   }
 }
 

@@ -506,9 +506,11 @@ it('loads comments and history in task details and adds a new comment', async ()
     history: [{ id: 'history-1', action: 'changed status', oldValue: 'BACKLOG', newValue: 'IN_REVIEW', author: { id: 'user-2', name: 'Bruno' }, createdAt: '2026-09-16T12:00:00Z' }],
   };
   const created = { id: 'comment-2', content: '<p>Updated and ready.</p>', author: { id: 'user-3', name: 'Carla' }, createdAt: '2026-09-16T13:00:00Z' };
+  const refreshed = { ...detail, status: 'CHANGES_REQUESTED', comments: [...detail.comments, created] };
+  let detailReads = 0;
   (global.fetch as jest.Mock).mockImplementation(async (input, init) => {
     const url = String(input);
-    if (url === '/api/coyo/tasks/activity-1?mainAccountId=customer') return { ok: true, json: async () => ({ task: detail }) };
+    if (url === '/api/coyo/tasks/activity-1?mainAccountId=customer') return { ok: true, json: async () => ({ task: detailReads++ === 0 ? detail : refreshed }) };
     if (url === '/api/coyo/tasks/activity-1' && init?.method === 'PATCH') return { ok: true, status: 201, json: async () => ({ comment: created }) };
     return { ok: true, json: async () => ({ tasks: [task] }) };
   });
@@ -528,6 +530,36 @@ it('loads comments and history in task details and adds a new comment', async ()
   expect(await screen.findByText('Carla')).toBeInTheDocument();
   expect(screen.getByText('Updated and ready.').compareDocumentPosition(screen.getByText('logo larger')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByLabelText('Add a comment')).toHaveValue('');
+  expect(screen.getAllByText(/changes requested/i).length).toBeGreaterThan(0);
+  expect(detailReads).toBe(2);
   const commentCall = (global.fetch as jest.Mock).mock.calls.find(([input, init]) => String(input) === '/api/coyo/tasks/activity-1' && init?.method === 'PATCH');
   expect(JSON.parse(commentCall?.[1].body)).toEqual({ mainAccountId: 'customer', comment: 'Updated and ready.' });
+});
+
+it.each([
+  ['task', 'IN_REVIEW', 'TASK'],
+  ['post', 'SENT', 'POST'],
+])('approves an awaiting %s and refreshes its state', async (kind, status, category) => {
+  const today = new Date().toISOString();
+  const item = { id: `approve-${kind}`, displayId: 'AC-71', title: `Approve ${kind}`, description: '', status, category, workspace: 'AGENCY', tags: [], caption: category === 'POST' ? 'Launch copy' : null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: category === 'POST' ? today : null, executionDate: null, updatedAt: today };
+  const approved = { ...item, status: 'APPROVED', comments: [], history: [] };
+  let detailReads = 0;
+  (global.fetch as jest.Mock).mockImplementation(async (input, init) => {
+    const url = String(input);
+    if (url === `/api/coyo/tasks/${item.id}` && init?.method === 'POST') return { ok: true, json: async () => ({ task: approved }) };
+    if (url === `/api/coyo/tasks/${item.id}?mainAccountId=customer`) return { ok: true, json: async () => ({ task: detailReads++ === 0 ? { ...item, comments: [], history: [] } : approved }) };
+    return { ok: true, json: async () => ({ tasks: [item] }) };
+  });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  if (kind === 'post') fireEvent.click(screen.getByRole('button', { name: /^social$/i }));
+  fireEvent.click(await screen.findByRole('button', { name: /AC-71 Approve/ }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Approve' }));
+
+  await waitFor(() => expect(screen.getByText(/approved/i)).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+  const approvalCall = (global.fetch as jest.Mock).mock.calls.find(([input, init]) => String(input) === `/api/coyo/tasks/${item.id}` && init?.method === 'POST');
+  expect(JSON.parse(approvalCall?.[1].body)).toEqual({ mainAccountId: 'customer' });
+  expect(detailReads).toBe(2);
 });

@@ -106,6 +106,26 @@ export async function addCoyoTaskCommentForAccount(mainAccountId: string, taskId
   return created as CoyoComment;
 }
 
+export async function approveCoyoTaskForAccount(mainAccountId: string, taskId: string) {
+  const currentTask = await fetchCoyoTaskDetailForAccount(mainAccountId, taskId);
+  if (currentTask.status !== 'IN_REVIEW' && currentTask.status !== 'SENT') {
+    throw new CoyoTasksError('Only tasks in review or sent can be approved from SocialView.', 409);
+  }
+  const { token, origin } = await getCoyoAccountConfig(mainAccountId);
+  const response = await fetch(`https://taskmanager.coyo.com.br/api/external/tasks/${encodeURIComponent(taskId)}/approve`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, Origin: origin, Accept: 'application/json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!response.ok) throw await taskMutationError(response);
+  const task = await response.json();
+  if (!task?.id || task.id !== taskId || task.status !== 'APPROVED') {
+    throw new CoyoTasksError('Coyô returned an invalid approval response.', 502);
+  }
+  return task as CoyoTask;
+}
+
 export async function createCoyoTaskForAccount(mainAccountId: string, input: NewCoyoTaskInput) {
   const { clientAcronym, token, origin } = await getCoyoAccountConfig(mainAccountId);
   const body = new FormData();

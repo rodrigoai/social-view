@@ -1,8 +1,8 @@
 /** @jest-environment node */
-import { DELETE, GET, PATCH } from '@/app/api/coyo/tasks/[id]/route';
+import { DELETE, GET, PATCH, POST } from '@/app/api/coyo/tasks/[id]/route';
 import { DELETE as DELETE_ATTACHMENT } from '@/app/api/coyo/tasks/[id]/attachments/[fileId]/route';
 import { requireMainAccountAccess, AuthzError } from '@/lib/authz';
-import { addCoyoTaskCommentForAccount, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
+import { addCoyoTaskCommentForAccount, approveCoyoTaskForAccount, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
 
 jest.mock('@/lib/prisma', () => ({ prisma: {} }));
 jest.mock('@/lib/authz', () => ({ ...jest.requireActual('@/lib/authz'), requireMainAccountAccess: jest.fn() }));
@@ -11,6 +11,7 @@ jest.mock('@/lib/coyoTasksServer', () => ({
   updateCoyoBacklogTaskForAccount: jest.fn(),
   fetchCoyoTaskDetailForAccount: jest.fn(),
   addCoyoTaskCommentForAccount: jest.fn(),
+  approveCoyoTaskForAccount: jest.fn(),
   deleteCoyoBacklogTaskForAccount: jest.fn(),
   removeCoyoBacklogAttachmentForAccount: jest.fn(),
 }));
@@ -42,6 +43,18 @@ it('forwards a comment-only patch and preserves its distinct response shape', as
   expect(await response.json()).toEqual({ comment });
   expect(addCoyoTaskCommentForAccount).toHaveBeenCalledWith('account-1', 'task-1', 'Looks good.', 'Social User');
   expect(updateCoyoBacklogTaskForAccount).not.toHaveBeenCalled();
+});
+
+it('approves a scoped task for the selected account', async () => {
+  const task = { id: 'task-1', status: 'APPROVED' };
+  (approveCoyoTaskForAccount as jest.Mock).mockResolvedValue(task);
+  const response = await POST(new Request('http://localhost/api/coyo/tasks/task-1', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mainAccountId: 'account-1' }),
+  }), context);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ task });
+  expect(requireMainAccountAccess).toHaveBeenCalledWith('account-1');
+  expect(approveCoyoTaskForAccount).toHaveBeenCalledWith('account-1', 'task-1');
 });
 
 it('validates and forwards Backlog task updates', async () => {

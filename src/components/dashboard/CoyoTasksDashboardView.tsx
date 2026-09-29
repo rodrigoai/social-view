@@ -266,7 +266,7 @@ function PostScriptAccordion({ content }: { content: string }) {
   </section>;
 }
 
-function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTask; mainAccountId: string; onClose: () => void; onChanged: () => void }) {
+function DetailPanel({ task, mainAccountId, onClose, onChanged, onTaskUpdated }: { task: CoyoTask; mainAccountId: string; onClose: () => void; onChanged: () => void; onTaskUpdated: (task: CoyoTask) => void }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [working, setWorking] = useState(false);
@@ -277,16 +277,31 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
   const [activityError, setActivityError] = useState('');
   const [comment, setComment] = useState('');
   const [commenting, setCommenting] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'copied' | 'error'>('idle');
   const postFormats = normalizePostFormats(task.postFormat, task.category);
   const isPost = task.category !== 'TASK' || postFormats.length > 0;
-  const isBacklog = task.status === 'BACKLOG';
+  const currentTask = detail || task;
+  const isBacklog = currentTask.status === 'BACKLOG';
+  const canApprove = currentTask.status === 'IN_REVIEW' || currentTask.status === 'SENT';
   const attachment = firstAttachmentLink(task);
   const description = taskTextDescription(task.description);
   const richDescription = taskRichTextDescription(task.description);
   const roteiro = (detail?.roteiro ?? task.roteiro)?.trim();
   const dates: [string, string | null][] = [['Created', task.createdAt], ['Delivery', task.deliveryDate], ...(isPost ? [['Post date', task.postDate], ['Execution', task.executionDate]] as [string, string | null][] : [])];
   const comments = [...(detail?.comments || [])].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+
+  const readLatestDetail = async () => {
+    const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}?mainAccountId=${encodeURIComponent(mainAccountId)}`);
+    const payload = await response.json();
+    if (!response.ok || !payload.task?.id || !Array.isArray(payload.task.comments) || !Array.isArray(payload.task.history)) {
+      throw new Error(payload.error || 'Unable to refresh this item.');
+    }
+    const refreshed = payload.task as CoyoTaskDetail;
+    setDetail(refreshed);
+    onTaskUpdated(refreshed);
+    return refreshed;
+  };
 
   const shareTask = async () => {
     const url = new URL(window.location.href);
@@ -347,14 +362,31 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || 'Unable to add this comment.');
-      setDetail(current => payload.comment
-        ? current ? { ...current, comments: [...current.comments, payload.comment] } : { ...task, comments: [payload.comment], history: [] }
-        : current);
       setComment('');
+      await readLatestDetail();
     } catch (cause) {
       setActivityError(cause instanceof Error ? cause.message : 'Unable to add this comment.');
     } finally {
       setCommenting(false);
+    }
+  };
+
+  const approveTask = async () => {
+    setApproving(true);
+    setActionError('');
+    try {
+      const response = await fetch(`/api/coyo/tasks/${encodeURIComponent(task.id)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mainAccountId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `Unable to approve this ${isPost ? 'post' : 'task'}.`);
+      await readLatestDetail();
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : `Unable to approve this ${isPost ? 'post' : 'task'}.`);
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -403,6 +435,7 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
     <aside className="coyo-detail-panel h-dvh w-full overflow-y-auto border-l border-border-custom bg-card shadow-2xl sm:max-w-xl" data-testid="coyo-detail-panel">
       <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><div className="flex shrink-0 items-center gap-1">{shareStatus !== 'idle' && <span role="status" className={`mr-1 hidden text-xs font-semibold sm:inline ${shareStatus === 'error' ? 'text-red-600' : 'text-emerald-600'}`}>{shareStatus === 'error' ? 'Could not share' : shareStatus === 'copied' ? 'Link copied' : 'Shared'}</span>}<button type="button" onClick={shareTask} className={`grid h-10 w-10 place-items-center rounded-full transition ${shareStatus === 'shared' || shareStatus === 'copied' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'text-muted hover:bg-accent-custom hover:text-foreground'}`} aria-label={`Share ${isPost ? 'post' : 'task'}`} title={`Share ${isPost ? 'post' : 'task'}`}>{shareStatus === 'shared' || shareStatus === 'copied' ? <Check size={18} /> : <Share2 size={18} />}</button>{isBacklog && !editing && <><button type="button" onClick={() => { setEditing(true); setConfirmingDelete(false); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-accent-custom hover:text-foreground" aria-label="Edit task"><Pencil size={17} /></button><button type="button" onClick={() => { setConfirmingDelete(true); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40" aria-label="Delete task"><Trash2 size={17} /></button></>}<button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-accent-custom text-muted transition hover:scale-105 hover:bg-border-custom hover:text-foreground" aria-label="Close details"><X size={19} /></button></div></header>
       <div className="space-y-8 p-6">
+        {canApprove && !editing && <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-emerald-50 px-4 py-4 dark:bg-emerald-950/30" aria-label={`Approve ${isPost ? 'post' : 'task'}`}><div><p className="font-bold text-emerald-900 dark:text-emerald-100">Ready for your approval</p><p className="mt-1 text-sm text-emerald-800 dark:text-emerald-300">Approve this {isPost ? 'post' : 'task'} to move it forward in Coyô.</p></div><button type="button" onClick={approveTask} disabled={approving} className="inline-flex min-w-32 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{approving ? <><Loader2 size={16} className="animate-spin" /> Approving…</> : <><Check size={16} /> Approve</>}</button></section>}
         {attachment && <DrivePreview task={task} mainAccountId={mainAccountId} social={isPost} editable={editing && isBacklog} onAttachmentsChanged={onChanged} />}
         {confirmingDelete && <section aria-label="Confirm task deletion" className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/35"><h4 className="font-bold text-red-800 dark:text-red-200">Delete {task.displayId} permanently?</h4><p className="mt-1 text-sm leading-6 text-red-700 dark:text-red-300">This cannot be undone. Coyô will also remove files uploaded as this task’s attachments.</p><div className="mt-4 flex justify-end gap-2"><button type="button" disabled={working} onClick={() => setConfirmingDelete(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-card">Cancel</button><button type="button" disabled={working} onClick={deleteTask} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50">{working && <Loader2 size={15} className="animate-spin" />} Delete permanently</button></div></section>}
         {actionError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">{actionError}</p>}
@@ -562,7 +595,7 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">{filtered.length} {section === 'social' ? 'posts' : 'tasks'}</p>{section === 'social' && <div className="flex rounded-xl bg-accent-custom p-1">{(['list', 'calendar'] as const).map(mode => <button key={mode} className={`rounded-lg px-3 py-1.5 text-sm font-semibold capitalize transition ${view === mode ? 'bg-card text-emerald-700 shadow-sm dark:text-emerald-400' : 'text-muted'}`} aria-pressed={view === mode} onClick={() => setView(mode)}>{mode}</button>)}</div>}</div>
       {section === 'social' && view === 'calendar' ? <><div className="flex items-center justify-between"><button className={control} aria-label="Previous month" onClick={() => changeMonth(-1)}>←</button><h3 className="font-semibold capitalize">{monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</h3><button className={control} aria-label="Next month" onClick={() => changeMonth(1)}>→</button></div><div className="overflow-x-auto"><div className="grid min-w-[700px] grid-cols-7 overflow-hidden rounded-2xl border-l border-t border-border-custom">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(day => <div key={day} className="border-b border-r border-border-custom bg-accent-custom p-2 text-xs font-semibold text-muted">{day}</div>)}{Array.from({ length: Math.ceil((days + offset) / 7) * 7 }, (_, index) => { const day = index - offset + 1, date = `${month}-${String(day).padStart(2, '0')}`; return <div key={index} className="min-h-28 border-b border-r border-border-custom p-2">{day > 0 && day <= days && <><p className="mb-2 text-xs text-muted">{day}</p>{filtered.filter(task => task[filters.dateField]?.slice(0, 10) === date).map(task => <button key={task.id} onClick={() => setSelected(task)} className="mb-2 block w-full rounded-lg bg-accent-custom p-2 text-left text-xs transition hover:bg-emerald-100 dark:hover:bg-emerald-950"><span className="font-semibold">{task.title}</span><span className="mt-1 block"><StatusTag status={task.status} /></span></button>)}</>}</div>; })}</div></div><p className="text-sm text-muted">{filtered.filter(task => !task[filters.dateField]).length} posts have no {dateFields[filters.dateField].toLowerCase()}. Use List to see them.</p></> : filtered.length === 0 ? <p className="py-12 text-center text-muted">No {section === 'social' ? 'posts' : 'tasks'} match these filters.</p> : section === 'tasks' ? groupTasksByTags ? <div className="space-y-8">{taskGroups.map(group => <section key={group.key} aria-label={group.tags.length ? `Tasks tagged ${group.tags.join(', ')}` : 'Untagged tasks'}><div className="mb-3 flex items-center gap-3"><div className="flex flex-wrap gap-1.5">{group.tags.length ? group.tags.map(tag => <span key={tag} className="rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">{tag}</span>) : <span className="text-sm font-semibold text-muted">Untagged</span>}</div><span className="text-xs tabular-nums text-muted">{group.tasks.length}</span><span className="h-px flex-1 bg-border-custom" /></div><TasksTable tasks={group.tasks} social={false} onSelect={setSelected} /></section>)}</div> : <TasksTable tasks={filtered} social={false} showTags onSelect={setSelected} /> : <TasksTable tasks={filtered} social onSelect={setSelected} />}
     </>}
-    {selected && <DetailPanel task={selected} mainAccountId={selectedAccountId} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); setRevision(value => value + 1); }} />}
+    {selected && <DetailPanel task={selected} mainAccountId={selectedAccountId} onClose={() => setSelected(null)} onChanged={() => { setSelected(null); setRevision(value => value + 1); }} onTaskUpdated={updatedTask => { setSelected(updatedTask); setTasks(current => current.map(item => item.id === updatedTask.id ? updatedTask : item)); }} />}
     {creating && <NewCoyoTaskModal mainAccountId={selectedAccountId} clientName={selectedAccountName} clientAcronym={selectedClientAcronym} onClose={() => setCreating(false)} onCreated={() => setRevision(value => value + 1)} />}
   </section>;
 }

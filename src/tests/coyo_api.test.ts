@@ -2,7 +2,7 @@
 import { GET, POST } from '@/app/api/coyo/tasks/route';
 import { prisma } from '@/lib/prisma';
 import { requireMainAccountAccess, AuthzError } from '@/lib/authz';
-import { addCoyoTaskCommentForAccount, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
+import { addCoyoTaskCommentForAccount, approveCoyoTaskForAccount, deleteCoyoBacklogTaskForAccount, fetchCoyoTaskDetailForAccount, removeCoyoBacklogAttachmentForAccount, updateCoyoBacklogTaskForAccount } from '@/lib/coyoTasksServer';
 import { getConfiguredGoogleDriveClient } from '@/lib/googleDriveServiceAccount';
 jest.mock('@/lib/prisma', () => ({ prisma: { mainAccount: { findUnique: jest.fn() } } }));
 jest.mock('@/lib/authz', () => ({ ...jest.requireActual('@/lib/authz'), requireMainAccountAccess: jest.fn() }));
@@ -65,6 +65,25 @@ it('reads scoped detail and posts a comment with the external API contract', asy
 it('rejects detail from a different Coyô client', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ id: 'task-1', client: { prefix: 'OTHER' }, comments: [], history: [] }) });
   await expect(fetchCoyoTaskDetailForAccount('1', 'task-1')).rejects.toMatchObject({ status: 404 });
+});
+
+it('approves only scoped review or sent tasks through the dedicated endpoint', async () => {
+  const detail = { id: 'task-1', status: 'IN_REVIEW', client: { prefix: 'AC' }, comments: [], history: [] };
+  const approved = { ...detail, status: 'APPROVED' };
+  (global.fetch as jest.Mock)
+    .mockResolvedValueOnce({ ok: true, json: async () => detail })
+    .mockResolvedValueOnce({ ok: true, json: async () => approved });
+
+  await expect(approveCoyoTaskForAccount('1', 'task-1')).resolves.toEqual(approved);
+  const [url, options] = (global.fetch as jest.Mock).mock.calls[1];
+  expect(url).toBe('https://taskmanager.coyo.com.br/api/external/tasks/task-1/approve');
+  expect(options).toEqual(expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ Authorization: 'Bearer secret', Origin: 'https://example.com' }) }));
+});
+
+it('does not approve a task that is no longer awaiting approval', async () => {
+  (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => ({ id: 'task-1', status: 'CHANGES_REQUESTED', client: { prefix: 'AC' }, comments: [], history: [] }) });
+  await expect(approveCoyoTaskForAccount('1', 'task-1')).rejects.toMatchObject({ status: 409 });
+  expect(global.fetch).toHaveBeenCalledTimes(1);
 });
 
 it('creates a scoped Backlog task with every supported field', async () => {

@@ -33,8 +33,12 @@ type NormalizedWaTrackerGroup = {
 type WaTrackerDailyLead = {
   id?: string | null;
   conversion_time?: string | null;
+  utm_source?: string | null;
   utm_campaign?: string | null;
   google_ads?: {
+    gclid?: string | null;
+    gbraid?: string | null;
+    wbraid?: string | null;
     campaign_id?: string | null;
     campaign_name?: string | null;
   } | null;
@@ -42,6 +46,11 @@ type WaTrackerDailyLead = {
 
 export type WaTrackerDailyLeadDatum = {
   date: string;
+  leads: number;
+};
+
+export type WaTrackerLeadOriginDatum = {
+  name: string;
   leads: number;
 };
 
@@ -159,6 +168,79 @@ export function buildDailyLeadSeries(
   return series;
 }
 
+function normalizeLeadOrigin(lead: WaTrackerDailyLead) {
+  const rawOrigin = lead.utm_source?.trim();
+
+  if (!rawOrigin) {
+    const googleAds = lead.google_ads || {};
+    return googleAds.gclid || googleAds.gbraid || googleAds.wbraid ? 'Google' : 'Direct / Unknown';
+  }
+
+  let normalized = rawOrigin.toLowerCase();
+
+  try {
+    const url = new URL(rawOrigin.includes('://') ? rawOrigin : `https://${rawOrigin}`);
+    if (rawOrigin.includes('.') || rawOrigin.includes('://')) {
+      normalized = url.hostname.replace(/^www\./, '');
+    }
+  } catch {
+    // Keep the raw UTM value when it is not a URL.
+  }
+
+  const aliases: Record<string, string> = {
+    fb: 'Facebook',
+    facebook: 'Facebook',
+    'facebook.com': 'Facebook',
+    ig: 'Instagram',
+    instagram: 'Instagram',
+    'instagram.com': 'Instagram',
+    google: 'Google',
+    'google.com': 'Google',
+    googleads: 'Google',
+    google_ads: 'Google',
+    chatgpt: 'ChatGPT',
+    'chatgpt.com': 'ChatGPT',
+    openai: 'ChatGPT',
+    'openai.com': 'ChatGPT',
+    bing: 'Bing',
+    'bing.com': 'Bing',
+    linkedin: 'LinkedIn',
+    'linkedin.com': 'LinkedIn',
+    tiktok: 'TikTok',
+    'tiktok.com': 'TikTok',
+    youtube: 'YouTube',
+    'youtube.com': 'YouTube',
+  };
+
+  const directMatch = aliases[normalized];
+  if (directMatch) return directMatch;
+
+  const domainMatch = Object.entries(aliases).find(([alias]) => (
+    alias.includes('.') && normalized.endsWith(`.${alias}`)
+  ));
+  if (domainMatch) return domainMatch[1];
+
+  return normalized
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+export function buildLeadOriginBreakdown(
+  leads: WaTrackerDailyLead[],
+  campaignFilter = 'all',
+): WaTrackerLeadOriginDatum[] {
+  const totals = new Map<string, number>();
+
+  leads.forEach((lead) => {
+    if (!matchesCampaign(lead, campaignFilter)) return;
+    const origin = normalizeLeadOrigin(lead);
+    totals.set(origin, (totals.get(origin) || 0) + 1);
+  });
+
+  return Array.from(totals, ([name, leads]) => ({ name, leads }))
+    .sort((a, b) => b.leads - a.leads || a.name.localeCompare(b.name));
+}
+
 async function fetchDailyLeads(
   accountId: string,
   token: string,
@@ -204,7 +286,10 @@ async function fetchDailyLeads(
       : null;
 
     if (!hasMore || !cursor) {
-      return { dailyLeads: buildDailyLeadSeries(from, to, leads, campaignFilter) };
+      return {
+        dailyLeads: buildDailyLeadSeries(from, to, leads, campaignFilter),
+        origins: buildLeadOriginBreakdown(leads, campaignFilter),
+      };
     }
 
     if (seenCursors.has(cursor)) {
@@ -307,6 +392,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       dateRange: { from, to },
       dailyLeads: dailyResult.dailyLeads,
+      origins: dailyResult.origins,
       summary: {
         ...summary,
         avgLeadsPerDay: summary.totalLeads / days,

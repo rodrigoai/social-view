@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KpiModal, type KpiKey } from '@/components/KpiModal';
 import { useAccount } from '@/context/AccountContext';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
@@ -11,15 +11,27 @@ import { WaTrackerDashboardView } from '@/components/dashboard/WaTrackerDashboar
 import { CoyoTasksDashboardView } from '@/components/dashboard/CoyoTasksDashboardView';
 
 export default function Dashboard() {
-  const { selectedAccountId, selectedAccount, isLoading: accountsLoading } = useAccount();
+  const { accounts, selectedAccountId, selectedAccount, setSelectedAccountId, isLoading: accountsLoading } = useAccount();
   const [openKpi, setOpenKpi] = useState<KpiKey | null>(null);
   const [activeTab, setActiveTab] = useState<'google' | 'meta' | 'wa-tracker' | 'coyo'>('google');
+  const [sharedCoyoTaskId, setSharedCoyoTaskId] = useState<string | null>(null);
   const [filters, setFilters] = useState({ 
     period: '7d', 
     campaign: 'all',
     startDate: '',
     endDate: ''
   });
+
+  useEffect(() => {
+    if (accountsLoading) return;
+    const params = new URLSearchParams(window.location.search);
+    const taskId = params.get('coyoTask')?.trim();
+    if (!taskId) return;
+    const accountId = params.get('account')?.trim();
+    if (accountId && accountId !== selectedAccountId && accounts.some(account => account.id === accountId)) setSelectedAccountId(accountId);
+    setSharedCoyoTaskId(taskId);
+    setActiveTab('coyo');
+  }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId]);
 
   if (accountsLoading) {
     return <DashboardSkeleton variant="google" />;
@@ -92,7 +104,7 @@ export default function Dashboard() {
           onFilterChange={setFilters}
         />
       ) : activeTab === 'coyo' ? (
-        <CoyoTasksDashboardView key={selectedAccountId} selectedAccountId={selectedAccountId} selectedAccountName={selectedAccount?.name || 'Selected client'} selectedClientAcronym={selectedAccount?.coyoClientAcronym} />
+        <CoyoTasksDashboardView key={selectedAccountId} selectedAccountId={selectedAccountId} selectedAccountName={selectedAccount?.name || 'Selected client'} selectedClientAcronym={selectedAccount?.coyoClientAcronym} sharedTaskId={sharedCoyoTaskId} />
       ) : (
         <WaTrackerDashboardView
           selectedAccountId={selectedAccountId}

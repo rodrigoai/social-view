@@ -67,6 +67,21 @@ export function groupCampaignsForChart(campaigns: LeadChartDatum[], maxRows = 8)
   ];
 }
 
+export function groupOriginsForChart(origins: LeadChartDatum[], maxRows = 8) {
+  if (origins.length <= maxRows || maxRows < 2) return origins;
+
+  const visibleOrigins = origins.slice(0, maxRows - 1);
+  const remainingOrigins = origins.slice(maxRows - 1);
+
+  return [
+    ...visibleOrigins,
+    {
+      name: `Other origins (${remainingOrigins.length})`,
+      leads: remainingOrigins.reduce((total, origin) => total + origin.leads, 0),
+    },
+  ];
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(value);
 }
@@ -96,7 +111,7 @@ function SourceComparisonChart({ sources }: { sources: LeadChartDatum[] }) {
   }, []);
 
   return (
-    <Card className="h-full border-teal-500/10 dark:border-teal-500/20 shadow-sm">
+    <Card className="border-teal-500/10 dark:border-teal-500/20 shadow-sm">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Leads by Source</h3>
@@ -219,6 +234,62 @@ function CampaignLeadsChart({ campaigns, totalCampaigns }: { campaigns: LeadChar
       {totalCampaigns > campaigns.length && (
         <p className="text-xs text-muted mt-5 pt-4 border-t border-border-custom">
           Smaller campaigns are grouped to keep the comparison readable.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function OriginLeadsChart({ origins, totalOrigins }: { origins: LeadChartDatum[]; totalOrigins: number }) {
+  const maxLeads = Math.max(...origins.map((origin) => origin.leads), 0);
+  const totalLeads = origins.reduce((total, origin) => total + origin.leads, 0);
+
+  return (
+    <Card className="border-teal-500/10 dark:border-teal-500/20 shadow-sm">
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Leads by Origin</h3>
+          <p className="text-xs text-muted mt-1">Where leads came from, based on their UTM source</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-lg font-bold text-foreground tabular-nums">{formatNumber(totalLeads)}</p>
+          <p className="text-[11px] uppercase tracking-wider text-muted">
+            {totalOrigins} {totalOrigins === 1 ? 'origin' : 'origins'}
+          </p>
+        </div>
+      </div>
+
+      {maxLeads > 0 ? (
+        <ol className="space-y-4" aria-label="Lead origin breakdown">
+          {origins.map((origin, index) => {
+            const width = (origin.leads / maxLeads) * 100;
+
+            return (
+              <li key={origin.name} title={`${origin.name}: ${formatNumber(origin.leads)} leads`}>
+                <div className="flex items-baseline gap-3 mb-1.5">
+                  <span className="text-sm font-medium text-foreground truncate flex-1">{origin.name}</span>
+                  <span className="text-sm font-bold text-foreground tabular-nums">{formatNumber(origin.leads)}</span>
+                  <span className="text-xs text-muted tabular-nums w-11 text-right">
+                    {Math.round((origin.leads / totalLeads) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2.5 rounded-full bg-teal-950/[0.06] dark:bg-white/[0.06] overflow-hidden" aria-hidden="true">
+                  <div
+                    className="wa-campaign-bar h-full rounded-full bg-gradient-to-r from-teal-700 to-teal-400 dark:from-teal-500 dark:to-teal-300"
+                    style={{ width: `${width}%`, animationDelay: `${index * 70}ms` }}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <ChartEmptyState />
+      )}
+
+      {totalOrigins > origins.length && (
+        <p className="text-xs text-muted mt-5 pt-4 border-t border-border-custom">
+          Smaller origins are grouped to keep the comparison readable.
         </p>
       )}
     </Card>
@@ -387,20 +458,26 @@ function ChartEmptyState() {
 
 export function WaTrackerSummaryCharts({
   groups,
+  origins = [],
   dailyLeads = [],
   average = 0,
 }: {
   groups: WaTrackerLeadGroup[];
+  origins?: LeadChartDatum[];
   dailyLeads?: DailyLeadDatum[];
   average?: number;
 }) {
   const sources = aggregateLeadsBySource(groups);
   const allCampaigns = aggregateLeadsByCampaign(groups);
   const campaigns = groupCampaignsForChart(allCampaigns);
+  const visibleOrigins = groupOriginsForChart(origins);
 
   return (
     <section aria-label="WA Tracker lead charts" className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-      <SourceComparisonChart sources={sources} />
+      <div className="grid min-w-0 content-start gap-6">
+        <SourceComparisonChart sources={sources} />
+        <OriginLeadsChart origins={visibleOrigins} totalOrigins={origins.length} />
+      </div>
       <CampaignLeadsChart campaigns={campaigns} totalCampaigns={allCampaigns.length} />
       <DailyLeadsLineChart dailyLeads={dailyLeads} average={average} />
     </section>

@@ -80,6 +80,45 @@ it('renders API task descriptions as rich text in the detail panel', async () =>
   expect(screen.getByText('Mobile').tagName).toBe('LI');
 });
 
+it('shares a direct link to an open task', async () => {
+  const today = new Date().toISOString();
+  const task = { id: 'share-1', displayId: 'AC-52', title: 'Share this brief', description: '', status: 'IN_PROGRESS', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  window.history.replaceState({}, '', '/?existing=kept');
+  (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/tasks/share-1')
+    ? { ok: true, json: async () => ({ task: { ...task, comments: [], history: [] } }) }
+    : { ok: true, json: async () => ({ tasks: [task] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: /AC-52 Share this brief/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Share task' }));
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+  const sharedUrl = new URL(writeText.mock.calls[0][0]);
+  expect(sharedUrl.searchParams.get('existing')).toBe('kept');
+  expect(sharedUrl.searchParams.get('account')).toBe('customer');
+  expect(sharedUrl.searchParams.get('coyoTask')).toBe('share-1');
+  expect(await screen.findByText('Link copied')).toBeInTheDocument();
+});
+
+it('opens a shared social post directly and places it in search results', async () => {
+  const today = new Date().toISOString();
+  const post = { id: 'shared-post', displayId: 'AC-53', title: 'Shared launch post', description: '', status: 'APPROVED', category: 'SOCIAL_MEDIA', postFormat: 'Feed', workspace: 'AGENCY', tags: [], caption: 'Launch copy', driveLink: null, client: { id: '1', name: 'Acme', prefix: 'AC' }, deliveryDate: today, createdAt: today, postDate: today, executionDate: null, updatedAt: today };
+  (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/tasks/shared-post')
+    ? { ok: true, json: async () => ({ task: { ...post, comments: [], history: [] } }) }
+    : { ok: true, json: async () => ({ tasks: [] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" sharedTaskId="shared-post" />);
+
+  expect(await screen.findByRole('dialog', { name: 'Shared launch post' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^social$/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByLabelText('Search')).toHaveValue('AC-53');
+  fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
+  expect(screen.getByRole('button', { name: /AC-53 Shared launch post/ })).toBeInTheDocument();
+});
+
 it('preserves separate filters and switches Social to a calendar', async () => {
   (global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) });
   render(<CoyoTasksDashboardView selectedAccountId="customer" />);

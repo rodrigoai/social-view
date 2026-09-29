@@ -192,6 +192,7 @@ export function WaTrackerDashboardView({ selectedAccountId, onOpenKpi, filters, 
 
         <WaTrackerSummaryCharts
           groups={data?.campaigns || []}
+          origins={data?.origins || []}
           dailyLeads={data?.dailyLeads || []}
           average={data?.summary?.avgLeadsPerDay || 0}
         />

@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { buildDailyLeadSeries, GET as getWaTrackerDashboard, getWaTrackerDateRange } from '@/app/api/wa-tracker/dashboard/route';
+import { buildDailyLeadSeries, buildLeadOriginBreakdown, GET as getWaTrackerDashboard, getWaTrackerDateRange } from '@/app/api/wa-tracker/dashboard/route';
 import { GET as getWaTrackerLeads } from '@/app/api/wa-tracker/leads/route';
 import { prisma } from '@/lib/prisma';
 
@@ -154,6 +154,24 @@ describe('WA Tracker dashboard API', () => {
       { date: '2026-06-12', leads: 0 },
       { date: '2026-06-13', leads: 0 },
       { date: '2026-06-14', leads: 1 },
+    ]);
+  });
+
+  it('groups lead origins from UTM sources and Google click identifiers', () => {
+    expect(buildLeadOriginBreakdown([
+      { utm_source: 'google', google_ads: null },
+      { utm_source: 'Google.com', google_ads: null },
+      { utm_source: 'chatgpt', google_ads: null },
+      { utm_source: 'https://l.instagram.com/referral', google_ads: null },
+      { utm_source: null, google_ads: { gclid: 'click-1' } },
+      { utm_source: null, google_ads: null },
+      { utm_source: 'facebook', utm_campaign: 'Other', google_ads: null },
+    ])).toEqual([
+      { name: 'Google', leads: 3 },
+      { name: 'ChatGPT', leads: 1 },
+      { name: 'Direct / Unknown', leads: 1 },
+      { name: 'Facebook', leads: 1 },
+      { name: 'Instagram', leads: 1 },
     ]);
   });
 

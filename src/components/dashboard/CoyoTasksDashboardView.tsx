@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Image from 'next/image';
-import { ChevronDown, ExternalLink, FileText, Loader2, Paperclip, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, FileText, Loader2, Paperclip, Pencil, Plus, Share2, Trash2, X } from 'lucide-react';
 import { CoyoTask, DateField, TaskFilters, coyoApiDateType, dateFields, filterTasks, firstAttachmentLink, formatBrazilianDate, formatBrazilianDateTime, groupTasksByExactTags, normalizePostFormats, safeLink, statuses, statusLabel, tagName, taskRichTextDescription, taskTextDescription, type CoyoPostFormat, type CoyoTaskDetail, type WorkspaceFilter } from '@/lib/coyoTasks';
 import { NewCoyoTaskModal } from '@/components/dashboard/NewCoyoTaskModal';
 
@@ -277,6 +277,7 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
   const [activityError, setActivityError] = useState('');
   const [comment, setComment] = useState('');
   const [commenting, setCommenting] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'shared' | 'copied' | 'error'>('idle');
   const postFormats = normalizePostFormats(task.postFormat, task.category);
   const isPost = task.category !== 'TASK' || postFormats.length > 0;
   const isBacklog = task.status === 'BACKLOG';
@@ -286,6 +287,36 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
   const roteiro = (detail?.roteiro ?? task.roteiro)?.trim();
   const dates: [string, string | null][] = [['Created', task.createdAt], ['Delivery', task.deliveryDate], ...(isPost ? [['Post date', task.postDate], ['Execution', task.executionDate]] as [string, string | null][] : [])];
   const comments = [...(detail?.comments || [])].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+
+  const shareTask = async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('account', mainAccountId);
+    url.searchParams.set('coyoTask', task.id);
+    const shareData = { title: `${task.displayId} · ${task.title}`, text: `Open ${isPost ? 'post' : 'task'} ${task.displayId} in Coyô Tasks.`, url: url.toString() };
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share(shareData);
+        setShareStatus('shared');
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareData.url);
+        setShareStatus('copied');
+      } else {
+        const input = document.createElement('textarea');
+        input.value = shareData.url;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        const copied = document.execCommand('copy');
+        input.remove();
+        if (!copied) throw new Error('Copy unavailable');
+        setShareStatus('copied');
+      }
+    } catch (cause) {
+      if (cause instanceof DOMException && cause.name === 'AbortError') return;
+      setShareStatus('error');
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -370,7 +401,7 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
 
   return <div className="coyo-panel-backdrop fixed inset-0 z-50 flex justify-end bg-slate-950/45 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-labelledby="coyo-detail-title" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <aside className="coyo-detail-panel h-dvh w-full overflow-y-auto border-l border-border-custom bg-card shadow-2xl sm:max-w-xl" data-testid="coyo-detail-panel">
-      <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><div className="flex shrink-0 items-center gap-1">{isBacklog && !editing && <><button type="button" onClick={() => { setEditing(true); setConfirmingDelete(false); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-accent-custom hover:text-foreground" aria-label="Edit task"><Pencil size={17} /></button><button type="button" onClick={() => { setConfirmingDelete(true); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40" aria-label="Delete task"><Trash2 size={17} /></button></>}<button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-accent-custom text-muted transition hover:scale-105 hover:bg-border-custom hover:text-foreground" aria-label="Close details"><X size={19} /></button></div></header>
+      <header className="sticky top-0 z-10 flex items-start justify-between gap-5 border-b border-border-custom bg-card/95 px-6 py-5 backdrop-blur"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-emerald-600">{task.displayId} · {isPost ? postFormats.join(' · ') || 'Post' : 'Task'}</p><h3 id="coyo-detail-title" className="text-xl font-bold leading-tight">{task.title}</h3></div><div className="flex shrink-0 items-center gap-1">{shareStatus !== 'idle' && <span role="status" className={`mr-1 hidden text-xs font-semibold sm:inline ${shareStatus === 'error' ? 'text-red-600' : 'text-emerald-600'}`}>{shareStatus === 'error' ? 'Could not share' : shareStatus === 'copied' ? 'Link copied' : 'Shared'}</span>}<button type="button" onClick={shareTask} className={`grid h-10 w-10 place-items-center rounded-full transition ${shareStatus === 'shared' || shareStatus === 'copied' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'text-muted hover:bg-accent-custom hover:text-foreground'}`} aria-label={`Share ${isPost ? 'post' : 'task'}`} title={`Share ${isPost ? 'post' : 'task'}`}>{shareStatus === 'shared' || shareStatus === 'copied' ? <Check size={18} /> : <Share2 size={18} />}</button>{isBacklog && !editing && <><button type="button" onClick={() => { setEditing(true); setConfirmingDelete(false); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-accent-custom hover:text-foreground" aria-label="Edit task"><Pencil size={17} /></button><button type="button" onClick={() => { setConfirmingDelete(true); setActionError(''); }} className="grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40" aria-label="Delete task"><Trash2 size={17} /></button></>}<button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-accent-custom text-muted transition hover:scale-105 hover:bg-border-custom hover:text-foreground" aria-label="Close details"><X size={19} /></button></div></header>
       <div className="space-y-8 p-6">
         {attachment && <DrivePreview task={task} mainAccountId={mainAccountId} social={isPost} editable={editing && isBacklog} onAttachmentsChanged={onChanged} />}
         {confirmingDelete && <section aria-label="Confirm task deletion" className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/35"><h4 className="font-bold text-red-800 dark:text-red-200">Delete {task.displayId} permanently?</h4><p className="mt-1 text-sm leading-6 text-red-700 dark:text-red-300">This cannot be undone. Coyô will also remove files uploaded as this task’s attachments.</p><div className="mt-4 flex justify-end gap-2"><button type="button" disabled={working} onClick={() => setConfirmingDelete(false)} className="rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:bg-card">Cancel</button><button type="button" disabled={working} onClick={deleteTask} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50">{working && <Loader2 size={15} className="animate-spin" />} Delete permanently</button></div></section>}
@@ -416,9 +447,10 @@ function TasksTable({ tasks, social, showTags = false, onSelect }: { tasks: Coyo
   </table></div>;
 }
 
-export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName = 'Selected client', selectedClientAcronym }: { selectedAccountId: string; selectedAccountName?: string; selectedClientAcronym?: string | null }) {
+export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName = 'Selected client', selectedClientAcronym, sharedTaskId }: { selectedAccountId: string; selectedAccountName?: string; selectedClientAcronym?: string | null; sharedTaskId?: string | null }) {
   const [tasks, setTasks] = useState<CoyoTask[]>([]), [error, setError] = useState('');
   const [loading, setLoading] = useState(true), [revision, setRevision] = useState(0);
+  const [loadedSection, setLoadedSection] = useState<Section | null>(null);
   const [section, setSection] = useState<Section>('tasks');
   const [filtersBySection, setFilters] = useState<FiltersState>(defaultFilters);
   const [presets, setPresets] = useState<PresetsState>({ dash: '90', tasks: '90', social: '90' });
@@ -426,7 +458,9 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
   const [storageReady, setStorageReady] = useState(false), [view, setView] = useState<'list' | 'calendar'>('list');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [selected, setSelected] = useState<CoyoTask | null>(null);
+  const [sharedTask, setSharedTask] = useState<CoyoTask | null>(null);
   const [creating, setCreating] = useState(false);
+  const openedSharedTaskId = useRef<string | null>(null);
   const filters = filtersBySection[section];
   const update = (patch: Partial<TaskFilters>) => setFilters(current => ({ ...current, [section]: { ...current[section], ...patch } }));
 
@@ -462,10 +496,37 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
     const query = new URLSearchParams({ mainAccountId: selectedAccountId, dateType: coyoApiDateType(filters.dateField) });
     if (filters.from) query.set('from', filters.from);
     if (filters.to) query.set('to', filters.to);
-    queueMicrotask(() => { if (!controller.signal.aborted) { setLoading(true); setError(''); setTasks([]); setSelected(null); } });
-    fetch(`/api/coyo/tasks?${query}`, { signal: controller.signal }).then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to load tasks'); return body.tasks; }).then(data => { if (!controller.signal.aborted) setTasks(data); }).catch(err => { if (!controller.signal.aborted) setError(err.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    queueMicrotask(() => { if (!controller.signal.aborted) { setLoadedSection(null); setLoading(true); setError(''); setTasks([]); setSelected(null); } });
+    fetch(`/api/coyo/tasks?${query}`, { signal: controller.signal }).then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to load tasks'); return body.tasks; }).then(data => { if (!controller.signal.aborted) setTasks(data); }).catch(err => { if (!controller.signal.aborted) setError(err.message); }).finally(() => { if (!controller.signal.aborted) { setLoadedSection(section); setLoading(false); } });
     return () => controller.abort();
   }, [selectedAccountId, revision, section, filters.dateField, filters.from, filters.to, storageReady]);
+  useEffect(() => {
+    if (!storageReady || !sharedTaskId || sharedTask?.id === sharedTaskId || openedSharedTaskId.current === sharedTaskId) return;
+    const controller = new AbortController();
+    fetch(`/api/coyo/tasks/${encodeURIComponent(sharedTaskId)}?mainAccountId=${encodeURIComponent(selectedAccountId)}`, { signal: controller.signal })
+      .then(async response => { const body = await response.json(); if (!response.ok) throw new Error(body.error || 'Unable to open the shared Coyô item.'); return body.task as CoyoTask; })
+      .then(task => {
+        if (controller.signal.aborted) return;
+        const targetSection: Section = task.category === 'TASK' && normalizePostFormats(task.postFormat, task.category).length === 0 ? 'tasks' : 'social';
+        setSharedTask(task);
+        setSection(targetSection);
+        setView('list');
+        setFilters(current => ({
+          ...current,
+          [targetSection]: { ...current[targetSection], search: task.displayId, status: '', workspace: '', tags: [] },
+        }));
+      })
+      .catch(cause => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Unable to open the shared Coyô item.'); });
+    return () => controller.abort();
+  }, [selectedAccountId, sharedTask, sharedTaskId, storageReady]);
+  useEffect(() => {
+    if (!sharedTaskId || !sharedTask || loading || loadedSection !== section || openedSharedTaskId.current === sharedTaskId) return;
+    const targetSection: Section = sharedTask.category === 'TASK' && normalizePostFormats(sharedTask.postFormat, sharedTask.category).length === 0 ? 'tasks' : 'social';
+    if (section !== targetSection) return;
+    openedSharedTaskId.current = sharedTaskId;
+    setTasks(current => [sharedTask, ...current.filter(item => item.id !== sharedTask.id)]);
+    setSelected(sharedTask);
+  }, [loadedSection, loading, section, sharedTask, sharedTaskId]);
   useEffect(() => { if (!selected) return; const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; document.addEventListener('keydown', close); const overflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.removeEventListener('keydown', close); document.body.style.overflow = overflow; }; }, [selected]);
 
   const invalidRange = !!filters.from && !!filters.to && filters.from > filters.to;

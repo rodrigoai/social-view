@@ -292,7 +292,7 @@ function DetailPanel({ task, mainAccountId, onClose, onChanged }: { task: CoyoTa
     const url = new URL(window.location.href);
     url.searchParams.set('account', mainAccountId);
     url.searchParams.set('coyoTask', task.id);
-    const shareData = { title: `${task.displayId} · ${task.title}`, text: `Open ${isPost ? 'post' : 'task'} ${task.displayId} in Coyô Tasks.`, url: url.toString() };
+    const shareData = { url: url.toString() };
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share(shareData);

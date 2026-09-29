@@ -5,7 +5,7 @@ const createObjectUrl = jest.fn((blob: Blob): string => `blob:preview-${blob.siz
 const revokeObjectUrl = jest.fn();
 Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createObjectUrl });
 Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectUrl });
-beforeEach(() => { window.localStorage.clear(); objectUrlSequence = 0; createObjectUrl.mockClear(); revokeObjectUrl.mockClear(); (global.fetch as jest.Mock).mockReset(); });
+beforeEach(() => { window.localStorage.clear(); objectUrlSequence = 0; createObjectUrl.mockClear(); revokeObjectUrl.mockClear(); (global.fetch as jest.Mock).mockReset(); Object.defineProperty(navigator, 'share', { configurable: true, value: undefined }); });
 
 it('creates a Backlog task from the Coyô tab modal and refreshes the list', async () => {
   (global.fetch as jest.Mock).mockImplementation(async (_input, init) => init?.method === 'POST'
@@ -101,6 +101,27 @@ it('shares a direct link to an open task', async () => {
   expect(sharedUrl.searchParams.get('account')).toBe('customer');
   expect(sharedUrl.searchParams.get('coyoTask')).toBe('share-1');
   expect(await screen.findByText('Link copied')).toBeInTheDocument();
+});
+
+it('sends only the clean URL to the native share sheet', async () => {
+  const today = new Date().toISOString();
+  const task = { id: 'native-share-1', displayId: 'PORT-87', title: 'Campaign with special characters & spaces', description: '', status: 'IN_PROGRESS', category: 'TASK', workspace: 'AGENCY', tags: [], caption: null, driveLink: null, client: { id: '1', name: 'Portal', prefix: 'PORT' }, deliveryDate: today, createdAt: today, postDate: null, executionDate: null, updatedAt: today };
+  const share = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'share', { configurable: true, value: share });
+  window.history.replaceState({}, '', '/');
+  (global.fetch as jest.Mock).mockImplementation(async input => String(input).startsWith('/api/coyo/tasks/native-share-1')
+    ? { ok: true, json: async () => ({ task: { ...task, comments: [], history: [] } }) }
+    : { ok: true, json: async () => ({ tasks: [task] }) });
+
+  render(<CoyoTasksDashboardView selectedAccountId="portal-account" />);
+  await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: /PORT-87 Campaign with special characters/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Share task' }));
+
+  await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+  expect(share).toHaveBeenCalledWith({
+    url: 'http://localhost/?account=portal-account&coyoTask=native-share-1',
+  });
 });
 
 it('opens a shared social post directly and places it in search results', async () => {

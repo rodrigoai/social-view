@@ -28,7 +28,10 @@ export default function Dashboard() {
     const taskId = params.get('coyoTask')?.trim();
     if (!taskId) return;
     const accountId = params.get('account')?.trim();
-    if (accountId && accountId !== selectedAccountId && accounts.some(account => account.id === accountId)) setSelectedAccountId(accountId);
+    if (accountId && accountId !== selectedAccountId && accounts.some(account => account.id === accountId)) {
+      setSelectedAccountId(accountId);
+      return;
+    }
     setSharedCoyoTaskId(taskId);
     setActiveTab('coyo');
   }, [accounts, accountsLoading, selectedAccountId, setSelectedAccountId]);

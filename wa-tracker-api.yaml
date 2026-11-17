@@ -118,6 +118,8 @@ paths:
                     name: "Maria Silva"
                     email: "maria@example.com"
                     phone: "+5511999990000"
+                    dropdown_label: "Departamento"
+                    dropdown_value: "Vendas"
                     status: "Proposta"
                     conversion_time: "2025-06-01T15:30:00.000Z"
                     conversion_name: "WhatsApp Conversion"
@@ -347,6 +349,12 @@ components:
           type: [string, "null"]
         phone:
           type: [string, "null"]
+        dropdown_label:
+          type: [string, "null"]
+          description: Dropdown label saved with the lead.
+        dropdown_value:
+          type: [string, "null"]
+          description: Dropdown option selected by the visitor.
         status:
           type: [string, "null"]
           description: "`null` means Not Qualified."

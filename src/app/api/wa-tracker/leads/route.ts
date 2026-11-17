@@ -12,6 +12,8 @@ type WaTrackerLead = {
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  dropdown_label?: string | null;
+  dropdown_value?: string | null;
   status?: string | null;
   conversion_time?: string | null;
   conversion_name?: string | null;

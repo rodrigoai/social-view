@@ -12,6 +12,8 @@ type WaTrackerLead = {
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  dropdown_label?: string | null;
+  dropdown_value?: string | null;
   status: string;
   source: string;
   campaign: string;
@@ -362,6 +364,12 @@ export function WaTrackerLeadsTable({ selectedAccountId, filters, onOpenKpi }: W
                       <td className="py-4 pr-4">
                         <p className="font-semibold text-foreground">{getContactLabel(lead)}</p>
                         <p className="text-xs text-muted">{[lead.phone, lead.email].filter(Boolean).join(' · ') || lead.id}</p>
+                        {lead.dropdown_value?.trim() && (
+                          <dl className="mt-2 text-xs">
+                            <dt className="font-medium text-muted">{lead.dropdown_label?.trim() || 'Form selection'}</dt>
+                            <dd className="break-words text-foreground">{lead.dropdown_value}</dd>
+                          </dl>
+                        )}
                         {expanded && <LeadDetails lead={lead} onOpenKpi={onOpenKpi} />}
                       </td>
                       <td className="py-4 pr-4">

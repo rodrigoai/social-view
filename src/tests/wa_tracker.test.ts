@@ -247,6 +247,8 @@ describe('WA Tracker dashboard API', () => {
             name: 'Maria Silva',
             email: 'maria@example.com',
             phone: '+5511999990000',
+            dropdown_label: 'Departamento',
+            dropdown_value: 'Vendas',
             status: null,
             conversion_time: '2026-06-17T15:30:00.000Z',
             conversion_name: 'WhatsApp Conversion',
@@ -294,6 +296,8 @@ describe('WA Tracker dashboard API', () => {
     );
     expect(json.data[0]).toEqual(expect.objectContaining({
       id: 'lead-1',
+      dropdown_label: 'Departamento',
+      dropdown_value: 'Vendas',
       status: 'Not Qualified',
       source: 'Orgânico',
       campaign: 'Orgânico',

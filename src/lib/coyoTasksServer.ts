@@ -51,7 +51,8 @@ export async function fetchCoyoTasksForAccount(mainAccountId: string, period: Co
   url.searchParams.set('clientAcronym', clientAcronym);
   if (period.dateType) url.searchParams.set('dateType', period.dateType);
   if (period.from) url.searchParams.set('from', period.from);
-  if (period.to) url.searchParams.set('to', period.to);
+  // Coyô interprets a date-only upper bound as midnight at the start of that day.
+  if (period.to) url.searchParams.set('to', `${period.to}T23:59:59.999Z`);
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Origin: origin, Accept: 'application/json' },
     cache: 'no-store',

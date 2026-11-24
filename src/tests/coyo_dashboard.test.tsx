@@ -7,10 +7,16 @@ Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: creat
 Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectUrl });
 beforeEach(() => { window.localStorage.clear(); objectUrlSequence = 0; createObjectUrl.mockClear(); revokeObjectUrl.mockClear(); (global.fetch as jest.Mock).mockReset(); Object.defineProperty(navigator, 'share', { configurable: true, value: undefined }); });
 
-it('creates a Backlog task from the Coyô tab modal and refreshes the list', async () => {
+it('creates a Backlog task, refreshes the list, and shows it in the submitted workspace', async () => {
+  const createdAt = new Date().toISOString();
+  const task = { id: 'new-task', displayId: 'AC-42', title: 'Campaign brief', status: 'BACKLOG', category: 'TASK', workspace: 'SOFTWARE', createdAt };
+  let saved = false;
   (global.fetch as jest.Mock).mockImplementation(async (_input, init) => init?.method === 'POST'
-    ? { ok: true, status: 201, json: async () => ({ task: { id: 'new-task', displayId: 'AC-42', status: 'BACKLOG', attachments: [] } }) }
-    : { ok: true, json: async () => ({ tasks: [] }) });
+    ? { ok: true, status: 201, json: async () => {
+      saved = true;
+      return { task: { id: task.id, displayId: task.displayId, status: task.status, attachments: [] } };
+    } }
+    : { ok: true, json: async () => ({ tasks: saved ? [task] : [] }) });
 
   render(<CoyoTasksDashboardView selectedAccountId="customer" selectedAccountName="Acme" selectedClientAcronym="AC" />);
   await waitFor(() => expect(screen.queryByText('Loading Coyô tasks…')).not.toBeInTheDocument());
@@ -34,6 +40,29 @@ it('creates a Backlog task from the Coyô tab modal and refreshes the list', asy
   const body = postCall?.[1].body as FormData;
   expect(Object.fromEntries(body.entries())).toEqual(expect.objectContaining({ mainAccountId: 'customer', title: 'Campaign brief', description: 'Prepare the campaign assets.', dueDate: '2026-09-30', workspace: 'SOFTWARE' }));
   await waitFor(() => expect((global.fetch as jest.Mock).mock.calls.filter(([, init]) => !init?.method)).toHaveLength(2));
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  fireEvent.change(screen.getByLabelText('Filter by workspace'), { target: { value: 'SOFTWARE' } });
+  expect(await screen.findByRole('button', { name: 'AC-42 Campaign brief' })).toBeInTheDocument();
+});
+
+it('recalculates a saved rolling period and preserves the All workspaces filter', async () => {
+  const today = new Date();
+  const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const task = { id: 'recent-task', displayId: 'AC-43', title: 'Recent brief', status: 'BACKLOG', category: 'TASK', workspace: 'SOFTWARE', createdAt: `${todayValue}T12:00:00Z` };
+  window.localStorage.setItem('coyo-tasks-dashboard-filters:v6', JSON.stringify({
+    filtersBySection: { tasks: { from: '2000-01-01', to: '2000-03-30', workspace: '' } },
+    presets: { dash: '90', tasks: '90', social: '90' },
+  }));
+  (global.fetch as jest.Mock).mockImplementation(async input => {
+    const query = new URL(String(input), window.location.origin).searchParams;
+    return { ok: true, json: async () => ({ tasks: query.get('to') === todayValue ? [task] : [] }) };
+  });
+
+  render(<CoyoTasksDashboardView selectedAccountId="customer" />);
+
+  expect(await screen.findByRole('button', { name: 'AC-43 Recent brief' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Period')).toHaveValue('90');
+  expect(screen.getByLabelText('Filter by workspace')).toHaveValue('');
 });
 
 it('previews description attachments for Backlog tasks in the side panel', async () => {

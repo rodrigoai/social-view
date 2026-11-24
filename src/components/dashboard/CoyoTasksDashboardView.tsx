@@ -494,7 +494,10 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
   const [sharedTask, setSharedTask] = useState<CoyoTask | null>(null);
   const [creating, setCreating] = useState(false);
   const openedSharedTaskId = useRef<string | null>(null);
-  const filters = filtersBySection[section];
+  const preset = presets[section] ?? '90';
+  const filters = preset === 'custom'
+    ? filtersBySection[section]
+    : { ...filtersBySection[section], ...presetDates(Number(preset)) };
   const update = (patch: Partial<TaskFilters>) => setFilters(current => ({ ...current, [section]: { ...current[section], ...patch } }));
 
   useEffect(() => {
@@ -509,9 +512,9 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
         if (parsed?.filtersBySection) {
           const defaults = defaultFilters();
           setFilters({
-            dash: { ...defaults.dash, ...parsed.filtersBySection.dash, workspace: parsed.filtersBySection.dash?.workspace || 'AGENCY' },
-            tasks: { ...defaults.tasks, ...parsed.filtersBySection.tasks, workspace: parsed.filtersBySection.tasks?.workspace || 'AGENCY' },
-            social: { ...defaults.social, ...parsed.filtersBySection.social, dateField: previousKey ? 'postDate' : parsed.filtersBySection.social?.dateField || 'postDate', workspace: parsed.filtersBySection.social?.workspace || 'AGENCY' },
+            dash: { ...defaults.dash, ...parsed.filtersBySection.dash, workspace: parsed.filtersBySection.dash?.workspace ?? 'AGENCY' },
+            tasks: { ...defaults.tasks, ...parsed.filtersBySection.tasks, workspace: parsed.filtersBySection.tasks?.workspace ?? 'AGENCY' },
+            social: { ...defaults.social, ...parsed.filtersBySection.social, dateField: previousKey ? 'postDate' : parsed.filtersBySection.social?.dateField || 'postDate', workspace: parsed.filtersBySection.social?.workspace ?? 'AGENCY' },
           });
         }
         if (parsed?.presets) setPresets(parsed.presets);
@@ -571,7 +574,10 @@ export function CoyoTasksDashboardView({ selectedAccountId, selectedAccountName 
   ])].sort((a, b) => a.localeCompare(b, 'pt-BR')), [tasks, filtersBySection.tasks.tags]);
   const monthDate = new Date(`${month}-01T00:00:00Z`), days = new Date(Date.UTC(monthDate.getUTCFullYear(), monthDate.getUTCMonth() + 1, 0)).getUTCDate(), offset = monthDate.getUTCDay();
   const changeMonth = (delta: number) => { const date = new Date(monthDate); date.setUTCMonth(date.getUTCMonth() + delta); setMonth(date.toISOString().slice(0, 7)); };
-  const selectPreset = (value: RangePreset) => { setPresets(current => ({ ...current, [section]: value })); if (value !== 'custom') update(presetDates(Number(value))); };
+  const selectPreset = (value: RangePreset) => {
+    if (value === 'custom') update({ from: filters.from, to: filters.to });
+    setPresets(current => ({ ...current, [section]: value }));
+  };
   const resetFilters = () => { setFilters(current => ({ ...current, [section]: defaultFilters()[section] })); setPresets(current => ({ ...current, [section]: '90' })); };
 
   return <section className="space-y-7" aria-label="Coyô Tasks">
